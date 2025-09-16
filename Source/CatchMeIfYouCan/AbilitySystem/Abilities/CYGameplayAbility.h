@@ -6,6 +6,8 @@
 #include "Abilities/GameplayAbility.h"
 #include "CYGameplayAbility.generated.h"
 
+class ACYCharacterBase;
+
 UENUM(BlueprintType)
 enum class ECYAbilityActivationPolicy : uint8
 {
@@ -26,6 +28,7 @@ public:
 
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec) override;
 
+	ACYCharacterBase* GetCYCharacterFromActorInfo() const;
 	ECYAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
 
 protected:

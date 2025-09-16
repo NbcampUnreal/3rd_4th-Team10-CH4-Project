@@ -4,6 +4,7 @@
 #include "CYGameplayAbility.h"
 
 #include "AbilitySystemComponent.h"
+#include "Character/CYCharacterBase.h"
 
 UCYGameplayAbility::UCYGameplayAbility()
 {
@@ -19,4 +20,9 @@ void UCYGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo,
 	{
 		ActorInfo->AbilitySystemComponent->TryActivateAbility(Spec.Handle, false);
 	}
+}
+
+ACYCharacterBase* UCYGameplayAbility::GetCYCharacterFromActorInfo() const
+{
+	return (CurrentActorInfo ? Cast<ACYCharacterBase>(CurrentActorInfo->AvatarActor.Get()) : nullptr);
 }
