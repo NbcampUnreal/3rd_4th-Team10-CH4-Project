@@ -6,6 +6,8 @@
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	
 }
 
 UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const
