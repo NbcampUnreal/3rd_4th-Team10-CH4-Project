@@ -4,19 +4,19 @@
 
 #include "CoreMinimal.h"
 #include "CYPlayerCharacter.h"
-#include "CYThiefCharacter.generated.h"
+#include "CYCopCharacter.generated.h"
 
 UCLASS()
-class CATCHMEIFYOUCAN_API ACYThiefCharacter : public ACYPlayerCharacter
+class CATCHMEIFYOUCAN_API ACYCopCharacter : public ACYPlayerCharacter
 {
 	GENERATED_BODY()
 
 public:
 
-	ACYThiefCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	ACYCopCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 protected:
-
+	
 	virtual void BeginPlay() override;
 
 };
