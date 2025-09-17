@@ -60,8 +60,6 @@ void UCYGameplayAbility_Jump::ActivateAbility(const FGameplayAbilitySpecHandle H
 void UCYGameplayAbility_Jump::InputReleased(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
 {
-	StopJump();
-
 	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
@@ -99,6 +97,6 @@ void UCYGameplayAbility_Jump::StopJump()
 	// 점프 중지 (점프 높이 조절)
 	CYCharacter->StopJumping();
     
-	UE_LOG(LogCY, VeryVerbose, TEXT("Character Jump Stopped"));
+	UE_LOG(LogCY, Warning, TEXT("Character Jump Stopped"));
 }
 

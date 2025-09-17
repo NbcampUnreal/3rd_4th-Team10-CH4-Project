@@ -36,7 +36,7 @@ protected:
 	void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
 
 private:
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "CY|Health", Meta = (HideFromModifiers, AllowPrivateAccess = true))
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "CY|Health", Meta = (AllowPrivateAccess = true))
 	FGameplayAttributeData Health;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_MaxHealth, Category = "CY|Health", Meta = (AllowPrivateAccess = true))
