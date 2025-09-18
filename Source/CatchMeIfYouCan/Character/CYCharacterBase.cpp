@@ -1,7 +1,9 @@
 #include "CYCharacterBase.h"
 
 #include "CYLogChannels.h"
+#include "CYPawnData.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
+#include "Player/CYPlayerState.h"
 
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 {
@@ -39,13 +41,27 @@ void ACYCharacterBase::InitializeAbilitySets()
 		return;
 	}
 
+	ACYPlayerState* CYPS = GetPlayerState<ACYPlayerState>();
+	if (!CYPS)
+	{
+		UE_LOG(LogCY, Warning, TEXT("%s Side: InitializeAbilitySets: PlayerState is invalid on %s"), *GetClientServerContextString(this), *GetNameSafe(this));
+		return;
+	}
+
+	UCYPawnData* PawnData = CYPS->GetPawnData();
+	if (!PawnData)
+	{
+		UE_LOG(LogCY, Warning, TEXT("%s Side: InitializeAbilitySets: PawnData is invalid on %s"), *GetClientServerContextString(this), *GetNameSafe(this));
+		return;
+	}
+	
 	// 기존 Ability 제거
 	RemoveAbilitySets();
 
 	UCYAbilitySystemComponent* CYASC = CYAbilitySystemComponent.Get();
 	
 	// 기본적으로 부여할 AbilitySet 설정
-	for (UCYAbilitySet* AbilitySet : DefaultAbilitySets)
+	for (const UCYAbilitySet* AbilitySet : PawnData->AbilitySets)
 	{
 		if (IsValid(AbilitySet))
 		{

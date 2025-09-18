@@ -45,7 +45,7 @@ public:
 
 	// 이 캐릭터에 부여할 AbilitySet 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|Abilities")
-	TArray<TSoftObjectPtr<UCYAbilitySet>> AbilitySets;
+	TArray<TObjectPtr<UCYAbilitySet>> AbilitySets;
 	
 	// TODO : 캐릭터 위젯등
 };

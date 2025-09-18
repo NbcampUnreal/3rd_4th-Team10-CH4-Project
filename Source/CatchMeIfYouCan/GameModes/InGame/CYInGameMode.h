@@ -27,36 +27,28 @@ public:
 	// 팀별 폰 클래스 반환
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
+protected:
+	
+	virtual void BeginPlay() override;
+
 	// 임의의 PawnData 할당 
 	UFUNCTION(BlueprintCallable, Category = "CY|PawnData")
 	void AssignRandomPawnDataToPlayer(APlayerController* NewPlayer);
-
-protected:
-	virtual void BeginPlay() override;
-
-	// TODO : 제거 예정
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "CY|Characters")
-	TSubclassOf<APawn> CopCharacterClass;
-
-	// TODO : 제거 예정
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "CY|Characters")
-	TSubclassOf<APawn> RobberCharacterClass;
-
+	
 	UFUNCTION()
 	void OnPawnDataLoaded();
+
+	ECYTeamRole DetermineTeamForPlayer();
 
 	bool ArePawnDataLoaded() const { return bPawnDataLoaded; }
 
 private:
 	// TODO : 제거 예정 디버깅용 임시 변수
 	int32 ConnectedPlayerCount = 0;
-
-	// 팀별 플레이어 수 추적
-	int32 CopPlayerCount = 0;
-	int32 RobberPlayerCount = 0;
-
 	
+	// PawnData 로드가 완료된 후에 스폰을 처리해야 하는 플레이어
 	TArray<TWeakObjectPtr<APlayerController>> PendingPlayers;
 	
+	// PawnData 로드 완료 여부
 	bool bPawnDataLoaded = false;
 };
