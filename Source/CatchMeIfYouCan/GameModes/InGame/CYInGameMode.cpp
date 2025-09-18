@@ -108,7 +108,13 @@ ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 	float CurrentRatio = (CurrentCops + CurrentRobbers > 0) ? 
 		static_cast<float>(CurrentCops) / static_cast<float>(CurrentCops + CurrentRobbers) : 0.0f;
     
-	return (CurrentRatio < IdealCopRatio) ? ECYTeamRole::Cop : ECYTeamRole::Robber;
+	ECYTeamRole Result = (CurrentRatio < IdealCopRatio) ? ECYTeamRole::Cop : ECYTeamRole::Robber;
+    
+	UE_LOG(LogCY, Log, TEXT("DetermineTeam: Cops=%d, Robbers=%d, Ratio=%.2f, Result=%s"),
+		CurrentCops, CurrentRobbers, CurrentRatio,
+		Result == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
+    
+	return Result;
 }
 
 void ACYInGameMode::Logout(AController* Exiting)
@@ -147,19 +153,19 @@ void ACYInGameMode::OnPawnDataLoaded()
 		{
 			AssignRandomPawnDataToPlayer(PC);
 
-			// 이미 기본 Pawn이 스폰됐을 수 있으니 필요 시 교정
-			if (APawn* ExistingDefaultPawn = PC->GetPawn())
+			if (PlayerCanRestart(PC))
 			{
-				UClass* DesiredPawn = GetDefaultPawnClassForController_Implementation(PC);
-				if (DesiredPawn && !ExistingDefaultPawn->IsA(DesiredPawn))
+				// 이미 기본 Pawn이 스폰됐을 수 있으니 필요 시 교정
+				if (APawn* ExistingDefaultPawn = PC->GetPawn())
 				{
-					if (PlayerCanRestart(PC))
+					UClass* DesiredPawnClass = GetDefaultPawnClassForController_Implementation(PC);
+					if (DesiredPawnClass && !ExistingDefaultPawn->IsA(DesiredPawnClass))
 					{
 						PC->UnPossess();
 						ExistingDefaultPawn->Destroy();
-						RestartPlayer(PC);
 					}
 				}
+				RestartPlayer(PC);
 			}
 		}
 	}

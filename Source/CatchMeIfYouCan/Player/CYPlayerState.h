@@ -33,14 +33,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "CY|Team")
 	ECYTeamRole GetTeamRole() const { return TeamRole; }
-    
-	UFUNCTION(BlueprintCallable, Category = "CY|Team")
+
 	void SetTeamRole(ECYTeamRole NewTeamRole);
 
 	UFUNCTION(BlueprintCallable, Category = "CY|PawnData")
 	UCYPawnData* GetPawnData() const { return PawnData; }
 
-	UFUNCTION(BlueprintCallable, Category = "CY|PawnData")
 	void SetPawnData(UCYPawnData* NewPawnData);
 
 protected:
@@ -57,9 +55,9 @@ private:
 	UPROPERTY()
 	TObjectPtr<const UCYVitalSet> VitalSet;
 
-	UPROPERTY(ReplicatedUsing = OnRep_TeamRole, BlueprintReadOnly, Category = "CY|Team", Meta = (AllowPrivateAccess = true))
+	UPROPERTY(ReplicatedUsing = OnRep_TeamRole)
 	ECYTeamRole TeamRole = ECYTeamRole::None;
 
-	UPROPERTY(ReplicatedUsing = OnRep_PawnData, BlueprintReadOnly, Category = "CY|PawnData", Meta = (AllowPrivateAccess = true))
+	UPROPERTY(ReplicatedUsing = OnRep_PawnData)
 	TObjectPtr<UCYPawnData> PawnData;
 };

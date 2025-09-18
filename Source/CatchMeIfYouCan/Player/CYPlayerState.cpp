@@ -61,6 +61,7 @@ void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
 	}
 
 	PawnData = NewPawnData;
+	TeamRole = PawnData->TeamRole;
 }
 
 void ACYPlayerState::OnRep_TeamRole()
