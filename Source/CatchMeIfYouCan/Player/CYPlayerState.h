@@ -9,6 +9,7 @@
 #include "CYPlayerState.generated.h"
 
 
+class UCYPawnData;
 class UCYVitalSet;
 class UCYAbilitySystemComponent;
 /**
@@ -36,9 +37,18 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CY|Team")
 	void SetTeamRole(ECYTeamRole NewTeamRole);
 
+	UFUNCTION(BlueprintCallable, Category = "CY|PawnData")
+	UCYPawnData* GetPawnData() const { return PawnData; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|PawnData")
+	void SetPawnData(UCYPawnData* NewPawnData);
+
 protected:
 	UFUNCTION()
 	void OnRep_TeamRole();
+
+	UFUNCTION()
+	void OnRep_PawnData();
 	
 private:
 	UPROPERTY(VisibleAnywhere, Category = "CY|PlayerState")
@@ -49,4 +59,7 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_TeamRole, BlueprintReadOnly, Category = "CY|Team", Meta = (AllowPrivateAccess = true))
 	ECYTeamRole TeamRole = ECYTeamRole::None;
+
+	UPROPERTY(ReplicatedUsing = OnRep_PawnData, BlueprintReadOnly, Category = "CY|PawnData", Meta = (AllowPrivateAccess = true))
+	TObjectPtr<UCYPawnData> PawnData;
 };

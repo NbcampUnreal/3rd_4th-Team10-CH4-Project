@@ -6,6 +6,7 @@
 #include "CYLogChannels.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
+#include "Character/CYPawnData.h"
 #include "Net/UnrealNetwork.h"
 
 ACYPlayerState::ACYPlayerState(const FObjectInitializer& ObjectInitializer)
@@ -24,6 +25,7 @@ void ACYPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     
 	DOREPLIFETIME(ThisClass, TeamRole);
+	DOREPLIFETIME(ThisClass, PawnData);
 }
 
 UAbilitySystemComponent* ACYPlayerState::GetAbilitySystemComponent() const
@@ -41,10 +43,39 @@ void ACYPlayerState::PostInitializeComponents()
 	
 }
 
+void ACYPlayerState::SetTeamRole(ECYTeamRole NewTeamRole)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	
+	TeamRole = NewTeamRole;
+}
+
+void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	PawnData = NewPawnData;
+}
+
 void ACYPlayerState::OnRep_TeamRole()
 {
 	// 팀 배정 시 처리 (UI 업데이트 등)
 	UE_LOG(LogCY, Warning, TEXT("Player %s assigned to team: %s"), 
 		*GetPlayerName(),
 		TeamRole == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
+}
+
+void ACYPlayerState::OnRep_PawnData()
+{
+	if (PawnData)
+	{
+		UE_LOG(LogCY, Log, TEXT("PS %s AssignedPawnData = %s"),
+			*GetPlayerName(), *PawnData->GetName());
+	}
 }
