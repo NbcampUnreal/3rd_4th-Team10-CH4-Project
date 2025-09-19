@@ -22,9 +22,6 @@ public:
 		return FPrimaryAssetId(GetPawnAssetType(), GetFName());
 	}
 
-	// 동기 로드 (서버 스폰용)
-	UClass* LoadPawnClass() const;
-
 	UTexture2D* LoadPawnIcon() const;
 
 public:
@@ -41,7 +38,7 @@ public:
 	
 	// 스폰할 Pawn 클래스
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|Pawn")
-	TSoftClassPtr<APawn> PawnClass;
+	TSubclassOf<APawn> PawnClass;
 
 	// 이 캐릭터에 부여할 AbilitySet 목록
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|Abilities")

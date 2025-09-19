@@ -133,9 +133,9 @@ UClass* ACYInGameMode::GetDefaultPawnClassForController_Implementation(AControll
 	{
 		if (const UCYPawnData* PawnData = CYPS->GetPawnData())
 		{
-			if (UClass* PawnClass = PawnData->LoadPawnClass())
+			if (PawnData->PawnClass)
 			{
-				return PawnClass;
+				return PawnData->PawnClass;
 			}
 		}
 	}
