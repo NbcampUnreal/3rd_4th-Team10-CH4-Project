@@ -4,12 +4,20 @@
 #include "CYPawnData.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "Player/CYPlayerState.h"
+#include "AbilitySystem/CYCombatGameplayTags.h"
+#include "AbilitySystem/Attributes/CYCombatAttributeSet.h"
+#include "Components/Items/CYInventoryComponent.h"
+#include "Components/Items/CYItemInteractionComponent.h"
+#include "Components/Items/CYWeaponComponent.h"
 
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	
+	// Item 컴포넌트들 생성
+	InventoryComponent = CreateDefaultSubobject<UCYInventoryComponent>(TEXT("InventoryComponent"));
+	ItemInteractionComponent = CreateDefaultSubobject<UCYItemInteractionComponent>(TEXT("ItemInteractionComponent"));
+	WeaponComponent = CreateDefaultSubobject<UCYWeaponComponent>(TEXT("WeaponComponent"));
 }
 
 UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const
@@ -95,4 +103,33 @@ void ACYCharacterBase::RemoveAbilitySets()
 	GrantedAbilitySetHandles.Empty();
 }
 
+void ACYCharacterBase::InteractPressed()
+{
+	if (ItemInteractionComponent)
+	{
+		ItemInteractionComponent->InteractWithNearbyItem();
+	}
+}
 
+void ACYCharacterBase::AttackPressed()
+{
+	if (WeaponComponent && WeaponComponent->CurrentWeapon)
+	{
+		if (UCYAbilitySystemComponent* ASC = Cast<UCYAbilitySystemComponent>(GetAbilitySystemComponent()))
+		{
+			ASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Combat_WeaponAttack);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No WeaponComponent found"));
+	}
+}
+
+void ACYCharacterBase::UseInventorySlot(int32 SlotIndex)
+{
+	if (InventoryComponent)
+	{
+		InventoryComponent->HoldItem(SlotIndex);
+	}
+}

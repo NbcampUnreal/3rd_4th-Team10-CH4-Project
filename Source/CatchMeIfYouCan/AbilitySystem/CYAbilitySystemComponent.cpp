@@ -218,3 +218,64 @@ void UCYAbilitySystemComponent::ProcessAbilityInput(float DeltaTime, bool bGameP
 	InputPressedSpecHandles.Reset();
 	InputReleasedSpecHandles.Reset();
 }
+
+FGameplayAbilitySpecHandle UCYAbilitySystemComponent::GiveItemAbility(TSubclassOf<UGameplayAbility> AbilityClass, int32 Level)
+{
+	if (!AbilityClass)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GiveItemAbility: AbilityClass is null"));
+		return FGameplayAbilitySpecHandle();
+	}
+
+	FGameplayAbilitySpec AbilitySpec(AbilityClass, Level, INDEX_NONE, GetOwnerActor());
+    
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		return GiveAbility(AbilitySpec);
+	}
+
+	return FGameplayAbilitySpecHandle();
+}
+
+void UCYAbilitySystemComponent::RemoveItemAbility(FGameplayAbilitySpecHandle& Handle)
+{
+	if (!Handle.IsValid()) return;
+
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		ClearAbility(Handle);
+		Handle = FGameplayAbilitySpecHandle();
+	}
+}
+
+bool UCYAbilitySystemComponent::TryActivateAbilityByTag(FGameplayTag AbilityTag)
+{
+	if (!AbilityTag.IsValid()) return false;
+
+	FGameplayTagContainer TagContainer;
+	TagContainer.AddTag(AbilityTag);
+	return TryActivateAbilitiesByTag(TagContainer);
+}
+
+bool UCYAbilitySystemComponent::TryActivateAbilityByTagWithSource(FGameplayTag AbilityTag, UObject* SourceObject)
+{
+	if (!AbilityTag.IsValid()) return false;
+
+	FGameplayTagContainer TagContainer;
+	TagContainer.AddTag(AbilityTag);
+
+	TArray<FGameplayAbilitySpec*> AbilitySpecs;
+	GetActivatableGameplayAbilitySpecsByAllMatchingTags(TagContainer, AbilitySpecs);
+
+	if (AbilitySpecs.Num() == 0) return false;
+
+	FGameplayAbilitySpec* AbilitySpec = AbilitySpecs[0];
+	if (!AbilitySpec) return false;
+
+	if (SourceObject)
+	{
+		AbilitySpec->SourceObject = SourceObject;
+	}
+
+	return TryActivateAbility(AbilitySpec->Handle);
+}

@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -23,6 +21,19 @@ public:
 	void AbilityInputTagReleased(const FGameplayTag& InputTag);
 
 	void ProcessAbilityInput(float DeltaTime, bool bGamePaused);
+
+	// Item 파트
+	UFUNCTION(BlueprintCallable, Category = "Abilities|Items")
+	FGameplayAbilitySpecHandle GiveItemAbility(TSubclassOf<class UGameplayAbility> AbilityClass, int32 Level = 1);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities|Items")
+	void RemoveItemAbility(FGameplayAbilitySpecHandle& Handle);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities|Items")
+	bool TryActivateAbilityByTag(FGameplayTag AbilityTag);
+
+	// SourceObject와 함께 어빌리티 활성화 (트랩 시스템용)
+	bool TryActivateAbilityByTagWithSource(FGameplayTag AbilityTag, UObject* SourceObject);
 
 protected:
 	virtual void AbilitySpecInputStarted(FGameplayAbilitySpec& Spec);
