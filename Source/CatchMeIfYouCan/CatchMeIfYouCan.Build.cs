@@ -18,7 +18,8 @@ public class CatchMeIfYouCan : ModuleRules
 			"GameplayAbilities", 
 			"GameplayTags", 
 			"GameplayTasks", 
-			"UMG" 
+			"UMG",
+			"AnimGraphRuntime"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
