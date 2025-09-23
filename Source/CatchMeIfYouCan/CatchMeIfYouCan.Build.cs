@@ -8,7 +8,19 @@ public class CatchMeIfYouCan : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput" });
+		PublicDependencyModuleNames.AddRange(new string[]
+		{
+			"Core", 
+			"CoreUObject", 
+			"Engine", 
+			"InputCore", 
+			"EnhancedInput", 
+			"GameplayAbilities", 
+			"GameplayTags", 
+			"GameplayTasks", 
+			"UMG",
+			"AnimGraphRuntime"
+		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });
 		
