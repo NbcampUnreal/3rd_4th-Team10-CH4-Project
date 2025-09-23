@@ -14,7 +14,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float,
 /**
  * 메인 HUD UI를 관리하는 위젯 컨트롤러
  */
-UCLASS()
+UCLASS(BlueprintType, Blueprintable)
 class CATCHMEIFYOUCAN_API UCYOverlayWidgetController : public UCYWidgetController
 {
 	GENERATED_BODY()

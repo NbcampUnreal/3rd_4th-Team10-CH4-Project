@@ -29,6 +29,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	void SetupPlayerSystems();
+
 	void Input_Move(const FInputActionValue& InputActionValue);
 	void Input_Look(const FInputActionValue& InputActionValue);
 

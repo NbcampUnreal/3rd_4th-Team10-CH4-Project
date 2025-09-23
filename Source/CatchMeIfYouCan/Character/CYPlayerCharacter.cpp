@@ -49,7 +49,20 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
-	// TODO : 아래의 OnRep 함수에 중복이 있어서 함수로 묶음 예정
+	SetupPlayerSystems();
+	
+	// 서버에서만 어빌리티 세트를 초기화
+	InitializeAbilitySets();
+}
+
+void ACYPlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	
+}
+
+void ACYPlayerCharacter::SetupPlayerSystems()
+{
 	ACYPlayerState* PS = GetPlayerState<ACYPlayerState>();
 	if (PS)
 	{
@@ -67,15 +80,6 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 			}
 		}
 	}
-	
-	// 서버에서만 어빌리티 세트를 초기화
-	InitializeAbilitySets();
-}
-
-void ACYPlayerCharacter::BeginPlay()
-{
-	Super::BeginPlay();
-	
 }
 
 void ACYPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -160,23 +164,9 @@ void ACYPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
-	ACYPlayerState* PS = GetPlayerState<ACYPlayerState>();
-	if (PS)
-	{
-		CYAbilitySystemComponent = Cast<UCYAbilitySystemComponent>(PS->GetAbilitySystemComponent());
-		PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, this);
-
-		if (APlayerController* PC = GetController<APlayerController>())
-		{
-			if (PC->IsLocalController())
-			{
-				if (ACYHUD* CYHUD = Cast<ACYHUD>(PC->GetHUD()))
-				{
-					CYHUD->InitOverlay(PC, PS, CYAbilitySystemComponent.Get(), PS->GetVitalSet());
-				}
-			}
-		}
-	}
+	SetupPlayerSystems();
 }
+
+
 
 
