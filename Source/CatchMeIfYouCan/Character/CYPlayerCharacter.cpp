@@ -192,12 +192,12 @@ void ACYPlayerCharacter::Input_Attack(const FInputActionValue& InputActionValue)
 	// 현재 들고 있는 아이템이 있으면 아이템 사용
 	if (InventoryComponent && InventoryComponent->CurrentHeldItem)
 	{
+		FText ItemName = InventoryComponent->CurrentHeldItem->ItemName;
 		bool bUsedItem = InventoryComponent->UseHeldItem();
 		
 		if (bUsedItem)
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Used held item: %s"), 
-				   *InventoryComponent->CurrentHeldItem->ItemName.ToString());
+			UE_LOG(LogTemp, Warning, TEXT("Used held item: %s"), *ItemName.ToString());
 		}
 		return;
 	}
