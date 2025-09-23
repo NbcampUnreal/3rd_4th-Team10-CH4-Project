@@ -1,8 +1,5 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "CYVitalSet.h"
-
+#include "GameplayEffectExtension.h"
 #include "Net/UnrealNetwork.h"
 
 UCYVitalSet::UCYVitalSet()
@@ -15,11 +12,52 @@ UCYVitalSet::UCYVitalSet()
 void UCYVitalSet::PreAttributeChange(const FGameplayAttribute& Attribute, float& NewValue)
 {
 	Super::PreAttributeChange(Attribute, NewValue);
+
+	// Health가 MaxHealth를 초과하지 않도록 제한
+	if (Attribute == GetHealthAttribute())
+	{
+		NewValue = FMath::Clamp(NewValue, 0.0f, GetMaxHealth());
+	}
 }
 
 void UCYVitalSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
 	Super::PostGameplayEffectExecute(Data);
+
+	// Health 속성이 변경되었을 때 처리
+	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
+	{
+		HandleHealthChange();
+	}
+}
+
+void UCYVitalSet::HandleHealthChange()
+{
+	float NewHealth = GetHealth();
+    
+	// Health를 0과 MaxHealth 사이로 제한
+	SetHealth(FMath::Clamp(NewHealth, 0.0f, GetMaxHealth()));
+
+	// 사망 처리
+	if (GetHealth() <= 0.0f)
+	{
+		if (AActor* Owner = GetOwningActor())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("%s has died (Health: %.1f)"), *Owner->GetName(), GetHealth());
+            
+			// 여기에 사망 이벤트 처리 추가 가능
+			// OnHealthZero.Broadcast(Owner);
+		}
+	}
+	else
+	{
+		// Health 변경 로그
+		if (AActor* Owner = GetOwningActor())
+		{
+			UE_LOG(LogTemp, Log, TEXT("%s Health changed: %.1f/%.1f"), 
+				   *Owner->GetName(), GetHealth(), GetMaxHealth());
+		}
+	}
 }
 
 void UCYVitalSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -32,10 +70,30 @@ void UCYVitalSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 
 void UCYVitalSet::OnRep_Health(const FGameplayAttributeData& OldHealth)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, Health, OldHealth);
+	if (GetOwningAbilitySystemComponent())
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, Health, OldHealth);
+        
+		// 클라이언트에서도 Health 변경 처리
+		HandleHealthChange();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("OnRep_Health: No valid AbilitySystemComponent"));
+	}
 }
 
 void UCYVitalSet::OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth)
 {
-	GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, MaxHealth, OldMaxHealth);
+	if (GetOwningAbilitySystemComponent())
+	{
+		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, MaxHealth, OldMaxHealth);
+        
+		// MaxHealth 변경 시 현재 Health도 재검증
+		HandleHealthChange();
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("OnRep_MaxHealth: No valid AbilitySystemComponent"));
+	}
 }

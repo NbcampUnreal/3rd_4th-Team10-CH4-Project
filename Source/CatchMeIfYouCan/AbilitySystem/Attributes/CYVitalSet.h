@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,9 +6,6 @@
 
 #include "CYVitalSet.generated.h"
 
-/**
- * 
- */
 UCLASS(BlueprintType)
 class CATCHMEIFYOUCAN_API UCYVitalSet : public UCYAttributeSet
 {
@@ -34,6 +29,8 @@ protected:
 
 	UFUNCTION()
 	void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
+
+	void HandleHealthChange();
 
 private:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "CY|Health", Meta = (AllowPrivateAccess = true))

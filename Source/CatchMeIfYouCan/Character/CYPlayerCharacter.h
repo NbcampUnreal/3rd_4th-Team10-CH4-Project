@@ -26,6 +26,10 @@ public:
 	
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	// 인벤토리 디버그 출력 (좌클릭)
+	UFUNCTION(BlueprintCallable, Category = "Debug")
+	void ShowInventoryDebug();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -40,6 +44,21 @@ protected:
 
 	// Client측 ASC초기화 등 수행
 	virtual void OnRep_PlayerState() override;
+
+	// 아이템 입력 처리
+	void Input_Interact(const FInputActionValue& InputActionValue);         // E키
+	void Input_Attack(const FInputActionValue& InputActionValue);           // 좌클릭
+    
+	// 인벤토리 슬롯 입력 (1~9번 키)
+	void Input_UseSlot1(const FInputActionValue& InputActionValue);         // 무기 슬롯 1
+	void Input_UseSlot2(const FInputActionValue& InputActionValue);         // 무기 슬롯 2
+	void Input_UseSlot3(const FInputActionValue& InputActionValue);         // 무기 슬롯 3
+	void Input_UseSlot4(const FInputActionValue& InputActionValue);         // 아이템 슬롯 1
+	void Input_UseSlot5(const FInputActionValue& InputActionValue);         // 아이템 슬롯 2
+	void Input_UseSlot6(const FInputActionValue& InputActionValue);         // 아이템 슬롯 3
+	void Input_UseSlot7(const FInputActionValue& InputActionValue);         // 아이템 슬롯 4
+	void Input_UseSlot8(const FInputActionValue& InputActionValue);         // 아이템 슬롯 5
+	void Input_UseSlot9(const FInputActionValue& InputActionValue);         // 아이템 슬롯 6
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Camera")
