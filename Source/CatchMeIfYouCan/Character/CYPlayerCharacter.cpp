@@ -3,11 +3,13 @@
 #include "EnhancedInputSubsystems.h"
 #include "Camera/CameraComponent.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
+#include "AbilitySystem/Attributes/CYVitalSet.h"
 #include "Input/CYInputComponent.h"
 #include "Input/CYInputGameplayTags.h"
 #include "Player/CYPlayerState.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
+#include "UI/HUD/CYHUD.h"
 
 ACYPlayerCharacter::ACYPlayerCharacter(const FObjectInitializer& ObjectInitializer) 
 	:	Super(ObjectInitializer)
@@ -47,16 +49,27 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
+	// TODO : 아래의 OnRep 함수에 중복이 있어서 함수로 묶음 예정
 	ACYPlayerState* PS = GetPlayerState<ACYPlayerState>();
 	if (PS)
 	{
-		// 서버측에서 실행되는 ASC 캐싱 및 ASC 설정으로써 클라이언트는 OnRep_PlayerState()에서 해당 로직 진행
 		CYAbilitySystemComponent = Cast<UCYAbilitySystemComponent>(PS->GetAbilitySystemComponent());
 		PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, this);
 
-		// 서버에서만 어빌리티 세트를 초기화
-		InitializeAbilitySets();
+		if (APlayerController* PC = GetController<APlayerController>())
+		{
+			if (PC->IsLocalController())
+			{
+				if (ACYHUD* CYHUD = Cast<ACYHUD>(PC->GetHUD()))
+				{
+					CYHUD->InitOverlay(PC, PS, CYAbilitySystemComponent.Get(), PS->GetVitalSet());
+				}
+			}
+		}
 	}
+	
+	// 서버에서만 어빌리티 세트를 초기화
+	InitializeAbilitySets();
 }
 
 void ACYPlayerCharacter::BeginPlay()
@@ -152,6 +165,17 @@ void ACYPlayerCharacter::OnRep_PlayerState()
 	{
 		CYAbilitySystemComponent = Cast<UCYAbilitySystemComponent>(PS->GetAbilitySystemComponent());
 		PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, this);
+
+		if (APlayerController* PC = GetController<APlayerController>())
+		{
+			if (PC->IsLocalController())
+			{
+				if (ACYHUD* CYHUD = Cast<ACYHUD>(PC->GetHUD()))
+				{
+					CYHUD->InitOverlay(PC, PS, CYAbilitySystemComponent.Get(), PS->GetVitalSet());
+				}
+			}
+		}
 	}
 }
 

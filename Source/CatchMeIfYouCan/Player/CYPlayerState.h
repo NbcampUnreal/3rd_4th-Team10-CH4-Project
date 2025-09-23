@@ -28,6 +28,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CY|PlayerState")
 	UCYAbilitySystemComponent* GetCYAbilitySystemComponent() const { return AbilitySystemComponent; }
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Attributes")
+	UCYVitalSet* GetVitalSet() const { return VitalSet; }
 	
 	virtual void PostInitializeComponents() override;
 
@@ -53,7 +56,7 @@ private:
 	TObjectPtr<UCYAbilitySystemComponent> AbilitySystemComponent;
 
 	UPROPERTY()
-	TObjectPtr<const UCYVitalSet> VitalSet;
+	TObjectPtr<UCYVitalSet> VitalSet;
 
 	UPROPERTY(ReplicatedUsing = OnRep_TeamRole)
 	ECYTeamRole TeamRole = ECYTeamRole::None;
