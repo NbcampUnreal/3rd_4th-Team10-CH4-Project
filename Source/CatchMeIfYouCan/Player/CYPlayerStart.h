@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "CYTypes/CYTeamType.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/PlayerStart.h"
 #include "CYPlayerStart.generated.h"
 

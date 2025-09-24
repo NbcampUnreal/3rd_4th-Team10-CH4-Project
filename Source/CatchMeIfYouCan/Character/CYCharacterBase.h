@@ -45,10 +45,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CY|Input")
 	void UseInventorySlot(int32 SlotIndex);
 	
+	void TryInitializeAbilitySetsWithPawnData();
+	
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+	bool IsPawnDataReady() const;
+	
 	void InitializeAbilitySets();
 	void RemoveAbilitySets();
 
@@ -58,4 +62,7 @@ protected:
 	
 	UPROPERTY()
 	TArray<FCYAbilitySet_GrantedHandles> GrantedAbilitySetHandles;
+
+	// 초기화 상태 추적
+	bool bAbilitySetsInitialized = false;
 };

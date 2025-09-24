@@ -16,7 +16,7 @@ UCYOverlayWidgetController* ACYHUD::GetOverlayWidgetController(const FWidgetCont
 	return OverlayWidgetController;
 }
 
-void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS)
+void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS, AGameStateBase* GS)
 {
 	checkf(OverlayWidgetClass, TEXT("OverlayWidgetClass is not set in BP_HUD. Please fill it out."));
 	checkf(OverlayWidgetControllerClass, TEXT("OverlayWidgetControllerClass is not set in BP_HUD. Please fill it out."));
@@ -25,7 +25,7 @@ void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 	OverlayWidget = CreateWidget<UCYUserWidget>(GetWorld(), OverlayWidgetClass);
 
 	// 위젯 컨트롤러 파라미터 구성
-	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, AS);
+	const FWidgetControllerParams WidgetControllerParams(PC, PS, ASC, AS, GS);
 	
 	// 위젯 컨트롤러 가져오기(또는 생성)
 	UCYOverlayWidgetController* WidgetController = GetOverlayWidgetController(WidgetControllerParams);

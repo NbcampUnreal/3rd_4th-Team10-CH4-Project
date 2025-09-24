@@ -36,6 +36,38 @@ void ACYCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+bool ACYCharacterBase::IsPawnDataReady() const
+{
+	ACYPlayerState* PS = GetPlayerState<ACYPlayerState>();
+	return PS && PS->GetPawnData();
+}
+
+void ACYCharacterBase::TryInitializeAbilitySetsWithPawnData()
+{
+	if (bAbilitySetsInitialized)
+	{
+		return;
+	}
+
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	// PawnData 체크
+	if (!IsPawnDataReady())
+	{
+		return;
+	}
+
+	// PawnData가 있으면 AbilitySet 초기화
+	InitializeAbilitySets();
+	
+	bAbilitySetsInitialized = true;
+
+	UE_LOG(LogCY, Warning, TEXT("AbilitySets initialized with PawnData"));
+}
+
 void ACYCharacterBase::InitializeAbilitySets()
 {
 	if (!HasAuthority())

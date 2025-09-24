@@ -6,6 +6,8 @@
 #include "GameFramework/HUD.h"
 #include "CYHUD.generated.h"
 
+class UAbilitySystemComponent;
+class UAttributeSet;
 class UCYUserWidget;
 class UCYOverlayWidgetController;
 /**
@@ -23,7 +25,7 @@ public:
 	UCYOverlayWidgetController* GetOverlayWidgetController(const FWidgetControllerParams& WCParams);
 
 	// HUD 위젯 초기화
-	void InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS);
+	void InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS, AGameStateBase* GS);
 
 private:
 	// Overlay 위젯 컨트롤러 인스턴스

@@ -4,7 +4,6 @@
 #include "Camera/CameraComponent.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
-#include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "Components/Items/CYInventoryComponent.h"
 #include "Components/Items/CYItemInteractionComponent.h"
@@ -57,36 +56,31 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
-	SetupPlayerSystems();
+	//SetupPlayerSystems();
+	SetupAbilitySystemComponent();
 	
-	// 서버에서만 어빌리티 세트를 초기화
-	InitializeAbilitySets();
+	// 서버에서만 어빌리티 세트를 초기화 시도
+	TryInitializeAbilitySetsWithPawnData();
 }
 
 void ACYPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
-void ACYPlayerCharacter::SetupPlayerSystems()
+void ACYPlayerCharacter::SetupAbilitySystemComponent()
 {
 	ACYPlayerState* PS = GetPlayerState<ACYPlayerState>();
-	if (PS)
+	if (!PS)
 	{
-		CYAbilitySystemComponent = Cast<UCYAbilitySystemComponent>(PS->GetAbilitySystemComponent());
-		PS->GetAbilitySystemComponent()->InitAbilityActorInfo(PS, this);
-
-		if (APlayerController* PC = GetController<APlayerController>())
-		{
-			if (PC->IsLocalController())
-			{
-				if (ACYHUD* CYHUD = Cast<ACYHUD>(PC->GetHUD()))
-				{
-					CYHUD->InitOverlay(PC, PS, CYAbilitySystemComponent.Get(), PS->GetVitalSet());
-				}
-			}
-		}
+		return;
+	}
+    
+	// ASC만 설정 (AbilitySet 초기화는 별도)
+	CYAbilitySystemComponent = Cast<UCYAbilitySystemComponent>(PS->GetAbilitySystemComponent());
+	if (CYAbilitySystemComponent.IsValid())
+	{
+		CYAbilitySystemComponent->InitAbilityActorInfo(PS, this);
 	}
 }
 
@@ -188,7 +182,7 @@ void ACYPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
 
-	SetupPlayerSystems();
+	SetupAbilitySystemComponent();
 }
 
 // 아이템 상호작용 입력
