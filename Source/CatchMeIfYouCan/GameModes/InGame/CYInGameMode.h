@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/GameModeBase.h"
-#include "CYTypes/CYTeamType.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "CYInGameMode.generated.h"
 
 class ACYPlayerStart;

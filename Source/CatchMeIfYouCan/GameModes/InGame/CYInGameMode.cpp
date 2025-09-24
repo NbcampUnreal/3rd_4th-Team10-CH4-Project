@@ -15,6 +15,7 @@
 #include "Systems/CYAssetManager.h"
 
 ACYInGameMode::ACYInGameMode(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	DefaultPawnClass = nullptr; // GetDefaultPawnClassForController에서 팀 별 클래스를 지정할 예정
 	PlayerControllerClass = ACYPlayerController::StaticClass();
@@ -88,13 +89,24 @@ void ACYInGameMode::AssignRandomPawnDataToPlayer(APlayerController* NewPlayer)
 	if (SelectedPawnData)
 	{
 		CYPS->SetPawnData(SelectedPawnData);
+
+		if (ACYInGameState* CYGameState = GetGameState<ACYInGameState>())
+		{
+			CYGameState->UpdateTeamCount(SelectedPawnData->TeamRole, 1);
+		}
 	}
 }
 
 void ACYInGameMode::Logout(AController* Exiting)
 {
-	// TODO : Logout 로직 변경 필요
-	// 팀 카운트 업데이트
+	// 팀 카운트 감소
+	if (ACYPlayerState* CYPS = Exiting->GetPlayerState<ACYPlayerState>())
+	{
+		if (ACYInGameState* CYGameState = GetGameState<ACYInGameState>())
+		{
+			CYGameState->UpdateTeamCount(CYPS->GetTeamRole(), -1);
+		}
+	}
 
 	ConnectedPlayerCount--;
 	
@@ -158,30 +170,22 @@ void ACYInGameMode::OnPawnDataLoaded()
 
 ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 {
-	// 현재 팀 인원 계산
-	int32 CurrentCops = 0;
-	int32 CurrentRobbers = 0;
-    
-	for (APlayerState* PS : GameState->PlayerArray)
+	ACYInGameState* CYGameState = GetGameState<ACYInGameState>();
+	if (!CYGameState)
 	{
-		if (ACYPlayerState* CYPS = Cast<ACYPlayerState>(PS))
-		{
-			ECYTeamRole Team = CYPS->GetTeamRole();
-			if (Team == ECYTeamRole::Cop) CurrentCops++;
-			else if (Team == ECYTeamRole::Robber) CurrentRobbers++;
-		}
+		return ECYTeamRole::Robber;
 	}
+	
+	// GameState에서 현재 팀 비율 계산
+	float CurrentRatio = CYGameState->GetCopRatio();
+	float IdealCopRatio = 0.33f; // 2:4 비율(경찰:도둑)
     
-	// 2:4 비율 (경찰:도둑)
-	float IdealCopRatio = 0.33f;
-	float CurrentRatio = (CurrentCops + CurrentRobbers > 0) ? 
-		static_cast<float>(CurrentCops) / static_cast<float>(CurrentCops + CurrentRobbers) : 0.0f;
-    
-	ECYTeamRole Result = (CurrentRatio < IdealCopRatio) ? ECYTeamRole::Cop : ECYTeamRole::Robber;
+	ECYTeamRole Result = (CurrentRatio < IdealCopRatio) ? 
+						 ECYTeamRole::Cop : ECYTeamRole::Robber;
     
 	UE_LOG(LogCY, Log, TEXT("DetermineTeam: Cops=%d, Robbers=%d, Ratio=%.2f, Result=%s"),
-		CurrentCops, CurrentRobbers, CurrentRatio,
-		Result == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
+		   CYGameState->GetCopCount(), CYGameState->GetRobberCount(), CurrentRatio,
+		   Result == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
     
 	return Result;
 }

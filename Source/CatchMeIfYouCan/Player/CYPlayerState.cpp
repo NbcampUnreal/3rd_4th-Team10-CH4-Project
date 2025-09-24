@@ -4,8 +4,10 @@
 #include "CYPlayerState.h"
 
 #include "CYLogChannels.h"
+#include "CYPlayerController.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
+#include "Character/CYCharacterBase.h"
 #include "Character/CYPawnData.h"
 #include "Net/UnrealNetwork.h"
 
@@ -62,11 +64,33 @@ void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
 
 	PawnData = NewPawnData;
 	TeamRole = PawnData->TeamRole;
+
+	// 서버: Pawn이 있으면 즉시 초기화 시도
+	if (APawn* MyPawn = GetPawn())
+	{
+		if (ACYCharacterBase* Character = Cast<ACYCharacterBase>(MyPawn))
+		{
+			Character->TryInitializeAbilitySetsWithPawnData();
+		}
+	}
+
+	// 리슨 서버인 경우 처리
+	if (GetNetMode() == NM_ListenServer)
+	{
+		if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
+		{
+			if (PC->IsLocalController())
+			{
+				UE_LOG(LogCY, Warning, TEXT("Listen Server: PawnData set, notifying controller"));
+				PC->OnPawnDataReady();
+			}
+		}
+	}
 }
 
 void ACYPlayerState::OnRep_TeamRole()
 {
-	// 팀 배정 시 처리 (UI 업데이트 등)
+	// TODO : 함수 삭제 예정
 	UE_LOG(LogCY, Warning, TEXT("Player %s assigned to team: %s"), 
 		*GetPlayerName(),
 		TeamRole == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
@@ -76,7 +100,13 @@ void ACYPlayerState::OnRep_PawnData()
 {
 	if (PawnData)
 	{
-		UE_LOG(LogCY, Log, TEXT("PS %s AssignedPawnData = %s"),
-			*GetPlayerName(), *PawnData->GetName());
+		// 클라이언트: PlayerController에 알림 (HUD 초기화용)
+		if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
+		{
+			if (PC->IsLocalController())
+			{
+				PC->OnPawnDataReady();
+			}
+		}
 	}
 }

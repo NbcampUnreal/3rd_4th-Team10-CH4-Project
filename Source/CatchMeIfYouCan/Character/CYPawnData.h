@@ -1,10 +1,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "CYTypes/CYTeamType.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "Engine/DataAsset.h"
+#include "UI/Widget/CYUserWidget.h"
 #include "CYPawnData.generated.h"
 
+class UCYOverlayWidgetController;
 class UCYAbilitySet;
 /**
  * 
@@ -44,5 +46,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|Abilities")
 	TArray<TObjectPtr<UCYAbilitySet>> AbilitySets;
 	
-	// TODO : 캐릭터 위젯등
+	// 팀별 UI 설정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|UI")
+	TSubclassOf<UCYUserWidget> OverlayWidgetClass;
+    
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|UI")
+	TSubclassOf<UCYOverlayWidgetController> OverlayWidgetControllerClass;
 };

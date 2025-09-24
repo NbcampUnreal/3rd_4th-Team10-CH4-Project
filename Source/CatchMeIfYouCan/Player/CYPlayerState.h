@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
-#include "CYTypes/CYTeamType.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/PlayerState.h"
 #include "CYPlayerState.generated.h"
 
