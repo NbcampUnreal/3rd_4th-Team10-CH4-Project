@@ -77,14 +77,7 @@ void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
 	// 리슨 서버인 경우 처리
 	if (GetNetMode() == NM_ListenServer)
 	{
-		if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
-		{
-			if (PC->IsLocalController())
-			{
-				UE_LOG(LogCY, Warning, TEXT("Listen Server: PawnData set, notifying controller"));
-				PC->OnPawnDataReady();
-			}
-		}
+		NotifyControllerPawnDataReady();
 	}
 }
 
@@ -100,13 +93,17 @@ void ACYPlayerState::OnRep_PawnData()
 {
 	if (PawnData)
 	{
-		// 클라이언트: PlayerController에 알림 (HUD 초기화용)
-		if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
+		NotifyControllerPawnDataReady();
+	}
+}
+
+void ACYPlayerState::NotifyControllerPawnDataReady()
+{
+	if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
+	{
+		if (PC->IsLocalController())
 		{
-			if (PC->IsLocalController())
-			{
-				PC->OnPawnDataReady();
-			}
+			PC->OnPawnDataReady();
 		}
 	}
 }

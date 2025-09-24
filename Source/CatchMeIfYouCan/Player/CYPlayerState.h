@@ -50,6 +50,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_PawnData();
+
+private:
+	void NotifyControllerPawnDataReady();
 	
 private:
 	UPROPERTY(VisibleAnywhere, Category = "CY|PlayerState")
