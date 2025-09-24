@@ -3,10 +3,12 @@
 #include "AbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "AbilitySystem/Effects/CYCombatGameplayEffects.h"
+#include "Character/CYPlayerCharacter.h"
 #include "Components/Items/CYWeaponComponent.h"
 #include "Engine/Engine.h"
 #include "GameFramework/Character.h"
 #include "Items/CYWeaponBase.h"
+#include "Player/CYPlayerState.h"
 
 UGA_WeaponAttack::UGA_WeaponAttack()
 {
@@ -29,7 +31,9 @@ UGA_WeaponAttack::UGA_WeaponAttack()
 	FGameplayTagContainer BlockedTags;
 	BlockedTags.AddTag(CYGameplayTags::State_Stunned);
 	BlockedTags.AddTag(CYGameplayTags::State_Captured);
-	BlockedTags.AddTag(CYGameplayTags::State_Jail); 
+	BlockedTags.AddTag(CYGameplayTags::State_Jail);
+	BlockedTags.AddTag(CYGameplayTags::State_Combat_Attacking);
+	BlockedTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
 	ActivationBlockedTags = BlockedTags;
 }
 
@@ -167,6 +171,18 @@ void UGA_WeaponAttack::ProcessHitTarget(const FHitResult& HitResult)
 {
     AActor* Target = HitResult.GetActor();
     if (!Target) return;
+
+	// 팀 체크 Robber만 공격받도록
+	if (ACYPlayerCharacter* TargetCharacter = Cast<ACYPlayerCharacter>(Target))
+	{
+		if (ACYPlayerState* TargetPS = TargetCharacter->GetPlayerState<ACYPlayerState>())
+		{
+			if (TargetPS->GetTeamRole() != ECYTeamRole::Robber)
+			{
+				return;
+			}
+		}
+	}
 
     UAbilitySystemComponent* TargetASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Target);
     if (!TargetASC) 

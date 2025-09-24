@@ -52,6 +52,16 @@ void UCYItemInteractionComponent::InteractWithNearbyItem()
 void UCYItemInteractionComponent::ServerPickupItem_Implementation(ACYItemBase* Item)
 {
     if (!Item || !GetOwner()->HasAuthority() || Item->bIsPickedUp) return;
+
+	ACYPlayerCharacter* Character = Cast<ACYPlayerCharacter>(GetOwner());
+	if (!Character) return;
+    
+	// 팀 체크
+	if (!Item->CanBePickedUpBy(Character))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot pickup item: Team restriction"));
+		return;
+	}
     
     UCYInventoryComponent* InventoryComp = GetOwner()->FindComponentByClass<UCYInventoryComponent>();
     if (!InventoryComp)
@@ -77,6 +87,9 @@ void UCYItemInteractionComponent::ServerPickupItem_Implementation(ACYItemBase* I
 void UCYItemInteractionComponent::CheckForNearbyItems()
 {
     if (!GetOwner()) return;
+
+	ACYPlayerCharacter* Character = Cast<ACYPlayerCharacter>(GetOwner());
+	if (!Character) return;
     
     FVector PlayerLocation = GetOwner()->GetActorLocation();
     ACYItemBase* ClosestItem = nullptr;
@@ -90,6 +103,9 @@ void UCYItemInteractionComponent::CheckForNearbyItems()
     {
         ACYItemBase* Item = Cast<ACYItemBase>(Actor);
         if (!Item || Item->bIsPickedUp) continue;
+
+    	// 팀 체크
+    	if (!Item->CanBePickedUpBy(Character)) continue;
         
         // 트랩의 경우 맵에 배치된 것만 픽업 가능
         if (ACYTrapBase* Trap = Cast<ACYTrapBase>(Item))

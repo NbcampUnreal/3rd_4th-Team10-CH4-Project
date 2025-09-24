@@ -1,5 +1,6 @@
 #include "Items/CYItemBase.h"
 #include "Character/CYPlayerCharacter.h"
+#include "Player/CYPlayerState.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SphereComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -34,6 +35,10 @@ ACYItemBase::ACYItemBase()
     bIsPickedUp = false;
     ItemCount = 1;
     MaxStackCount = 10;
+
+	// 기본값: 모든 팀이 픽업 가능
+	AllowedTeams.Add(ECYTeamRole::Cop);
+	AllowedTeams.Add(ECYTeamRole::Robber);
 }
 
 void ACYItemBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -136,4 +141,31 @@ void ACYItemBase::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, A
         // UI 힌트 숨기기
         UE_LOG(LogTemp, Log, TEXT("Player left item area: %s"), *ItemName.ToString());
     }
+}
+
+bool ACYItemBase::CanBePickedUpBy(ACYPlayerCharacter* Character) const
+{
+	if (!Character) return false;
+    
+	// AllowedTeams가 비어있으면 모두 픽업 가능
+	if (AllowedTeams.Num() == 0) return true;
+    
+	// PlayerState에서 팀 확인
+	ACYPlayerState* PS = Character->GetPlayerState<ACYPlayerState>();
+	if (!PS) return false;
+    
+	ECYTeamRole CharacterTeam = PS->GetTeamRole();
+    
+	// AllowedTeams에 캐릭터 팀이 포함되어 있는지 확인
+	bool bCanPickup = AllowedTeams.Contains(CharacterTeam);
+    
+	if (!bCanPickup)
+	{
+		UE_LOG(LogTemp, Log, TEXT("Character team %s cannot pickup item %s (Allowed teams: %d)"), 
+			CharacterTeam == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"),
+			*ItemName.ToString(),
+			AllowedTeams.Num());
+	}
+    
+	return bCanPickup;
 }

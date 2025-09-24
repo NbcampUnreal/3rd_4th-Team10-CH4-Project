@@ -24,7 +24,9 @@ UGA_PlaceTrap::UGA_PlaceTrap()
     FGameplayTagContainer BlockedTags;
 	BlockedTags.AddTag(CYGameplayTags::State_Stunned);
 	BlockedTags.AddTag(CYGameplayTags::State_Captured);
-	BlockedTags.AddTag(CYGameplayTags::State_Jail);  
+	BlockedTags.AddTag(CYGameplayTags::State_Jail);
+	BlockedTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
+	BlockedTags.AddTag(CYGameplayTags::State_Combat_Attacking);
     ActivationBlockedTags = BlockedTags;
     
     // 쿨다운 GE 클래스 설정
@@ -45,13 +47,12 @@ void UGA_PlaceTrap::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
         return;
     }
 
-	// 쿨다운과 코스트 체크 및 적용
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Trap placement on cooldown"));
-        EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-        return;
-    }
+	if (IsOnCooldown(ActorInfo))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Trap placement on cooldown"));
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
+		return;
+	}
 
 	// 소스 오브젝트(들고 있는 트랩)에서 트랩 아이템 가져오기
     ACYTrapBase* TrapItem = GetTrapItemFromSource();
@@ -66,6 +67,14 @@ void UGA_PlaceTrap::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
             return;
         }
     }
+
+	// // 수량 체크
+	// if (TrapItem->ItemCount <= 0)
+	// {
+	// 	UE_LOG(LogTemp, Warning, TEXT("Trap item count is 0 or less"));
+	// 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+	// 	return;
+	// }
 
 	// 정보 캐시 (몽타주 완료 후 사용)
 	CachedHandle = Handle;
@@ -108,9 +117,35 @@ void UGA_PlaceTrap::OnPlaceTrapMontageCompleted()
 	
 	// 실제 트랩 설치 로직 실행
 	PerformTrapPlacement();
+
+	// 쿨다운 적용
+	ApplyTrapCooldown(CachedHandle, CachedActorInfo, CachedActivationInfo);
 	
 	// 어빌리티 종료
 	EndAbility(CachedHandle, CachedActorInfo, CachedActivationInfo, true, false);
+}
+
+bool UGA_PlaceTrap::IsOnCooldown(const FGameplayAbilityActorInfo* ActorInfo) const
+{
+	return ActorInfo->AbilitySystemComponent->HasMatchingGameplayTag(CYGameplayTags::Cooldown_Combat_TrapPlace);
+}
+
+void UGA_PlaceTrap::ApplyTrapCooldown(const FGameplayAbilitySpecHandle Handle, 
+	const FGameplayAbilityActorInfo* ActorInfo, 
+	const FGameplayAbilityActivationInfo ActivationInfo)
+{
+	FGameplayEffectSpecHandle CooldownSpec = MakeOutgoingGameplayEffectSpec(UGE_TrapPlaceCooldown::StaticClass(), 1);
+	if (CooldownSpec.IsValid())
+	{
+		FGameplayTag CooldownTag = CYGameplayTags::Cooldown_Combat_TrapPlace;
+		if (CooldownTag.IsValid())
+		{
+			CooldownSpec.Data->DynamicGrantedTags.AddTag(CooldownTag);
+		}
+
+		ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, CooldownSpec);
+		UE_LOG(LogTemp, Warning, TEXT("Trap cooldown applied"));
+	}
 }
 
 void UGA_PlaceTrap::PerformTrapPlacement()
@@ -280,6 +315,12 @@ void UGA_PlaceTrap::ConsumeItemFromInventory(ACYItemBase* Item)
     UCYInventoryComponent* InventoryComp = OwnerActor->FindComponentByClass<UCYInventoryComponent>();
     if (!InventoryComp) return;
 
+	if (Item->ItemCount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Item count already 0, skipping consume"));
+		return;
+	}
+
     // 아이템 수량 감소
     Item->ItemCount--;
     
@@ -292,6 +333,14 @@ void UGA_PlaceTrap::ConsumeItemFromInventory(ACYItemBase* Item)
             {
                 InventoryComp->ItemSlots[i] = nullptr;
                 InventoryComp->OnInventoryChanged.Broadcast(i + 4, nullptr); // 4~9번 키
+
+            	// CurrentHeldItem이 소진된 아이템이면 null로 설정
+            	if (InventoryComp->CurrentHeldItem == Item)
+            	{
+            		InventoryComp->CurrentHeldItem = nullptr;
+            		InventoryComp->OnHeldItemChanged.Broadcast(Item, nullptr);
+            	}
+            	
                 Item->Destroy();
                 break;
             }
