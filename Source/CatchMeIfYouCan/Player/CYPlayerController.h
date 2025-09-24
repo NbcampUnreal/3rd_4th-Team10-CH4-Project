@@ -60,5 +60,8 @@ private:
 	// 캐시된 PawnData (팀 변경 감지용)
 	UPROPERTY()
 	const UCYPawnData* CachedPawnData = nullptr;
+	
+	int32 InitializationRetryCount = 0;
+	const int32 MaxRetryCount = 50;
 
 };

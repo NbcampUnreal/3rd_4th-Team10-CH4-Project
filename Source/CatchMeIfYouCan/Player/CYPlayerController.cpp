@@ -113,11 +113,19 @@ void ACYPlayerController::CheckClientInitialization()
         return;
     }
 
+    // if (++InitializationRetryCount > MaxRetryCount)
+    // {
+    //     UE_LOG(LogCY, Error, TEXT("Failed to initialize client after %d attempts"), MaxRetryCount);
+    //     return; // 포기
+    // }
+    
     // 초기화 가능 체크
     if (CanInitializeClient())
     {
+        // 초기화
         InitializeClient();
     }
+    
     else
     {
         // 재시도 타이머 설정
@@ -127,7 +135,7 @@ void ACYPlayerController::CheckClientInitialization()
                 InitCheckTimer,
                 this,
                 &ACYPlayerController::CheckClientInitialization,
-                0.1f,  // 100ms 후 재시도
+                0.2f,  // 200ms 후 재시도
                 false
             );
         }
@@ -210,6 +218,7 @@ void ACYPlayerController::InitializeClient()
     // 상태 업데이트
     CachedPawnData = PawnData;
     bClientInitialized = true;
+    InitializationRetryCount = 0;
 
     // 타이머 정리
     GetWorld()->GetTimerManager().ClearTimer(InitCheckTimer);

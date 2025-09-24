@@ -73,6 +73,19 @@ void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
 			Character->TryInitializeAbilitySetsWithPawnData();
 		}
 	}
+
+	// 리슨 서버인 경우 처리
+	if (GetNetMode() == NM_ListenServer)
+	{
+		if (ACYPlayerController* PC = Cast<ACYPlayerController>(GetOwner()))
+		{
+			if (PC->IsLocalController())
+			{
+				UE_LOG(LogCY, Warning, TEXT("Listen Server: PawnData set, notifying controller"));
+				PC->OnPawnDataReady();
+			}
+		}
+	}
 }
 
 void ACYPlayerState::OnRep_TeamRole()
