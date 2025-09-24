@@ -114,4 +114,9 @@ private:
     // 중복 실행 방지
     UPROPERTY(Replicated)
     bool bIsProcessingUse = false;
+
+	// 트랩 사용 중복 방지
+	UPROPERTY(Replicated)
+	bool bIsUsingTrap = false;
+	FTimerHandle TrapUseCooldownTimer; 
 };

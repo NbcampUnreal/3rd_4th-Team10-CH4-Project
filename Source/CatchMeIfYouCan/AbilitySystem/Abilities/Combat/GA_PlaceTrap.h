@@ -44,6 +44,13 @@ private:
 	// 사용한 트랩 아이템을 인벤토리에서 소모하기
 	void ConsumeItemFromInventory(ACYItemBase* Item);
 
+	// 쿨타운 상태 체크
+	bool IsOnCooldown(const FGameplayAbilityActorInfo* ActorInfo) const;
+	// 쿨타운 적용
+	void ApplyTrapCooldown(const FGameplayAbilitySpecHandle Handle, 
+		const FGameplayAbilityActorInfo* ActorInfo, 
+		const FGameplayAbilityActivationInfo ActivationInfo);
+
 private:
 	// 어빌리티 정보 캐시
 	FGameplayAbilitySpecHandle CachedHandle;

@@ -36,6 +36,7 @@ void UCYInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
     DOREPLIFETIME(UCYInventoryComponent, ItemSlots);
     DOREPLIFETIME(UCYInventoryComponent, CurrentHeldItem);
     DOREPLIFETIME(UCYInventoryComponent, bIsProcessingUse);
+	DOREPLIFETIME(UCYInventoryComponent, bIsUsingTrap); 
 }
 
 bool UCYInventoryComponent::AddItem(ACYItemBase* Item)
@@ -238,47 +239,71 @@ bool UCYInventoryComponent::UseHeldItem()
         }
         return false;
     }
+
+	// 수량이 0 이하면 사용하지 않음
+	if (CurrentHeldItem->ItemCount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Item count is 0 or less, cannot use"));
+		return false;
+	}
     
+	// 트랩 사용 중복 방지
+	if (CurrentHeldItem->ItemType == EItemType::Trap)
+	{
+		if (bIsUsingTrap)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Already using trap, ignoring duplicate call"));
+			return false;
+		}
+		bIsUsingTrap = true;
+        
+		// 0.5초 후 플래그 해제 (트랩 설치 완료 시간보다 짧게)
+		GetWorld()->GetTimerManager().SetTimer(
+			TrapUseCooldownTimer,
+			[this]() { bIsUsingTrap = false; },
+			0.5f,
+			false
+		);
+	}
+    
+	FText ItemName = CurrentHeldItem->ItemName;
     bool bSuccess = CurrentHeldItem->UseItem(Cast<ACYPlayerCharacter>(GetOwner()));
     
-    if (bSuccess && CurrentHeldItem->ItemType == EItemType::Trap)
-    {
-        // 트랩 사용 시 수량 감소
-        CurrentHeldItem->ItemCount--;
+	if (bSuccess && CurrentHeldItem->ItemType == EItemType::Consumable)
+	{
+		CurrentHeldItem->ItemCount--;
         
-        if (CurrentHeldItem->ItemCount <= 0)
-        {
-            // 아이템이 모두 소모되면 슬롯에서 제거하고 손에서도 해제
-            for (int32 i = 0; i < ItemSlots.Num(); ++i)
-            {
-                if (ItemSlots[i] == CurrentHeldItem)
-                {
-                    ItemSlots[i] = nullptr;
-                    OnInventoryChanged.Broadcast(i + 4, nullptr);
-                    break;
-                }
-            }
+		if (CurrentHeldItem->ItemCount <= 0)
+		{
+			for (int32 i = 0; i < ItemSlots.Num(); ++i)
+			{
+				if (ItemSlots[i] == CurrentHeldItem)
+				{
+					ItemSlots[i] = nullptr;
+					OnInventoryChanged.Broadcast(i + 4, nullptr);
+					break;
+				}
+			}
             
-            DetachItemFromHand(CurrentHeldItem);
-            ACYItemBase* OldHeldItem = CurrentHeldItem;
-            CurrentHeldItem = nullptr;
-            OnHeldItemChanged.Broadcast(OldHeldItem, nullptr);
+			DetachItemFromHand(CurrentHeldItem);
+			ACYItemBase* OldHeldItem = CurrentHeldItem;
+			CurrentHeldItem = nullptr;
+			OnHeldItemChanged.Broadcast(OldHeldItem, nullptr);
             
-            OldHeldItem->Destroy();
-        }
-        else
-        {
-            // 수량만 감소한 경우 인벤토리 업데이트
-            for (int32 i = 0; i < ItemSlots.Num(); ++i)
-            {
-                if (ItemSlots[i] == CurrentHeldItem)
-                {
-                    OnInventoryChanged.Broadcast(i + 4, CurrentHeldItem);
-                    break;
-                }
-            }
-        }
-    }
+			OldHeldItem->Destroy();
+		}
+		else
+		{
+			for (int32 i = 0; i < ItemSlots.Num(); ++i)
+			{
+				if (ItemSlots[i] == CurrentHeldItem)
+				{
+					OnInventoryChanged.Broadcast(i + 4, CurrentHeldItem);
+					break;
+				}
+			}
+		}
+	}
     
     return bSuccess;
 }
