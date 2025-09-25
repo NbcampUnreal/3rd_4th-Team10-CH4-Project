@@ -21,7 +21,6 @@ ACYAIDogController::ACYAIDogController()
 		SightConfig->PeripheralVisionAngleDegrees = 90.0f;    //  감지 각도
 		SightConfig->SetMaxAge(5.0f);                         // 감지 기억 시간
         
-		// 감지 대상 설정
 		SightConfig->DetectionByAffiliation.bDetectEnemies = true;
 		//여기서 감지될 예정
 		SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
@@ -53,13 +52,26 @@ void ACYAIDogController::OnPossess(APawn* InPawn)
 	// 감지 이벤트 콜백 함수 바인딩
 	AIPerceptionComponent->OnTargetPerceptionUpdated.AddDynamic(this, &ACYAIDogController::OnTargetPerceived);
 
-	// 행동 트리 및 블랙보드 실행
+	// 블랙보드 설정
 	if (BehaviorTreeAsset && BehaviorTreeAsset->BlackboardAsset)
 	{
-		if (UseBlackboard(BehaviorTreeAsset->BlackboardAsset, BlackboardComp))
-		{
-			RunBehaviorTree(BehaviorTreeAsset);
-		}
+		UseBlackboard(BehaviorTreeAsset->BlackboardAsset, BlackboardComp);
+	}
+}
+
+//행동 트리 시작
+void ACYAIDogController::StartLogic()
+{
+	if (BehaviorTreeAsset)
+	{
+		RunBehaviorTree(BehaviorTreeAsset);
+	}
+}
+void ACYAIDogController::StopLogic()
+{
+	if (BrainComponent)
+	{
+		BrainComponent->StopLogic(TEXT("Pooled"));
 	}
 }
 
@@ -84,7 +96,6 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 			// 짖기 시작
 			ControlledDog->SetBarkingState(true);
 			BlackboardComp->SetValueAsBool(FName("bIsBarking"), true);
-			StartBarkingTimer();
 		}
 	}
 	else
@@ -111,33 +122,8 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 			ControlledDog->SetBarkingState(false);
 			BlackboardComp->SetValueAsBool(FName("bIsBarking"), false);
 			BlackboardComp->SetValueAsObject(FName("Target"), nullptr);
-			StopBarkingTimer();
 		}
 	}
 }
 
 
-//디버그용 최종 버전에서는 제거 예정===================================
-void ACYAIDogController::StartBarkingTimer()
-{
-	if(GetWorld())
-	{
-		// 1초마다 BarkOnce 함수 호출 (반복)
-		GetWorld()->GetTimerManager().SetTimer(BarkingTimerHandle, this, &ACYAIDogController::BarkOnce, 1.0f, true);
-	}
-}
-
-void ACYAIDogController::StopBarkingTimer()
-{
-	if(GetWorld())
-	{
-		// 타이머 정지
-		GetWorld()->GetTimerManager().ClearTimer(BarkingTimerHandle);
-	}
-}
-
-void ACYAIDogController::BarkOnce()
-{
-
-}
-//============================================================================

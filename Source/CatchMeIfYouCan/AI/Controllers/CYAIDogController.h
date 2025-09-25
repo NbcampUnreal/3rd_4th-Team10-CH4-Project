@@ -18,6 +18,10 @@ class CATCHMEIFYOUCAN_API ACYAIDogController : public AAIController
 public:
 	ACYAIDogController();
 
+	//풀링 로직 제어
+	void StartLogic();
+	void StopLogic();
+	
 protected:
 	//빙의시 호출되는 함수
 	virtual void OnPossess(APawn* InPawn) override;
@@ -40,12 +44,6 @@ private:
 	UFUNCTION()
 	void OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus);
     
-	// 타이머 관련 함수
-	void StartBarkingTimer();
-	void StopBarkingTimer(); 
-	void BarkOnce();
-
-	// 타이머 핸들과 제어할 경비견
-	FTimerHandle BarkingTimerHandle;
+	//제어할 경비견
 	class ACYAIDogCharacter* ControlledDog;
 };

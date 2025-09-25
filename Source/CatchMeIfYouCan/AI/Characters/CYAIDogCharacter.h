@@ -7,6 +7,8 @@
 #include "Net/UnrealNetwork.h"
 #include "CYAIDogCharacter.generated.h"
 
+class ACYGuardDogPoolManager;
+
 UCLASS()
 class CATCHMEIFYOUCAN_API ACYAIDogCharacter : public ACharacter
 {
@@ -16,19 +18,19 @@ public:
 	//생성자
 	ACYAIDogCharacter();
 
-	//이동할 동선 지정용
-	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category = "AI Patrol")
+	// 레벨에 배치된 경로 액터를 지정하기 위한 변수
+	UPROPERTY(EditInstanceOnly, Replicated,BlueprintReadOnly, Category = "AI Patrol")
 	AActor* TargetPatrolPath;
 
-
 	
-	//감지 상태 설정용 함수
+	//감지 상태 변경용 함수
 	void SetBarkingState(bool bNewBarking);
 
 
 	
-	// 서버 RPC 함수 (현재 사용하지 않음 - 나중에 플레이어 상호작용 추가시 사용 만약 사용 안할시 최종 버전에서 제거할 예정)
-	// void ServerSetBarkingState(bool bNewBarking);
+	//서버 상태 설정
+	UFUNCTION(Server, Reliable)
+	void ServerSetBarkingState(bool bNewBarking);
 
 	
 	// 현재 감지 상태 확인용 함수
@@ -47,8 +49,14 @@ public:
 	void UpdateAIAnimationVariables(float NewSpeed, float NewDirection);
 
 	
-
+	//오브젝트 풀링 관련 함수
+	void ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath);
+	void DeactivateDog();
+	void SetPoolManager(ACYGuardDogPoolManager* InManager);
+	
 protected:
+	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+
 	// 감시 상태 변수(상태 변경시 ONRep_IsBarking 자동으로 호출)
 	UPROPERTY(ReplicatedUsing=ONRep_IsBarking, BlueprintReadOnly, Category= "AI State")
 	bool bIsBarking;
@@ -64,4 +72,15 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent, Category= "AI Visuals")
 	void OnStopBarkingVisuals();
+
+private:
+	UPROPERTY()
+	ACYGuardDogPoolManager* PoolManager;
+
+	// 서버에서 실제로 비활성화를 처리하는 함수
+	void DeactivateDog_Internal();
+
+	// 클라이언트에서 활성화/비활성화 시 시각 효과를 처리하기 위한 멀티캐스트 함수
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_OnStateChanged(bool bIsActive);
 };
