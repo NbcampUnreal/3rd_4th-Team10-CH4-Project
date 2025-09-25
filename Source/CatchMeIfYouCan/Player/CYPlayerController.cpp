@@ -21,7 +21,7 @@ void ACYPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
     
-	// 로컬 컨트롤러만 HUD 초기화 대기
+	// 로컬 컨트롤러만 클라이언트 side 리소스 초기화 요청 및 네트워크 타이머 동기화 체크 요청
 	if (IsLocalController())
 	{
 		UE_LOG(LogCY, Log, TEXT("PlayerController BeginPlay - Starting HUD initialization check"));
@@ -35,6 +35,23 @@ void ACYPlayerController::BeginPlay()
 	    // 첫 초기화 체크
 	    CheckClientInitialization();
 	}
+}
+
+void ACYPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    GetWorld()->GetTimerManager().ClearAllTimersForObject(this);
+    
+    Super::EndPlay(EndPlayReason);
+}
+
+void ACYPlayerController::ReceivedPlayer()
+{
+    Super::ReceivedPlayer();
+    
+    if (IsLocalController())
+    {
+        CheckNetworkTimerSync();
+    }
 }
 
 ACYPlayerState* ACYPlayerController::GetCYPlayerState() const
@@ -255,4 +272,57 @@ void ACYPlayerController::CreateTeamSpecificHUD(const UCYPawnData* PawnData)
     // 현재는 기본 HUD 사용
     HUD->InitOverlay(this, PS, ASC, VitalSet, GameState);
 
+}
+
+void ACYPlayerController::CheckNetworkTimerSync()
+{
+    if (HasAuthority())
+    {
+        ClientServerDeltaTime = 0.f;
+        return;
+    }
+    
+    ServerRequestServerTime(GetWorld()->GetTimeSeconds());
+
+    if (!GetWorld()->GetTimerManager().IsTimerActive(ResyncTimerHandle))
+    {
+        TWeakObjectPtr<ACYPlayerController> WeakThis(this);
+        GetWorld()->GetTimerManager().SetTimer(
+           ResyncTimerHandle,
+           [WeakThis]()
+           {
+               if (WeakThis.IsValid())
+               {
+                   const float LocalTime = WeakThis->GetWorld()->GetTimeSeconds();
+                   WeakThis->ServerRequestServerTime(LocalTime);
+               }
+           },
+           ResyncInterval, true
+       );
+    }
+}
+
+void ACYPlayerController::ServerRequestServerTime_Implementation(float TimeOfClientRequest)
+{
+    float ServerTimeOfReceipt = GetWorld()->GetTimeSeconds();
+    ClientReportServerTime(TimeOfClientRequest, ServerTimeOfReceipt);
+}
+
+void ACYPlayerController::ClientReportServerTime_Implementation(float TimeOfClientRequest,
+    float TimeServerReceivedClientRequest)
+{
+    float RoundTripTime = GetWorld()->GetTimeSeconds() - TimeOfClientRequest;
+    SingleTripTime = 0.5f * RoundTripTime;
+    float CurrentServerTime = TimeServerReceivedClientRequest + SingleTripTime; // 예측한 현재 서버의 시간
+    ClientServerDeltaTime = CurrentServerTime - GetWorld()->GetTimeSeconds();
+}
+
+float ACYPlayerController::GetServerTime()
+{
+    if (HasAuthority())
+    {
+        return GetWorld()->GetTimeSeconds();
+    }
+    
+    return GetWorld()->GetTimeSeconds() + ClientServerDeltaTime;
 }

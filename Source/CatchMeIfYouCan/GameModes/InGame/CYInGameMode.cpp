@@ -23,15 +23,26 @@ ACYInGameMode::ACYInGameMode(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = ACYInGameState::StaticClass();
 }
 
+void ACYInGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	CYGameState = GetGameState<ACYInGameState>();
+}
+
 void ACYInGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	
 	UE_LOG(LogCY, Warning, TEXT("========================================"));
 	UE_LOG(LogCY, Warning, TEXT("GameMode Started on SERVER"));
 	UE_LOG(LogCY, Warning, TEXT("DefaultPawnClass: %s"), *GetNameSafe(DefaultPawnClass));
 	UE_LOG(LogCY, Warning, TEXT("========================================"));
 
+	if (CYGameState)
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+	}
+	
 	CachePlayerStarts();
 	
 	UCYAssetManager::Get().LoadAllPawnData(
@@ -55,6 +66,26 @@ void ACYInGameMode::PostLogin(APlayerController* NewPlayer)
 	}
 	
 	Super::PostLogin(NewPlayer);
+
+	TryChangeInGamePhase();
+}
+
+void ACYInGameMode::Logout(AController* Exiting)
+{
+	// 팀 카운트 감소
+	if (ACYPlayerState* CYPS = Exiting->GetPlayerState<ACYPlayerState>())
+	{
+		if (CYGameState)
+		{
+			CYGameState->UpdateTeamCount(CYPS->GetTeamRole(), -1);
+		}
+	}
+
+	ConnectedPlayerCount--;
+	
+	Super::Logout(Exiting);
+
+	TryChangeInGamePhase();
 }
 
 void ACYInGameMode::AssignRandomPawnDataToPlayer(APlayerController* NewPlayer)
@@ -90,27 +121,11 @@ void ACYInGameMode::AssignRandomPawnDataToPlayer(APlayerController* NewPlayer)
 	{
 		CYPS->SetPawnData(SelectedPawnData);
 
-		if (ACYInGameState* CYGameState = GetGameState<ACYInGameState>())
+		if (CYGameState)
 		{
 			CYGameState->UpdateTeamCount(SelectedPawnData->TeamRole, 1);
 		}
 	}
-}
-
-void ACYInGameMode::Logout(AController* Exiting)
-{
-	// 팀 카운트 감소
-	if (ACYPlayerState* CYPS = Exiting->GetPlayerState<ACYPlayerState>())
-	{
-		if (ACYInGameState* CYGameState = GetGameState<ACYInGameState>())
-		{
-			CYGameState->UpdateTeamCount(CYPS->GetTeamRole(), -1);
-		}
-	}
-
-	ConnectedPlayerCount--;
-	
-	Super::Logout(Exiting);
 }
 
 UClass* ACYInGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -166,11 +181,12 @@ void ACYInGameMode::OnPawnDataLoaded()
 		}
 	}
 	PendingPlayers.Empty();
+
+	TryChangeInGamePhase();
 }
 
 ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 {
-	ACYInGameState* CYGameState = GetGameState<ACYInGameState>();
 	if (!CYGameState)
 	{
 		return ECYTeamRole::Robber;
@@ -297,5 +313,94 @@ void ACYInGameMode::CachePlayerStarts()
 	CopPlayerStarts.Sort(SortByPriority);
 	RobberPlayerStarts.Sort(SortByPriority);
 }
+
+void ACYInGameMode::TryChangeInGamePhase()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+
+	switch (CYGameState->GetCurrentGamePhase())
+	{
+	case EGamePhase::WaitingToStart:
+		{
+			if (HasRequiredRatio())
+			{
+				StartPreparing();
+			}
+			break;
+		}
+	case EGamePhase::Preparing:
+		{
+			// 준비 중에 인원 변화 했을 때 취소 처리
+			if (!HasRequiredRatio())
+			{
+				// 준비 취소 → 다시 대기
+				GetWorld()->GetTimerManager().ClearTimer(PreparingTimerHandle);
+				CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+
+				UE_LOG(LogCY, Warning, TEXT("Preparing cancelled - not enough players"))
+			}
+			break;
+		}
+	default:
+		break;
+	}
+}
+
+bool ACYInGameMode::HasRequiredRatio() const
+{
+	if (!CYGameState || CYGameState->GetCurrentGamePhase() >= EGamePhase::InProgress)
+	{
+		return false;
+	}
+	
+	const int32 Cops = CYGameState->GetCopCount();
+	const int32 Robs = CYGameState->GetRobberCount();
+
+	return Cops >= RequiredCopCount && Robs >= RequiredRobberCount;
+}
+
+void ACYInGameMode::StartPreparing()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	// 준비 시작: GameState에 서버 시각/길이 기록 + 페이즈 전환
+	CYGameState->StartPreparing_Server(PreparingCountdownSeconds);
+
+	// 카운트다운 종료 시 매치 시작
+	GetWorld()->GetTimerManager().SetTimer(
+		PreparingTimerHandle,
+		this,
+		&ThisClass::StartMatch,
+		PreparingCountdownSeconds,
+		false
+	);
+}
+
+void ACYInGameMode::StartMatch()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+
+	// 시작 직전 비율 재검증
+	if (!HasRequiredRatio())
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+		return;
+	}
+
+	// InProgress 시작: 서버 시간 기록 및 페이즈 전환
+	CYGameState->StartMatch_Server(MatchDurationSeconds);
+	CYGameState->UpdateAliveRobberCount(CYGameState->GetRobberCount());
+}
+
+
 
 

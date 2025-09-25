@@ -44,6 +44,26 @@ public:
 
 	UFUNCTION(BlueprintPure, Category= "CY|Teams")
 	int32 GetAliveRobberCount() const { return AliveRobberCount; }
+
+	UFUNCTION(BlueprintPure, Category= "CY|Phase")
+	EGamePhase GetCurrentGamePhase() const { return CurrentGamePhase; }
+
+	// 준비 시간 접근 (로컬에서 사용)
+	UFUNCTION(BlueprintPure)
+	float GetPreparingRemainingTimeLocal() const;
+
+	// 남은 게임 시간 접근 (로컬에서 사용)
+	UFUNCTION(BlueprintPure)
+	float GetMatchRemainingTimeLocal() const;
+
+	// 서버 전용 설정 함수들 (GameMode가 호출)
+	void SetGamePhase_Server(EGamePhase NewPhase);
+	// 현재 경찰과 도둑 2:1 달성 시 호출
+	void StartPreparing_Server(float InCountdownSeconds);
+	// 대기 종료 후 게임 시작시 호출
+	void StartMatch_Server(float InMatchDurationSeconds);
+
+	float GetSynchronizedServerTimeFromPC() const;
 	
 protected:
 	
@@ -59,22 +79,26 @@ protected:
 	void OnRep_GamePhase();
 
 	UFUNCTION()
-	void OnRep_RemainingTime();
+	void OnRep_PreparingEndServerTimeSeconds();
+
+	UFUNCTION()
+	void OnRep_MatchEndServerTimeSeconds();
 
 public:
+	// UI 바인딩용 델리게이트(리슨 서버 포함)
 	mutable FOnTeamCountChanged OnTeamCountChanged;
 	mutable FOnAliveRobberCountChanged OnAliveRobberCountChanged;
 	mutable FOnGamePhaseChanged OnGamePhaseChanged;
 
 private:
-    // 팀별 인원수 (네트워크 복제)
+    // 팀별 인원수
     UPROPERTY(ReplicatedUsing = OnRep_TeamCounts)
     int32 CopCount = 0;
 
     UPROPERTY(ReplicatedUsing = OnRep_TeamCounts)
     int32 RobberCount = 0;
 
-    // 남은 자유로운 도둑 수 (체포되지 않은)
+    // 잡히지 않은 도둑 수
     UPROPERTY(ReplicatedUsing = OnRep_AliveRobberCount)
     int32 AliveRobberCount = 0;
 	
@@ -82,7 +106,10 @@ private:
     UPROPERTY(ReplicatedUsing = OnRep_GamePhase)
     EGamePhase CurrentGamePhase = EGamePhase::WaitingToStart;
 
-    // 남은 시간
-    UPROPERTY(ReplicatedUsing = OnRep_RemainingTime)
-    float RemainingTime = 300.0f; // 5분
+	UPROPERTY(ReplicatedUsing=OnRep_PreparingEndServerTimeSeconds)
+	float PreparingEndServerTimeSeconds = 0.f;
+
+	UPROPERTY(ReplicatedUsing=OnRep_MatchEndServerTimeSeconds)
+	float MatchEndServerTimeSeconds = 0.f;
+	
 };
