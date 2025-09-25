@@ -5,6 +5,7 @@
 
 #include "CYLogChannels.h"
 #include "Net/UnrealNetwork.h"
+#include "Player/CYPlayerController.h"
 
 ACYInGameState::ACYInGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -19,8 +20,10 @@ void ACYInGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(ThisClass, CopCount);
 	DOREPLIFETIME(ThisClass, RobberCount);
 	DOREPLIFETIME(ThisClass, AliveRobberCount);
+	
 	DOREPLIFETIME(ThisClass, CurrentGamePhase);
-	DOREPLIFETIME(ThisClass, RemainingTime);
+	DOREPLIFETIME(ThisClass, PreparingStartServerTimeSeconds);
+	DOREPLIFETIME(ThisClass, MatchStartServerTimeSeconds);
 }
 
 void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
@@ -79,6 +82,81 @@ float ACYInGameState::GetCopRatio() const
 	return static_cast<float>(CopCount) / static_cast<float>(TotalPlayers);
 }
 
+float ACYInGameState::GetPreparingRemainingTimeLocal() const
+{
+	const float CurrentLocalPredictedTime = GetSynchronizedServerTimeFromPC();
+	const float ElapsedTime = FMath::Max(0.f, CurrentLocalPredictedTime - PreparingStartServerTimeSeconds);
+	return FMath::Max(0.f, PreparingDurationSeconds - ElapsedTime);
+}
+
+float ACYInGameState::GetMatchRemainingTimeLocal() const
+{
+	const float CurrentLocalPredictedTime = GetSynchronizedServerTimeFromPC();
+	const float ElapsedTime = FMath::Max(0.f, CurrentLocalPredictedTime - MatchStartServerTimeSeconds);
+	return FMath::Max(0.f, MatchDurationSeconds - ElapsedTime);
+}
+
+void ACYInGameState::SetGamePhase_Server(EGamePhase NewPhase)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	if (CurrentGamePhase == NewPhase)
+	{
+		return;
+	}
+	
+	CurrentGamePhase = NewPhase;
+	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+}
+
+void ACYInGameState::StartPreparing_Server(float InCountdownSeconds)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	
+	PreparingDurationSeconds = InCountdownSeconds;
+	PreparingStartServerTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	
+	SetGamePhase_Server(EGamePhase::Preparing);
+}
+
+void ACYInGameState::StartMatch_Server(float InMatchDurationSeconds)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+
+	MatchDurationSeconds = InMatchDurationSeconds;
+	MatchStartServerTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	
+	SetGamePhase_Server(EGamePhase::InProgress);
+}
+
+float ACYInGameState::GetSynchronizedServerTimeFromPC() const
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return 0.f;
+	}
+
+	if (APlayerController* PC = World->GetFirstPlayerController())
+	{
+		if (ACYPlayerController* CYPC = Cast<ACYPlayerController>(PC))
+		{
+			return CYPC->GetServerTime();
+		}
+	}
+
+	// 아직 클라에서 PC가 생성되지 않은 경우 기본적인 로컬 시간 반환
+	return World->GetTimeSeconds();
+}
+
 void ACYInGameState::OnRep_TeamCounts()
 {
 	OnTeamCountChanged.Broadcast(CopCount, RobberCount);
@@ -94,7 +172,12 @@ void ACYInGameState::OnRep_GamePhase()
 	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
 }
 
-void ACYInGameState::OnRep_RemainingTime()
+void ACYInGameState::OnRep_PreparingStartServerTimeSeconds()
 {
-	// UI 업데이트는 위젯에서 직접 처리
+	// TODO : UI 연동 필요시 여기서 브로드캐스트 호출 가능
+}
+
+void ACYInGameState::OnRep_MatchStartServerTimeSeconds()
+{
+	// TODO : UI 연동 필요시 여기서 브로드캐스트 호출 가능
 }

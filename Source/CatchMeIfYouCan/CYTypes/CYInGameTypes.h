@@ -12,6 +12,7 @@ UENUM(BlueprintType)
 enum class EGamePhase : uint8
 {
 	WaitingToStart  UMETA(DisplayName = "Waiting To Start"),
+	Preparing       UMETA(DisplayName = "Preparing"),
 	InProgress      UMETA(DisplayName = "In Progress"),
 	CopsWin         UMETA(DisplayName = "Cops Win"),
 	RobbersWin      UMETA(DisplayName = "Robbers Win")
