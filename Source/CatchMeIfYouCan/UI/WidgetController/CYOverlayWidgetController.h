@@ -4,16 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "CYWidgetController.h"
+#include "CYWidgetDelegates.h"
 #include "CYOverlayWidgetController.generated.h"
 
 struct FOnAttributeChangeData;
-
-// Attribute 변경을 브로드캐스트하기 위한 델리게이트 선언
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float, NewHealth);
-
-// 인게임 정보 델리게이트
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTeamCountInfoChanged, int32, CopCount, int32, RobberCount);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAliveRobberCountInfoChanged, int32, AliveCount);
 
 /**
  * 메인 HUD UI를 관리하는 위젯 컨트롤러
