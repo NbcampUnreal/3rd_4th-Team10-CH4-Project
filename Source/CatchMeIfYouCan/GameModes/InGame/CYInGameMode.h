@@ -59,7 +59,7 @@ private:
 	void TryChangeInGamePhase();
 
 	// 2:1 비율 확인
-	bool HasRequiredRatio_2to1() const;
+	bool HasRequiredRatio() const;
 
 	void StartPreparing();        
 	void StartMatch();           
@@ -77,6 +77,12 @@ private:
     
 	UPROPERTY()
 	TArray<ACYPlayerStart*> RobberPlayerStarts;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", Meta = (ClampMin="1", ClampMax="6"))
+	int32 RequiredCopCount = 1;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", Meta = (ClampMin="1", ClampMax="6"))
+	int32 RequiredRobberCount = 2;
 	
 	// PawnData 로드 완료 여부
 	bool bPawnDataLoaded = false;

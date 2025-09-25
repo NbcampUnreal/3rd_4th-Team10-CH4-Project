@@ -79,11 +79,10 @@ protected:
 	void OnRep_GamePhase();
 
 	UFUNCTION()
-	void OnRep_PreparingStartServerTimeSeconds();
+	void OnRep_PreparingEndServerTimeSeconds();
 
 	UFUNCTION()
-	void OnRep_MatchStartServerTimeSeconds();
-
+	void OnRep_MatchEndServerTimeSeconds();
 
 public:
 	// UI 바인딩용 델리게이트(리슨 서버 포함)
@@ -107,15 +106,10 @@ private:
     UPROPERTY(ReplicatedUsing = OnRep_GamePhase)
     EGamePhase CurrentGamePhase = EGamePhase::WaitingToStart;
 
-	// 준비 단계: 시작 시각(서버 월드시각)
-	UPROPERTY(ReplicatedUsing=OnRep_PreparingStartServerTimeSeconds)
-	float PreparingStartServerTimeSeconds = 0.f;
+	UPROPERTY(ReplicatedUsing=OnRep_PreparingEndServerTimeSeconds)
+	float PreparingEndServerTimeSeconds = 0.f;
 
-	float PreparingDurationSeconds = 0.f;
-
-	// 매치: 시작 시각(서버 월드시각)
-	UPROPERTY(ReplicatedUsing=OnRep_MatchStartServerTimeSeconds)
-	float MatchStartServerTimeSeconds = 0.f;
-
-	float MatchDurationSeconds = 0.f;
+	UPROPERTY(ReplicatedUsing=OnRep_MatchEndServerTimeSeconds)
+	float MatchEndServerTimeSeconds = 0.f;
+	
 };

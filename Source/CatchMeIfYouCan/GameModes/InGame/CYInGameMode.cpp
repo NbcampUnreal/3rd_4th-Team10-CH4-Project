@@ -325,7 +325,7 @@ void ACYInGameMode::TryChangeInGamePhase()
 	{
 	case EGamePhase::WaitingToStart:
 		{
-			if (HasRequiredRatio_2to1())
+			if (HasRequiredRatio())
 			{
 				StartPreparing();
 			}
@@ -334,11 +334,13 @@ void ACYInGameMode::TryChangeInGamePhase()
 	case EGamePhase::Preparing:
 		{
 			// 준비 중에 인원 변화 했을 때 취소 처리
-			if (!HasRequiredRatio_2to1())
+			if (!HasRequiredRatio())
 			{
 				// 준비 취소 → 다시 대기
 				GetWorld()->GetTimerManager().ClearTimer(PreparingTimerHandle);
 				CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+
+				UE_LOG(LogCY, Warning, TEXT("Preparing cancelled - not enough players"))
 			}
 			break;
 		}
@@ -347,7 +349,7 @@ void ACYInGameMode::TryChangeInGamePhase()
 	}
 }
 
-bool ACYInGameMode::HasRequiredRatio_2to1() const
+bool ACYInGameMode::HasRequiredRatio() const
 {
 	if (!CYGameState || CYGameState->GetCurrentGamePhase() >= EGamePhase::InProgress)
 	{
@@ -357,15 +359,7 @@ bool ACYInGameMode::HasRequiredRatio_2to1() const
 	const int32 Cops = CYGameState->GetCopCount();
 	const int32 Robs = CYGameState->GetRobberCount();
 
-	// 최소 인원 체크
-	if (Cops < 2 || Robs < 1)
-	{
-		return false;
-	}
-
-	// “2:1 상태” 
-
-	return (static_cast<float>(Cops) / static_cast<float>(Robs)) >= 2.f;
+	return Cops >= RequiredCopCount && Robs >= RequiredRobberCount;
 }
 
 void ACYInGameMode::StartPreparing()
@@ -396,7 +390,7 @@ void ACYInGameMode::StartMatch()
 	}
 
 	// 시작 직전 비율 재검증
-	if (!HasRequiredRatio_2to1())
+	if (!HasRequiredRatio())
 	{
 		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
 		return;

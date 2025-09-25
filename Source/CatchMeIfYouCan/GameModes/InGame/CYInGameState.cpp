@@ -20,10 +20,10 @@ void ACYInGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(ThisClass, CopCount);
 	DOREPLIFETIME(ThisClass, RobberCount);
 	DOREPLIFETIME(ThisClass, AliveRobberCount);
-	
 	DOREPLIFETIME(ThisClass, CurrentGamePhase);
-	DOREPLIFETIME(ThisClass, PreparingStartServerTimeSeconds);
-	DOREPLIFETIME(ThisClass, MatchStartServerTimeSeconds);
+	
+	DOREPLIFETIME(ThisClass, PreparingEndServerTimeSeconds);
+	DOREPLIFETIME(ThisClass, MatchEndServerTimeSeconds);
 }
 
 void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
@@ -85,15 +85,13 @@ float ACYInGameState::GetCopRatio() const
 float ACYInGameState::GetPreparingRemainingTimeLocal() const
 {
 	const float CurrentLocalPredictedTime = GetSynchronizedServerTimeFromPC();
-	const float ElapsedTime = FMath::Max(0.f, CurrentLocalPredictedTime - PreparingStartServerTimeSeconds);
-	return FMath::Max(0.f, PreparingDurationSeconds - ElapsedTime);
+	return FMath::Max(0.f, PreparingEndServerTimeSeconds - CurrentLocalPredictedTime);
 }
 
 float ACYInGameState::GetMatchRemainingTimeLocal() const
 {
 	const float CurrentLocalPredictedTime = GetSynchronizedServerTimeFromPC();
-	const float ElapsedTime = FMath::Max(0.f, CurrentLocalPredictedTime - MatchStartServerTimeSeconds);
-	return FMath::Max(0.f, MatchDurationSeconds - ElapsedTime);
+	return FMath::Max(0.f, MatchEndServerTimeSeconds - CurrentLocalPredictedTime);
 }
 
 void ACYInGameState::SetGamePhase_Server(EGamePhase NewPhase)
@@ -118,8 +116,8 @@ void ACYInGameState::StartPreparing_Server(float InCountdownSeconds)
 		return;
 	}
 	
-	PreparingDurationSeconds = InCountdownSeconds;
-	PreparingStartServerTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	const float StartPreparingTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	PreparingEndServerTimeSeconds = StartPreparingTime + InCountdownSeconds; 
 	
 	SetGamePhase_Server(EGamePhase::Preparing);
 }
@@ -131,8 +129,8 @@ void ACYInGameState::StartMatch_Server(float InMatchDurationSeconds)
 		return;
 	}
 
-	MatchDurationSeconds = InMatchDurationSeconds;
-	MatchStartServerTimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	const float StartMatchTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.f;
+	MatchEndServerTimeSeconds = StartMatchTime + InMatchDurationSeconds;
 	
 	SetGamePhase_Server(EGamePhase::InProgress);
 }
@@ -172,12 +170,18 @@ void ACYInGameState::OnRep_GamePhase()
 	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
 }
 
-void ACYInGameState::OnRep_PreparingStartServerTimeSeconds()
+void ACYInGameState::OnRep_PreparingEndServerTimeSeconds()
 {
-	// TODO : UI 연동 필요시 여기서 브로드캐스트 호출 가능
+	// 서버에서 가끔씩 페이즈별 종료 타이머를 복제
+	// OverlayWidgetController(로컬 UI)에서 타이머 로직을 수행해 서버 부담을 줄이는 구조로 만들어 봄
+
+	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
 }
 
-void ACYInGameState::OnRep_MatchStartServerTimeSeconds()
+void ACYInGameState::OnRep_MatchEndServerTimeSeconds()
 {
-	// TODO : UI 연동 필요시 여기서 브로드캐스트 호출 가능
+	// 서버에서 가끔씩 페이즈별 종료 타이머를 복제
+	// OverlayWidgetController(로컬 UI)에서 타이머 로직을 수행해 서버 부담을 줄이는 구조로 만들어 봄
+
+	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
 }
