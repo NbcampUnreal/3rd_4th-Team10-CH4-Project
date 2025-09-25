@@ -1,15 +1,12 @@
 #pragma once
-#include "CoreMinimal.h"
 #include "CYWidgetDelegates.generated.h"
 
-USTRUCT(BlueprintType)
-struct FSkillCooldowns
-{
-	GENERATED_BODY()
+// UENUM(BlueprintType)인 열거형 사용 for BP
+UENUM(BlueprintType)
+enum class ECYGamePhase : uint8 { Lobby, Loading, InProgress, Ending };
 
-	UPROPERTY(BlueprintReadOnly)
-	TMap<FName, float> Values;
-};
+UENUM(BlueprintType)
+enum class ECYTeamRole : uint8 { Cop, Robber };
 
 // ===== UI 데이터 변경 감지 델리게이트 선언 =====
 
@@ -19,8 +16,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAttributeChangedSignature, float,
 // 인게임 정보 델리게이트
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTeamCountInfoChanged, int32, CopCount, int32, RobberCount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAliveRobberCountInfoChanged, int32, AliveCount);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnTimeChanged, float, RemainingSeconds);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChangedSignature, EGamePhase, NewPhase);
 
 // 능력치 (Attribute) 관련
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHealthChanged, float, NewValue);
@@ -30,10 +25,10 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMaxHealthChanged, float, NewValue
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnTeamCountChanged, int32, CopCount, int32, RobberCount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAliveRobberChanged, int32, AliveRobber);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRemainingTimeChanged, float, Seconds);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChanged, EGamePhase, NewPhase);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChanged, ECYGamePhase, NewPhase);
 
 // 플레이어 상태 (PlayerState/Character) 관련
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRoleChanged, ECYTeamRole, NewRole);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnJailProgressChanged, bool, bInJail, float, Progress01);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSkillCooldownsChanged, const FSkillCooldowns&, Cooldowns);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSkillCooldownsChanged, TMap<FName, float>, Cooldowns);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPromptChanged, FText, PromptText);
