@@ -27,6 +27,6 @@ public:
 	UCYAbilitySystemComponent* GetCYAbilitySystemComponent() const;
 
 protected:
-
+	virtual void BeginPlay() override;
 	virtual void PostProcessInput(const float DeltaTime, const bool bGamePaused) override;
 };

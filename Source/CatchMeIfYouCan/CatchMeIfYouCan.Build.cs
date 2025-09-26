@@ -18,7 +18,9 @@ public class CatchMeIfYouCan : ModuleRules
 			"GameplayAbilities", 
 			"GameplayTags", 
 			"GameplayTasks", 
-			"UMG" 
+			"UMG",
+			"OnlineSubsystem",      
+			"OnlineSubsystemUtils"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
