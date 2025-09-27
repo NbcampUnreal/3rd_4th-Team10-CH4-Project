@@ -5,4 +5,5 @@
 namespace CYGameplayTags
 {
 	CATCHMEIFYOUCAN_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Action_Jump);
+	CATCHMEIFYOUCAN_API UE_DECLARE_GAMEPLAY_TAG_EXTERN(Status_Action_AbilityInteract);
 }

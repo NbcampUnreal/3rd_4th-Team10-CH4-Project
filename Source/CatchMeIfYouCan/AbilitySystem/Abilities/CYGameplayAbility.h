@@ -6,11 +6,13 @@
 #include "Abilities/GameplayAbility.h"
 #include "CYGameplayAbility.generated.h"
 
+class UInputAction;
 class ACYCharacterBase;
 
 UENUM(BlueprintType)
 enum class ECYAbilityActivationPolicy : uint8
 {
+	Manual,
 	OnInputTriggered, //Input이 Trigger 되었을 경우 (Pressed/Released) 
 	WhileInputActive, // Input이 Held되어 있을 경우 
 	OnSpawn, // avatar가 생성되었을 경우 바로 할당(패시브 스킬 등) 
@@ -30,6 +32,12 @@ public:
 
 	ACYCharacterBase* GetCYCharacterFromActorInfo() const;
 	ECYAbilityActivationPolicy GetActivationPolicy() const { return ActivationPolicy; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Ability")
+	AController* GetControllerFromActorInfo() const;
+
+	UFUNCTION(BlueprintCallable)
+	void FlushPressedInput(UInputAction* InputAction);
 
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "CY|AbilityActivation")
