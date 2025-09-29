@@ -14,6 +14,7 @@ namespace CYGameplayTags
 	// State Tags
 	UE_DEFINE_GAMEPLAY_TAG(State_Combat_Attacking, "State.Combat.Attacking");
 	UE_DEFINE_GAMEPLAY_TAG(State_Stunned, "State.Stunned");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Stunned, "Ability.Stunned");
 	UE_DEFINE_GAMEPLAY_TAG(State_Captured, "State.Captured");
 	UE_DEFINE_GAMEPLAY_TAG(State_Jail, "State.Jail");
 	UE_DEFINE_GAMEPLAY_TAG(State_Free, "State.Free");

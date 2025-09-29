@@ -134,3 +134,22 @@ UGE_DamageTrap::UGE_DamageTrap()
     
 	UE_LOG(LogTemp, Warning, TEXT("DamageTrap GE created"));
 }
+
+UGE_Heal::UGE_Heal()
+{
+	DurationPolicy = EGameplayEffectDurationType::Instant;
+    
+	// Health 회복
+	FGameplayModifierInfo HealthModifier;
+	HealthModifier.Attribute = UCYVitalSet::GetHealthAttribute();
+	HealthModifier.ModifierOp = EGameplayModOp::Additive;
+    
+	// SetByCaller로 동적 회복량 설정
+	FSetByCallerFloat SetByCallerData;
+	SetByCallerData.DataName = FName("HealAmount");
+	HealthModifier.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCallerData);
+    
+	Modifiers.Add(HealthModifier);
+    
+	UE_LOG(LogTemp, Warning, TEXT("Heal GE created"));
+}

@@ -1,5 +1,6 @@
 #include "CYVitalSet.h"
 #include "GameplayEffectExtension.h"
+#include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 
@@ -39,22 +40,41 @@ void UCYVitalSet::HandleHealthChange()
 	// Health를 0과 MaxHealth 사이로 제한
 	SetHealth(FMath::Clamp(NewHealth, 0.0f, GetMaxHealth()));
 
+	AActor* Owner = GetOwningActor();
+	if (!Owner) return;
+
+	// 서버인 경우만 실행
+	if (!Owner->HasAuthority())
+	{
+		return;
+	}
+
 	// 사망 처리
 	if (GetHealth() <= 0.0f)
 	{
-		if (AActor* Owner = GetOwningActor())
-		{
-			UE_LOG(LogTemp, Warning, TEXT("%s has died (Health: %.1f)"), *Owner->GetName(), GetHealth());
+		UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
+		if (!ASC) return;
 
-			// State_Stunned 태그 부여
-			if (UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent())
-			{
-				FGameplayTagContainer TagsToAdd;
-				TagsToAdd.AddTag(CYGameplayTags::State_Stunned);
-				ASC->AddLooseGameplayTags(TagsToAdd);
-			}
-            
-			// 여기에 사망 이벤트 처리 추가 가능
+		// 이미 Stunned 상태면 중복 처리 안 함
+		if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
+		{
+			return;
+		}
+
+		UE_LOG(LogTemp, Warning, TEXT("[Server] %s has died (Health: %.1f)"), 
+			*Owner->GetName(), GetHealth());
+
+		// State_Stunned 태그 부여
+		FGameplayTagContainer TagsToAdd;
+		TagsToAdd.AddTag(CYGameplayTags::State_Stunned);
+		ASC->AddLooseGameplayTags(TagsToAdd);
+
+		// Stunned Ability 활성화
+		if (UCYAbilitySystemComponent* CYASC = Cast<UCYAbilitySystemComponent>(ASC))
+		{
+			bool bActivated = CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
+			UE_LOG(LogTemp, Warning, TEXT("[Server] Stunned ability activation: %s"), 
+				bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
 		}
 	}
 	else
@@ -67,15 +87,13 @@ void UCYVitalSet::HandleHealthChange()
 				FGameplayTagContainer TagsToRemove;
 				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
 				ASC->RemoveLooseGameplayTags(TagsToRemove);
+				
+				UE_LOG(LogTemp, Warning, TEXT("[Server] Stunned tag removed due to health recovery"));
 			}
 		}
 		
-		// Health 변경 로그
-		if (AActor* Owner = GetOwningActor())
-		{
-			UE_LOG(LogTemp, Log, TEXT("%s Health changed: %.1f/%.1f"), 
-				   *Owner->GetName(), GetHealth(), GetMaxHealth());
-		}
+		UE_LOG(LogTemp, Log, TEXT("[Server] %s Health changed: %.1f/%.1f"), 
+			   *Owner->GetName(), GetHealth(), GetMaxHealth());
 	}
 }
 
