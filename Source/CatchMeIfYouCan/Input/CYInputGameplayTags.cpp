@@ -25,4 +25,5 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_Ability_Jump, "InputTag.Ability.Jump");
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_Ability_WeaponAttack, "InputTag.Ability.WeaponAttack");
 	UE_DEFINE_GAMEPLAY_TAG(InputTag_Ability_PlaceTrap, "InputTag.Ability.PlaceTrap");
+	UE_DEFINE_GAMEPLAY_TAG(InputTag_Ability_AbilityInteract, "InputTag.Ability.AbilityInteract");
 }

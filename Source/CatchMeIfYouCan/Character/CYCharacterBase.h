@@ -6,6 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "AbilitySystem/CYAbilitySet.h"
 #include "GameFramework/Character.h"
+#include "Interaction/CYInteractable.h"
 #include "CYCharacterBase.generated.h"
 
 class UCYAbilitySet;
@@ -17,14 +18,14 @@ class UCYWeaponComponent;
 class UCYCombatAttributeSet;
 
 UCLASS(Abstract)
-class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilitySystemInterface
+class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilitySystemInterface, public ICYInteractable
 {
 	GENERATED_BODY()
 
 public:
 	ACYCharacterBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
-
+	
 	// Item 컴포넌트 추가
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Components")
 	UCYInventoryComponent* InventoryComponent;
@@ -46,6 +47,15 @@ public:
 	void UseInventorySlot(int32 SlotIndex);
 	
 	void TryInitializeAbilitySetsWithPawnData();
+
+	UFUNCTION(BlueprintCallable, Category = "CY|AbilitySystem")
+	void AddGameplayTag(const FGameplayTag& Tag);
+
+	UFUNCTION(BlueprintCallable, Category = "CY|AbilitySystem")
+	void RemoveGameplayTag(const FGameplayTag& Tag);
+
+	UFUNCTION(BlueprintCallable, Category = "CY|AbilitySystem")
+	bool HasGameplayTag(const FGameplayTag& Tag) const;
 	
 protected:
 	virtual void BeginPlay() override;
@@ -56,7 +66,17 @@ protected:
 	void InitializeAbilitySets();
 	void RemoveAbilitySets();
 
+	void SyncInteractCapsuleSizeToRootCapsule() const;
+
 protected:
+	UPROPERTY(VisibleAnywhere, Category="CY|Interaction")
+	UCapsuleComponent* InteractCapsule;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
+	float InteractCapsuleRadiusOffset = 0.f;    
+	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
+	float InteractCapsuleHalfHeightOffset = 0.f; 
+	
 	// 약참조로 ASC 관리(Player의 경우 PlayerState의 ASC를 사용, AI의 경우 Character의 ASC를 사용)
 	TWeakObjectPtr<UCYAbilitySystemComponent> CYAbilitySystemComponent;
 	

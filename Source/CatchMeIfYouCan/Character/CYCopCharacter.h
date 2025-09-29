@@ -15,6 +15,12 @@ public:
 
 	ACYCopCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
+	// Begin ICYInteractable Interface
+	virtual FCYInteractionInfo GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const override;
+	virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
+	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
+	// End ICYInteractable Interface
+
 protected:
 	
 	virtual void BeginPlay() override;
