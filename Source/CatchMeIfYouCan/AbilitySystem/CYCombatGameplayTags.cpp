@@ -5,6 +5,7 @@ namespace CYGameplayTags
 	// Combat Ability Tags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Combat_WeaponAttack, "Ability.Combat.WeaponAttack");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Combat_PlaceTrap, "Ability.Combat.PlaceTrap");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Combat_WeaponAttack, "Event.Combat.WeaponAttack");
 
 	// Team Tags
 	UE_DEFINE_GAMEPLAY_TAG(Team_Cop, "Team.Cop");

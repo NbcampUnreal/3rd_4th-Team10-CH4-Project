@@ -46,6 +46,8 @@ bool UCYWeaponComponent::EquipWeapon(ACYWeaponBase* Weapon)
 	{
 		Weapon->InteractionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
+	UpdateAnimationBlueprint();
     
 	OnWeaponChanged.Broadcast(nullptr, CurrentWeapon);
     
@@ -66,10 +68,48 @@ bool UCYWeaponComponent::UnequipWeapon()
 	OldWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentWeapon = nullptr;
 
+	// 애니메이션 블루프린트를 맨손 상태로 변경
+	UpdateAnimationBlueprint();
+
 	OnWeaponChanged.Broadcast(OldWeapon, nullptr);
     
 	UE_LOG(LogTemp, Warning, TEXT("Weapon unequipped: %s"), *OldWeapon->ItemName.ToString());
 	return true;
+}
+
+void UCYWeaponComponent::UpdateAnimationBlueprint()
+{
+	USkeletalMeshComponent* OwnerMesh = GetOwnerMesh();
+	if (!OwnerMesh)
+	{
+		return;
+	}
+
+	TSubclassOf<UAnimInstance> TargetAnimBP = UnarmedAnimBP; // 기본값: 맨손
+
+	if (CurrentWeapon)
+	{
+		// 무기별 애니메이션 블루프린트 찾기
+		TSubclassOf<ACYWeaponBase> WeaponClass = CurrentWeapon->GetClass();
+		if (TSubclassOf<UAnimInstance>* FoundAnimBP = WeaponAnimBPMap.Find(WeaponClass))
+		{
+			TargetAnimBP = *FoundAnimBP;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No animation blueprint found for weapon: %s"), 
+				   *WeaponClass->GetName());
+		}
+	}
+
+	if (TargetAnimBP)
+	{
+		// Link Anim Class Layers 사용
+		OwnerMesh->LinkAnimClassLayers(TargetAnimBP);
+        
+		UE_LOG(LogTemp, Warning, TEXT("Animation blueprint changed to: %s"), 
+			   *TargetAnimBP->GetName());
+	}
 }
 
 UCYAbilitySystemComponent* UCYWeaponComponent::GetOwnerAbilitySystemComponent() const
@@ -121,4 +161,7 @@ void UCYWeaponComponent::OnRep_CurrentWeapon()
 	{
 		UE_LOG(LogTemp, Log, TEXT("Client weapon unequipped"));
 	}
+
+	// 클라이언트에서도 애니메이션 블루프린트 변경
+	UpdateAnimationBlueprint();
 }
