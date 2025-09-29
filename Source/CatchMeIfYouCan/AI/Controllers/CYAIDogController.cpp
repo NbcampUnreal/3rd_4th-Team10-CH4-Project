@@ -9,6 +9,8 @@
 
 ACYAIDogController::ACYAIDogController()
 {
+	bReplicates = true;
+	
 	// 감지 컴포넌트 생성 및 설정
 	AIPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
 	UAISenseConfig_Sight* SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
@@ -88,6 +90,11 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 
 	if (bIsSensed)
 	{
+		//만약 감지된 액터 배열에 있다면 타이머 초기화
+		CancelDelayTimer(Actor);
+		//모든 캐릭터에 아웃라인 실행
+		ControlledDog->Multicast_SetTargetOutline(Actor, true);
+		
 		// 새로운 대상 감지시 처리
 		BlackboardComp->SetValueAsObject(FName("Target"), Actor);
         
@@ -96,6 +103,7 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 			// 짖기 시작
 			ControlledDog->SetBarkingState(true);
 			BlackboardComp->SetValueAsBool(FName("bIsBarking"), true);
+			StartBarkingTimer();
 		}
 	}
 	else
@@ -111,6 +119,7 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 			{
 				// 다른 thief 발견시 그것을 새 타겟으로 설정
 				bIsOtherThiefVisible = true;
+				ControlledDog->Multicast_SetTargetOutline(PerceivedActor, true);
 				BlackboardComp->SetValueAsObject(FName("Target"), PerceivedActor);
 				break;
 			}
@@ -119,11 +128,87 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 		// 시야에 thief가 아무도 없을 때만 짖기 중단
 		if (!bIsOtherThiefVisible)
 		{
+			StartOutlineDelayTimer(Actor);
 			ControlledDog->SetBarkingState(false);
 			BlackboardComp->SetValueAsBool(FName("bIsBarking"), false);
 			BlackboardComp->SetValueAsObject(FName("Target"), nullptr);
+			StopBarkingTimer();
+		}
+		else
+		{
+			StartOutlineDelayTimer(Actor);
 		}
 	}
 }
 
+void ACYAIDogController::StartOutlineDelayTimer(AActor* TargetActor)
+{
+	CancelDelayTimer(TargetActor);
+	
+	FDelayedOutlineTarget NewDelayTarget;
+	NewDelayTarget.TargetActor = TargetActor;
+	
+	TWeakObjectPtr<AActor> TargetActorPtr = TargetActor;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		NewDelayTarget.DelayTimer,
+		[this, TargetActorPtr]()
+		{
+			if (TargetActorPtr.IsValid())
+			{
+				RemoveOutlineFromTarget(TargetActorPtr.Get());
+			}
+		},
+		5.0f,
+		false
+	);
+	
+	DelayedOutlineTargets.Add(NewDelayTarget);
+}
+
+void ACYAIDogController::RemoveOutlineFromTarget(AActor* TargetActor)
+{
+	if (TargetActor && IsValid(TargetActor) && ControlledDog)
+	{
+		ControlledDog->Multicast_SetTargetOutline(TargetActor, false);
+	}
+
+	DelayedOutlineTargets.RemoveAll([TargetActor](const FDelayedOutlineTarget& Target) {
+		return Target.TargetActor == TargetActor;
+	});
+}
+
+void ACYAIDogController::CancelDelayTimer(AActor* TargetActor)
+{
+	for (int32 i = DelayedOutlineTargets.Num() - 1; i >= 0; --i)
+	{
+		if (DelayedOutlineTargets[i].TargetActor == TargetActor)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(DelayedOutlineTargets[i].DelayTimer);
+			DelayedOutlineTargets.RemoveAt(i);
+			break;
+		}
+	}
+}
+
+void ACYAIDogController::StartBarkingTimer()
+{
+	if(GetWorld())
+	{
+       GetWorld()->GetTimerManager().SetTimer(BarkingTimerHandle, this, &ACYAIDogController::BarkOnce, 1.0f, true);
+	}
+}
+
+void ACYAIDogController::StopBarkingTimer()
+{
+	if(GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(BarkingTimerHandle);
+	}
+}
+
+void ACYAIDogController::BarkOnce()
+{
+	//
+}
 

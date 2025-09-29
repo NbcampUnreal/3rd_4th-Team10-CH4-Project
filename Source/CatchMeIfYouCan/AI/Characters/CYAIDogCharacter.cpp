@@ -9,7 +9,8 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
-
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 // Sets default values
 ACYAIDogCharacter::ACYAIDogCharacter()
@@ -35,6 +36,7 @@ ACYAIDogCharacter::ACYAIDogCharacter()
 	
 }
 
+
 void ACYAIDogCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -46,6 +48,31 @@ void ACYAIDogCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ThisClass, TargetPatrolPath);//패스
 
 }
+//아웃라인 함수 구현
+void ACYAIDogCharacter::Multicast_SetTargetOutline_Implementation(AActor* TargetActor, bool bEnable)
+{
+	//타겟이 유효하지 않을시 리턴
+	if (!TargetActor|| !IsValid(TargetActor))return;
+
+	//컴포넌트 가져오기
+	UPrimitiveComponent* MeshComponent = TargetActor->FindComponentByClass<USkeletalMeshComponent>();
+	if (!MeshComponent)
+	{
+		MeshComponent = TargetActor->FindComponentByClass<UStaticMeshComponent>();
+	}
+	
+	//커스텀 뎁스 렌더링 및 스텐실 값 설정
+	if (MeshComponent)
+	{
+		MeshComponent->SetRenderCustomDepth(bEnable);
+		if (bEnable)
+		{
+			MeshComponent->SetCustomDepthStencilValue(1);
+		}
+	}
+}
+
+
 
 //풀 매니저 설정
 void ACYAIDogCharacter::SetPoolManager(ACYGuardDogPoolManager* InManager)
@@ -105,6 +132,12 @@ void ACYAIDogCharacter::DeactivateDog_Internal()
 	ACYAIDogController* DogController= Cast<ACYAIDogController>(GetController());
 	if (DogController)
 	{
+		//비활성화 시 타겟의 아웃라인을 끄도록 처리
+		if (AActor* CurrentTarget = Cast<AActor>(DogController->GetBlackboardComponent()->GetValueAsObject(FName("Target"))))
+		{
+			Multicast_SetTargetOutline(CurrentTarget, false);
+		}
+		
 		DogController->StopLogic();
 
 		// 블랙보드 상태 리셋

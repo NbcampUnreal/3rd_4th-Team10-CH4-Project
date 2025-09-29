@@ -21,5 +21,5 @@ protected:
 
 private:
 	UPROPERTY(EditAnywhere, Category = "AI")
-	float PatrolSpeed = 150.0f;
+	float PatrolSpeed = 300.0f;
 };

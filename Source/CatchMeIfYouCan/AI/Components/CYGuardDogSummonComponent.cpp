@@ -52,6 +52,7 @@ void UCYGuardDogSummonComponent::EndPlay(const EEndPlayReason::Type EndPlayReaso
 	{
 		DismissAllDogs();
 	}
+	Super::EndPlay(EndPlayReason);
 }
 
 void UCYGuardDogSummonComponent::SummonGuardDogs(FVector SpawnLocation)
@@ -76,8 +77,17 @@ void UCYGuardDogSummonComponent::ServerSummonGuardDogs_Implementation(FVector Sp
 void UCYGuardDogSummonComponent::ServerExecuteSummon(FVector SpawnLocation)
 {
 	//서버가 아니면 리턴 및 소환 가능한 상태인지 확인
-	if (!GetOwner()||!GetOwner()->HasAuthority()) return;
-	if (!CanSummon() || ActiveDogs.Num() > 0) return;
+	if (!GetOwner()||!GetOwner()->HasAuthority())
+	{
+		UE_LOG(LogTemp, Error, TEXT("서버 인지 확인 및 컴포넌트 소유 액터 존재 확인"));
+
+		return;
+	}
+	if (!CanSummon() || ActiveDogs.Num() > 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("소환된 개 있는지 확인"));
+		return;
+	}
 
 	// 소환 중인지 확인
 	if (GetWorld()->GetTimerManager().IsTimerActive(StaggeredSummonTimerHandle))
@@ -210,7 +220,50 @@ void UCYGuardDogSummonComponent::ServerDismissAllDogs_Implementation()
 //소환 가능한지 확인
 bool UCYGuardDogSummonComponent::CanSummon() const
 {
-	return DogPoolManager && SplineManager && GetAvailableSplineCount() > 0;
+	// 각 조건을 분리해서 로그
+	UE_LOG(LogTemp, Error, TEXT("===== CanSummon 체크 ====="));
+    
+	// 1. DogPoolManager 체크
+	if (!DogPoolManager)
+	{
+		UE_LOG(LogTemp, Error, TEXT("❌ DogPoolManager가 NULL입니다"));
+		UE_LOG(LogTemp, Error, TEXT("   -> 레벨에 ACYGuardDogPoolManager 액터가 있는지 확인"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("✅ DogPoolManager 있음: %s"), *DogPoolManager->GetName());
+	}
+    
+	// 2. SplineManager 체크
+	if (!SplineManager)
+	{
+		UE_LOG(LogTemp, Error, TEXT("❌ SplineManager가 NULL입니다"));
+		UE_LOG(LogTemp, Error, TEXT("   -> 레벨에 ACYSplineManager 액터가 있는지 확인"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("✅ SplineManager 있음: %s"), *SplineManager->GetName());
+	}
+    
+	// 3. 사용 가능한 스플라인 수 체크
+	int32 AvailableCount = GetAvailableSplineCount();
+	if (AvailableCount <= 0)
+	{
+		UE_LOG(LogTemp, Error, TEXT("❌ 사용 가능한 스플라인이 없습니다 (개수: %d)"), AvailableCount);
+		UE_LOG(LogTemp, Error, TEXT("   -> 스플라인 액터에 'GuardPatrol' 태그 추가"));
+		UE_LOG(LogTemp, Error, TEXT("   -> 또는 컴포넌트의 AvailableSplines 배열에 직접 할당"));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("✅ 사용 가능한 스플라인: %d개"), AvailableCount);
+	}
+    
+	// 최종 결과
+	bool bCanSummon = DogPoolManager && SplineManager && AvailableCount > 0;
+	UE_LOG(LogTemp, Error, TEXT("===== CanSummon 결과: %s ====="), 
+		   bCanSummon ? TEXT("TRUE") : TEXT("FALSE"));
+    
+	return bCanSummon;
 }
 
 //사용되지 않은 스플라인 개수 가져오기

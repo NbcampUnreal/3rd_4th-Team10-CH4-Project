@@ -19,6 +19,7 @@ ACYGuardDogPoolManager::ACYGuardDogPoolManager()
 void ACYGuardDogPoolManager::BeginPlay()
 {
 	Super::BeginPlay();
+	Instance = this;
 
 	//호스트만 풀을 초기화
 	if (HasAuthority())
@@ -39,44 +40,67 @@ void ACYGuardDogPoolManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
 //인스턴스 가져오기
 ACYGuardDogPoolManager* ACYGuardDogPoolManager::GetInstance(UWorld* World)
 {
-	if (!Instance&&World)
+	// static Instance 변수를 사용하지 않고, 항상 월드에서 액터를 찾습니다.
+	if (World)
 	{
-		//월드에서 PoolManager 가져오기
-		for (TActorIterator<ACYGuardDogPoolManager>It(World);It;++It)
+		for (TActorIterator<ACYGuardDogPoolManager> It(World); It; ++It)
 		{
-			Instance = *It;
-			break;
+			// 월드에 존재하는 첫 번째 인스턴스를 즉시 반환합니다.
+			return *It;
 		}
 	}
-	return Instance;
+	
+	// 찾지 못했다면 nullptr을 반환합니다.
+	return nullptr;
 }
 
 //풀 초기화및 경비견 생성
 void ACYGuardDogPoolManager::InitializePool()
 {
-	//서버가 아니거나 가져올 클래스가 없을경우 리턴
-	if (!HasAuthority()|| !PooledDogClass)
+	UE_LOG(LogTemp, Error, TEXT("===== InitializePool 시작 ====="));
+    
+	if (!HasAuthority())
 	{
-		UE_LOG(LogTemp, Warning, TEXT("GuardDogPoolManager: PooledDogClass가 설정되지 않았거나 서버가 아닙니다."));
+		UE_LOG(LogTemp, Error, TEXT("❌ Authority 없음"));
 		return;
 	}
-
-	for (int32 i = 0 ; i<PoolSize ; i++)
+    
+	if (!PooledDogClass)
+	{
+		UE_LOG(LogTemp, Error, TEXT("❌ PooledDogClass가 설정되지 않음!"));
+		UE_LOG(LogTemp, Error, TEXT("   해결: BP_GuardDogPoolManager에서 PooledDogClass 설정"));
+		return;
+	}
+    
+	UE_LOG(LogTemp, Error, TEXT("Pool Size: %d개 생성 예정"), PoolSize);
+    
+	for (int32 i = 0; i < PoolSize; i++)
 	{
 		FActorSpawnParameters SpawnParams;
-		//풀매니저가 소유
-		SpawnParams.Owner=this;
-		//충돌 무시하고 무조건 생성
-		
-		ACYAIDogCharacter* NewDog = GetWorld()->SpawnActor<ACYAIDogCharacter>(PooledDogClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+		SpawnParams.Owner = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        
+		ACYAIDogCharacter* NewDog = GetWorld()->SpawnActor<ACYAIDogCharacter>(
+			PooledDogClass, 
+			FVector(0, 0, -10000), 
+			FRotator::ZeroRotator, 
+			SpawnParams
+		);
+        
 		if (NewDog)
 		{
-			//TODO 풀 매니저 참조 설정 및 생석 직후 비활성화
+			NewDog->SetPoolManager(this);
+			NewDog->DeactivateDog();
 			AvailablePool.Add(NewDog);
-			
+			UE_LOG(LogTemp, Error, TEXT("✅ 경비견 %d번 생성 완료"), i+1);
 		}
-		UE_LOG(LogTemp, Log, TEXT("GuardDogPoolManager: %d개의 경비견으로 풀 초기화 완료."), PoolSize);
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("❌ 경비견 %d번 생성 실패"), i+1);
+		}
 	}
+    
+	UE_LOG(LogTemp, Error, TEXT("===== 최종 풀 크기: %d개 ====="), AvailablePool.Num());
 }
 
 //풀에서 가져 오기 및 사용중인 경비견 배열에 추가

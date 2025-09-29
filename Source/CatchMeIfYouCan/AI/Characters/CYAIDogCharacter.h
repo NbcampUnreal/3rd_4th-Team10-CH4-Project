@@ -53,6 +53,10 @@ public:
 	void ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath);
 	void DeactivateDog();
 	void SetPoolManager(ACYGuardDogPoolManager* InManager);
+
+	//아웃라인 처리를 모든 클라이언트에서 실행하기 위한 함수
+	UFUNCTION(NetMulticast, Reliable)
+	void Multicast_SetTargetOutline(AActor* TargetActor, bool bEnable);
 	
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;

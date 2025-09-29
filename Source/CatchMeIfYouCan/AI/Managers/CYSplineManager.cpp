@@ -7,8 +7,11 @@
 #include "Components/SplineComponent.h"
 #include "Kismet/GameplayStatics.h"
 
-// 싱글톤 인스턴스 초기화
 ACYSplineManager* ACYSplineManager::Instance = nullptr;
+
+
+// 매니저 찾아오기
+static ACYSplineManager* GetInstance(const UObject* WorldContextObject);
 
 ACYSplineManager::ACYSplineManager()
 {
@@ -162,18 +165,20 @@ int32 ACYSplineManager::GetAvailableSplineCount() const
 }
 
 //스플라인 매니저 가져오기
+// CYSplineManager.cpp
+
 ACYSplineManager* ACYSplineManager::GetInstance(UWorld* World)
 {
-	if (!Instance && World)
+	if (World)
 	{
-		// 월드에서 SplineManager 찾기
 		for (TActorIterator<ACYSplineManager> ActorItr(World); ActorItr; ++ActorItr)
 		{
-			Instance = *ActorItr;
-			break;
+			// 월드에 존재하는 첫 번째 인스턴스를 즉시 반환합니다.
+			return *ActorItr;
 		}
 	}
-	return Instance;
+
+	return nullptr;
 }
 
 //시작시 월드에 존재하는 스플라인 찾아오기

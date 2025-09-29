@@ -7,9 +7,23 @@
 #include "Perception/AIPerceptionTypes.h"
 #include "CYAIDogController.generated.h"
 
-/**
- * 
- */
+// 딜레이 타겟 정보 구조체
+USTRUCT()
+struct FDelayedOutlineTarget
+{
+	GENERATED_BODY()
+    
+	UPROPERTY()
+	AActor* TargetActor;
+    
+	FTimerHandle DelayTimer;
+    
+	FDelayedOutlineTarget()
+	{
+		TargetActor = nullptr;
+	}
+};
+
 UCLASS()
 class CATCHMEIFYOUCAN_API ACYAIDogController : public AAIController
 {
@@ -40,10 +54,26 @@ public:
 	class UBlackboardComponent* BlackboardComp;
 
 private:
+	// 여러 딜레이 타겟들을 저장하는 배열
+	UPROPERTY()
+	TArray<FDelayedOutlineTarget> DelayedOutlineTargets;
+	
 	// 대상 인식시 호출되는 콜백 함수
 	UFUNCTION()
 	void OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus);
-    
+
+	// 감지용 함수
+	void StartBarkingTimer();
+	void StopBarkingTimer();
+	void BarkOnce();
+
+	// 아웃라인용 함수
+	void StartOutlineDelayTimer(AActor* TargetActor);
+	void RemoveOutlineFromTarget(AActor* TargetActor);
+	void CancelDelayTimer(AActor* TargetActor);
+
+	
+	FTimerHandle BarkingTimerHandle;
 	//제어할 경비견
 	class ACYAIDogCharacter* ControlledDog;
 };
