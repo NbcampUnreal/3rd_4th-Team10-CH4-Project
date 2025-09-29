@@ -6,11 +6,15 @@
 ACYRobberCharacter::ACYRobberCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	
 }
 
 void ACYRobberCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+
+	// TODO : 함수화로 부착된 mesh들 CustomDepthStencilValue값 설정
+	GetMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
 }
 
 FCYInteractionInfo ACYRobberCharacter::GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const
@@ -21,7 +25,11 @@ FCYInteractionInfo ACYRobberCharacter::GetPreInteractionInfo(const FCYInteractio
 
 void ACYRobberCharacter::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const
 {
-	// TODO : 구현 예정
+	if (USkeletalMeshComponent* MainMesh = GetMesh())
+	{
+		OutMeshComponents.Add(MainMesh);
+	}
+	// TODO : 필요시 추가 장착 메쉬 등록
 }
 
 bool ACYRobberCharacter::CanInteraction(const FCYInteractionQuery& InteractionQuery) const

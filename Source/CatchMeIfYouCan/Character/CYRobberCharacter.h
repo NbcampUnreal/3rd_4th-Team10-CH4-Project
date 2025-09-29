@@ -32,4 +32,7 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Info")
 	FCYInteractionInfo ArrestedInteractionInfo;
 
+private:
+	UPROPERTY(EditDefaultsOnly, Category = "Stencil")
+	int32 CustomDepthStencilValue = 255;
 };
