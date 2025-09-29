@@ -1,5 +1,6 @@
 #include "CYVitalSet.h"
 #include "GameplayEffectExtension.h"
+#include "AbilitySystem/CYCombatGameplayTags.h"
 #include "Net/UnrealNetwork.h"
 
 UCYVitalSet::UCYVitalSet()
@@ -44,13 +45,31 @@ void UCYVitalSet::HandleHealthChange()
 		if (AActor* Owner = GetOwningActor())
 		{
 			UE_LOG(LogTemp, Warning, TEXT("%s has died (Health: %.1f)"), *Owner->GetName(), GetHealth());
+
+			// State_Stunned 태그 부여
+			if (UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent())
+			{
+				FGameplayTagContainer TagsToAdd;
+				TagsToAdd.AddTag(CYGameplayTags::State_Stunned);
+				ASC->AddLooseGameplayTags(TagsToAdd);
+			}
             
 			// 여기에 사망 이벤트 처리 추가 가능
-			// OnHealthZero.Broadcast(Owner);
 		}
 	}
 	else
 	{
+		// 체력이 회복되면 Stunned 태그 제거
+		if (UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent())
+		{
+			if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
+			{
+				FGameplayTagContainer TagsToRemove;
+				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
+				ASC->RemoveLooseGameplayTags(TagsToRemove);
+			}
+		}
+		
 		// Health 변경 로그
 		if (AActor* Owner = GetOwningActor())
 		{
