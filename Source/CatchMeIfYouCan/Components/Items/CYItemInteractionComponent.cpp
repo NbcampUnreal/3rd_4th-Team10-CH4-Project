@@ -34,7 +34,7 @@ void UCYItemInteractionComponent::BeginPlay()
 void UCYItemInteractionComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(UCYItemInteractionComponent, NearbyItem);
+	DOREPLIFETIME(UCYItemInteractionComponent, NearbyItem);
 }
 
 void UCYItemInteractionComponent::InteractWithNearbyItem()
@@ -125,33 +125,53 @@ void UCYItemInteractionComponent::CheckForNearbyItems()
     if (NearbyItem != ClosestItem)
     {
         NearbyItem = ClosestItem;
-        OnRep_NearbyItem();
     }
+
+	// 클라이언트 로컬용 (하이라이트)
+	if (Character->IsLocallyControlled())
+	{
+		if (LocalNearbyItem != ClosestItem)
+		{
+			LocalNearbyItem = ClosestItem;
+			UpdateLocalHighlight();
+		}
+	}
 }
 
-void UCYItemInteractionComponent::OnRep_NearbyItem()
+void UCYItemInteractionComponent::UpdateLocalHighlight()
 {
-	// 이전 아이템 하이라이트 해제
-	if (PreviousNearbyItem && PreviousNearbyItem->ItemMesh)
+	// 이전 하이라이트 제거
+	if (CurrentHighlightedItem)
 	{
-		// 기존 Material이 Dynamic Material인지 확인 후 파라미터 설정
-		if (UMaterialInstanceDynamic* DynMat = Cast<UMaterialInstanceDynamic>(PreviousNearbyItem->ItemMesh->GetMaterial(0)))
-		{
-			DynMat->SetVectorParameterValue(TEXT("HighlightColor"), FLinearColor::Black);
-		}
+		RemoveHighlight(CurrentHighlightedItem);
 	}
     
-	// 새 아이템 하이라이트
-	if (NearbyItem && NearbyItem->ItemMesh)
+	// 새 하이라이트 적용
+	if (LocalNearbyItem)
 	{
-		UMaterialInterface* OriginalMaterial = NearbyItem->ItemMesh->GetMaterial(0);
-		if (OriginalMaterial)
-		{
-			UMaterialInstanceDynamic* DynMat = UMaterialInstanceDynamic::Create(OriginalMaterial, this);
-			NearbyItem->ItemMesh->SetMaterial(0, DynMat);
-			DynMat->SetVectorParameterValue(TEXT("HighlightColor"), FLinearColor::White);
-		}
+		ApplyHighlight(LocalNearbyItem);
 	}
     
-	PreviousNearbyItem = NearbyItem;
+	CurrentHighlightedItem = LocalNearbyItem;
+}
+
+void UCYItemInteractionComponent::ApplyHighlight(ACYItemBase* Item)
+{
+	if (!Item || !Item->ItemMesh) return;
+    
+	// Stencil Buffer 값 설정 (Outline용)
+	Item->ItemMesh->SetRenderCustomDepth(true);
+	Item->ItemMesh->SetCustomDepthStencilValue(1); // Outline 스텐실 값
+    
+	UE_LOG(LogTemp, Log, TEXT("Applied stencil highlight to %s"), *Item->ItemName.ToString());
+}
+
+void UCYItemInteractionComponent::RemoveHighlight(ACYItemBase* Item)
+{
+	if (!Item || !Item->ItemMesh) return;
+    
+	// Stencil Buffer 해제
+	Item->ItemMesh->SetRenderCustomDepth(false);
+    
+	UE_LOG(LogTemp, Log, TEXT("Removed stencil highlight from %s"), *Item->ItemName.ToString());
 }
