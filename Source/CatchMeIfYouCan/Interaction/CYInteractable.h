@@ -86,7 +86,6 @@ public:
 
 	/**
 	* 현재 상황에서 상호작용이 가능한지 검증하는 가상 함수
-	* 거리, 조건, 상태 등을 확인하여 상호작용 허용 여부를 결정
 	*/
 	UFUNCTION(BlueprintCallable)
 	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const { return true; }

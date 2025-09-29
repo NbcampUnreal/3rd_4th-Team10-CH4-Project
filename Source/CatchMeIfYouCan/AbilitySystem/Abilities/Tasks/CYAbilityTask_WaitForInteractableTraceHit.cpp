@@ -250,15 +250,25 @@ void UCYAbilityTask_WaitForInteractableTraceHit::UpdateInteractionInfos(const FC
 	{
 		bInfosChanged = true;
 	}
-
+	
 	if (bInfosChanged)
 	{
-		// 이전 객체들의 하이라이트 해제
-		HighlightInteractables(CurrentInteractionInfos, false);
+		const bool bShouldOutlineEffect = InteractQuery.RequestingController.IsValid() && InteractQuery.RequestingController->IsLocalController();
+		
+		if (bShouldOutlineEffect)
+		{
+			// 이전 객체들의 하이라이트 해제
+			HighlightInteractables(CurrentInteractionInfos, false);
+		}
+
 		// 새로운 정보로 업데이트
 		CurrentInteractionInfos = NewInteractionInfos;
-		// 새로운 객체들에 하이라이트 적용
-		HighlightInteractables(CurrentInteractionInfos, true);
+		
+		if (bShouldOutlineEffect)
+		{
+			// 새로운 객체들에 하이라이트 적용
+			HighlightInteractables(CurrentInteractionInfos, true);
+		}
 		
 		// 변화 알림 델리게이트 호출
 		InteractableChanged.Broadcast(CurrentInteractionInfos);

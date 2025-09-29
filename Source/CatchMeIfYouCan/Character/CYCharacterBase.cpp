@@ -6,9 +6,11 @@
 #include "Player/CYPlayerState.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "AbilitySystem/Attributes/CYCombatAttributeSet.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/Items/CYInventoryComponent.h"
 #include "Components/Items/CYItemInteractionComponent.h"
 #include "Components/Items/CYWeaponComponent.h"
+#include "Physics/CYCollisionChannels.h"
 
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 {
@@ -18,6 +20,11 @@ ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 	InventoryComponent = CreateDefaultSubobject<UCYInventoryComponent>(TEXT("InventoryComponent"));
 	ItemInteractionComponent = CreateDefaultSubobject<UCYItemInteractionComponent>(TEXT("ItemInteractionComponent"));
 	WeaponComponent = CreateDefaultSubobject<UCYWeaponComponent>(TEXT("WeaponComponent"));
+	
+	InteractCapsule = CreateDefaultSubobject<UCapsuleComponent>(TEXT("InteractCapsule"));
+	InteractCapsule->SetupAttachment(GetRootComponent());
+	InteractCapsule->SetCollisionResponseToAllChannels(ECR_Ignore);
+	InteractCapsule->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Block);
 }
 
 UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const
@@ -28,6 +35,22 @@ UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const
 void ACYCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void ACYCharacterBase::SyncInteractCapsuleSizeToRootCapsule() const
+{
+	if (!InteractCapsule || !GetCapsuleComponent())
+	{
+		return;
+	}
+	
+	float Radius = 0.f, HalfHeight = 0.f;
+	GetCapsuleComponent()->GetScaledCapsuleSize(Radius, HalfHeight);
+	InteractCapsule->SetCapsuleSize(
+		Radius + InteractCapsuleRadiusOffset,
+		HalfHeight + InteractCapsuleHalfHeightOffset,
+		true
+	);
 }
 
 void ACYCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -133,6 +156,30 @@ void ACYCharacterBase::RemoveAbilitySets()
 		GrantedHandles.TakeFromAbilitySystem(CYASC);
 	}
 	GrantedAbilitySetHandles.Empty();
+}
+
+void ACYCharacterBase::AddGameplayTag(const FGameplayTag& Tag)
+{
+	if (CYAbilitySystemComponent.IsValid())
+	{
+		CYAbilitySystemComponent->AddLooseGameplayTag(Tag);
+	}
+}
+void ACYCharacterBase::RemoveGameplayTag(const FGameplayTag& Tag)
+{
+	if (CYAbilitySystemComponent.IsValid())
+	{
+		CYAbilitySystemComponent->RemoveLooseGameplayTag(Tag);
+	}
+}
+
+bool ACYCharacterBase::HasGameplayTag(const FGameplayTag& Tag) const
+{
+	if (const UCYAbilitySystemComponent* CYASC = CYAbilitySystemComponent.Get())
+	{
+		return CYASC->HasMatchingGameplayTag(Tag);
+	}
+	return false;
 }
 
 void ACYCharacterBase::InteractPressed()
