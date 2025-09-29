@@ -49,49 +49,51 @@ void UCYVitalSet::HandleHealthChange()
 		return;
 	}
 
-	// 사망 처리
+	UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
+	if (!ASC) return;
+
+	// 사망 처리 (체력이 0 이하)
 	if (GetHealth() <= 0.0f)
 	{
-		UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
-		if (!ASC) return;
-
-		// 이미 Stunned 상태면 중복 처리 안 함
+		// 이미 Stunned 어빌리티가 활성화되어 있으면 중복 방지
 		if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
 		{
+			UE_LOG(LogTemp, Verbose, TEXT("[Server] Already stunned, skipping"));
 			return;
 		}
 
 		UE_LOG(LogTemp, Warning, TEXT("[Server] %s has died (Health: %.1f)"), 
 			*Owner->GetName(), GetHealth());
 
-		// State_Stunned 태그 부여
+		// Loose 태그로 Stunned 상태 표시 (어빌리티가 이 태그를 확인함)
 		FGameplayTagContainer TagsToAdd;
 		TagsToAdd.AddTag(CYGameplayTags::State_Stunned);
 		ASC->AddLooseGameplayTags(TagsToAdd);
 
-		// Stunned Ability 활성화
+		UE_LOG(LogTemp, Warning, TEXT("[Server] Added Stunned tag to %s"), *Owner->GetName());
+
+		// Stunned Ability 활성화 시도
 		if (UCYAbilitySystemComponent* CYASC = Cast<UCYAbilitySystemComponent>(ASC))
 		{
 			bool bActivated = CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
 			UE_LOG(LogTemp, Warning, TEXT("[Server] Stunned ability activation: %s"), 
 				bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
-		}
-	}
-	else
-	{
-		// 체력이 회복되면 Stunned 태그 제거
-		if (UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent())
-		{
-			if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
+
+			// 활성화 실패 시 태그 제거 (정리)
+			if (!bActivated)
 			{
 				FGameplayTagContainer TagsToRemove;
 				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
 				ASC->RemoveLooseGameplayTags(TagsToRemove);
-				
-				UE_LOG(LogTemp, Warning, TEXT("[Server] Stunned tag removed due to health recovery"));
+				UE_LOG(LogTemp, Error, TEXT("[Server] Failed to activate Stunned ability, removed tag"));
 			}
 		}
-		
+	}
+	// 체력 회복 시 처리
+	else if (GetHealth() > 0.0f)
+	{
+		// Stunned 어빌리티가 활성화되어 있으면 스킵 (어빌리티가 알아서 처리)
+		// 어빌리티가 종료되면서 태그를 제거할 것
 		UE_LOG(LogTemp, Log, TEXT("[Server] %s Health changed: %.1f/%.1f"), 
 			   *Owner->GetName(), GetHealth(), GetMaxHealth());
 	}
@@ -111,8 +113,9 @@ void UCYVitalSet::OnRep_Health(const FGameplayAttributeData& OldHealth)
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, Health, OldHealth);
         
-		// 클라이언트에서도 Health 변경 처리
-		HandleHealthChange();
+		// 클라이언트에서도 Health 변경 처리 (UI 업데이트 등)
+		UE_LOG(LogTemp, Log, TEXT("[Client] Health replicated: %.1f/%.1f"), 
+			   GetHealth(), GetMaxHealth());
 	}
 	else
 	{
@@ -127,7 +130,7 @@ void UCYVitalSet::OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth)
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, MaxHealth, OldMaxHealth);
         
 		// MaxHealth 변경 시 현재 Health도 재검증
-		HandleHealthChange();
+		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
 	}
 	else
 	{

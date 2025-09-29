@@ -9,17 +9,18 @@
 UGA_Stunned::UGA_Stunned()
 {
 	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
-	ActivationPolicy = ECYAbilityActivationPolicy::OnSpawn;
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
+	ActivationPolicy = ECYAbilityActivationPolicy::OnInputTriggered;
 	
-	// 태그 설정
 	FGameplayTagContainer AssetTags;
 	AssetTags.AddTag(CYGameplayTags::Ability_Stunned);
 	SetAssetTags(AssetTags);
-
-	FGameplayTagContainer OwnedTags;
-	OwnedTags.AddTag(CYGameplayTags::State_Stunned);
-	ActivationOwnedTags = OwnedTags;
+	
+	FGameplayTagContainer BlockedTags;
+	BlockedTags.AddTag(CYGameplayTags::State_Combat_Attacking);
+	BlockedTags.AddTag(CYGameplayTags::Ability_Combat_WeaponAttack);
+	BlockedTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
+	ActivationBlockedTags = BlockedTags;
 }
 
 bool UGA_Stunned::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -33,13 +34,11 @@ bool UGA_Stunned::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		return false;
 	}
 
-	// 클라이언트에서는 활성화 불가
 	if (!ActorInfo->IsNetAuthority())
 	{
 		return false;
 	}
 
-	// 서버: Stunned 태그 체크
 	const UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
 	if (!ASC || !ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
 	{
@@ -54,25 +53,15 @@ void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	const FGameplayEventData* TriggerEventData)
 {
-	UE_LOG(LogTemp, Warning, TEXT("=== GA_Stunned::ActivateAbility START (Authority: %s) ==="),
-		ActorInfo->IsNetAuthority() ? TEXT("YES") : TEXT("NO"));
-
-	// 서버만 실행
-	if (!ActorInfo->IsNetAuthority())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Client tried to activate stunned, rejecting"));
-		EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
-		return;
-	}
+	UE_LOG(LogTemp, Warning, TEXT("=== GA_Stunned::ActivateAbility (Authority: %s) ==="),
+		ActorInfo->IsNetAuthority() ? TEXT("Server") : TEXT("Client"));
 
 	if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("CommitAbility failed"));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 정보 캐시
 	CachedHandle = Handle;
 	CachedActorInfo = ActorInfo;
 	CachedActivationInfo = ActivationInfo;
@@ -80,20 +69,31 @@ void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
 	if (!Character)
 	{
-		UE_LOG(LogTemp, Error, TEXT("No character found"));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 움직임 완전 정지
-	if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
+	// 서버: 움직임 정지 + 타이머
+	if (ActorInfo->IsNetAuthority())
 	{
-		MovementComp->StopMovementImmediately();
-		MovementComp->DisableMovement();
-		UE_LOG(LogTemp, Warning, TEXT("Movement disabled"));
+		if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
+		{
+			MovementComp->StopMovementImmediately();
+			MovementComp->DisableMovement();
+			Character->ForceNetUpdate();
+		}
+
+		GetWorld()->GetTimerManager().SetTimer(
+			RecoveryTimerHandle,
+			this,
+			&UGA_Stunned::RecoverFromStun,
+			StunnedDuration,
+			false
+		);
+		UE_LOG(LogTemp, Warning, TEXT("Movement disabled, timer set for %.1fs"), StunnedDuration);
 	}
 
-	// AnimInstance 캐시
+	// AnimInstance 캐시 (서버 + 클라이언트)
 	if (Character->GetMesh())
 	{
 		CachedAnimInstance = Character->GetMesh()->GetAnimInstance();
@@ -101,27 +101,14 @@ void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 
 	if (!CachedAnimInstance)
 	{
-		UE_LOG(LogTemp, Error, TEXT("No AnimInstance found"));
 		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 		return;
 	}
 
-	// 회복 타이머 시작
-	GetWorld()->GetTimerManager().SetTimer(
-		RecoveryTimerHandle,
-		this,
-		&UGA_Stunned::RecoverFromStun,
-		StunnedDuration,
-		false
-	);
-	UE_LOG(LogTemp, Warning, TEXT("Recovery timer set for %.1f seconds"), StunnedDuration);
-
-	// 쓰러지는 애니메이션 재생
+	// Falling 몽타주 재생
 	if (FallingMontage)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Starting falling montage"));
-
-		// AbilityTask 사용
+		// AbilityTask 사용 - 자동 네트워크 동기화
 		FallingMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
 			this,
 			TEXT("PlayFallingMontage"),
@@ -136,65 +123,50 @@ void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 			FallingMontageTask->OnInterrupted.AddDynamic(this, &UGA_Stunned::OnFallingMontageCancelled);
 			FallingMontageTask->ReadyForActivation();
 			
-			UE_LOG(LogTemp, Warning, TEXT("Falling montage task activated"));
+			UE_LOG(LogTemp, Warning, TEXT("Falling montage started"));
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("No falling montage, going straight to lying"));
-		OnFallingMontageCompleted();
+		UE_LOG(LogTemp, Error, TEXT("No Falling montage configured!"));
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("%s is stunned for %.1f seconds"), 
-		*Character->GetName(), StunnedDuration);
 }
 
 void UGA_Stunned::OnFallingMontageCompleted()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Falling animation completed, starting lying animation"));
-
-	// 쓰러져있는 애니메이션 루프 재생
-	if (LyingMontage && CachedAnimInstance)
-	{
-		// 루프 재생
-		CachedAnimInstance->Montage_Play(LyingMontage, 1.0f);
-		
-		UE_LOG(LogTemp, Warning, TEXT("Lying animation started (looping)"));
-	}
+	UE_LOG(LogTemp, Warning, TEXT("Falling animation completed - just waiting for timer"));
+	// 몽타주가 끝나도 타이머가 끝날 때까지 대기
 }
 
 void UGA_Stunned::OnFallingMontageCancelled()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Falling animation cancelled"));
-	// 취소되어도 Lying 애니메이션은 재생
-	OnFallingMontageCompleted();
+	// 그냥 무시하고 타이머 기다림
 }
 
 void UGA_Stunned::RecoverFromStun()
 {
+	if (!CachedActorInfo || !CachedActorInfo->IsNetAuthority())
+	{
+		return;
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("Recovering from stun"));
 
-	// GameplayEffect로 HP 회복
+	// HP 회복
 	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 	{
-		FGameplayEffectSpecHandle HealSpec = MakeOutgoingGameplayEffectSpec(
-			UGE_Heal::StaticClass(), 
-			1  // Level
-		);
+		FGameplayEffectSpecHandle HealSpec = MakeOutgoingGameplayEffectSpec(UGE_Heal::StaticClass(), 1);
 		
 		if (HealSpec.IsValid())
 		{
-			// 회복량 설정 (기본 1, BP에서 RecoveryHealth 수정 가능)
 			HealSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), RecoveryHealth);
-			
-			// Self에게 적용
 			ASC->ApplyGameplayEffectSpecToSelf(*HealSpec.Data.Get());
-			
-			UE_LOG(LogTemp, Warning, TEXT("Recovered +%.1f HP from stun"), RecoveryHealth);
+			UE_LOG(LogTemp, Warning, TEXT("Recovered +%.1f HP"), RecoveryHealth);
 		}
 	}
 
-	// Ability 종료
 	EndAbility(CachedHandle, CachedActorInfo, CachedActivationInfo, true, false);
 }
 
@@ -203,40 +175,44 @@ void UGA_Stunned::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	const FGameplayAbilityActivationInfo ActivationInfo,
 	bool bReplicateEndAbility, bool bWasCancelled)
 {
-	UE_LOG(LogTemp, Warning, TEXT("=== GA_Stunned::EndAbility (Cancelled: %s) ==="), 
-		bWasCancelled ? TEXT("YES") : TEXT("NO"));
+	UE_LOG(LogTemp, Warning, TEXT("=== GA_Stunned::EndAbility ==="));
 
 	// 타이머 정리
 	if (GetWorld() && RecoveryTimerHandle.IsValid())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(RecoveryTimerHandle);
-		UE_LOG(LogTemp, Warning, TEXT("Recovery timer cleared"));
 	}
 
-	// 애니메이션 중지
-	if (CachedAnimInstance)
+	// 애니메이션 정리 (서버 + 클라이언트)
+	if (CachedAnimInstance && FallingMontage)
 	{
-		if (FallingMontage && CachedAnimInstance->Montage_IsPlaying(FallingMontage))
+		if (CachedAnimInstance->Montage_IsPlaying(FallingMontage))
 		{
 			CachedAnimInstance->Montage_Stop(0.2f, FallingMontage);
-			UE_LOG(LogTemp, Warning, TEXT("Falling montage stopped"));
-		}
-		if (LyingMontage && CachedAnimInstance->Montage_IsPlaying(LyingMontage))
-		{
-			CachedAnimInstance->Montage_Stop(0.2f, LyingMontage);
-			UE_LOG(LogTemp, Warning, TEXT("Lying montage stopped"));
+			UE_LOG(LogTemp, Warning, TEXT("Stunned montage stopped"));
 		}
 	}
 
-	// 움직임 복구
-	ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-	if (Character)
+	// 움직임 복구 + 태그 제거 (서버만)
+	if (ActorInfo->IsNetAuthority())
 	{
-		if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
+		ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+		if (Character)
 		{
-			MovementComp->SetMovementMode(MOVE_Walking);
-			UE_LOG(LogTemp, Warning, TEXT("Movement restored"));
+			if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
+			{
+				MovementComp->SetMovementMode(MOVE_Walking);
+				Character->ForceNetUpdate();
+			}
+
+			if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+			{
+				FGameplayTagContainer TagsToRemove;
+				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
+				ASC->RemoveLooseGameplayTags(TagsToRemove);
+			}
 		}
+		UE_LOG(LogTemp, Warning, TEXT("Movement restored, Stunned tag removed"));
 	}
 
 	// 캐시 정리
@@ -244,6 +220,4 @@ void UGA_Stunned::EndAbility(const FGameplayAbilitySpecHandle Handle,
 	FallingMontageTask = nullptr;
 
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
-	
-	UE_LOG(LogTemp, Warning, TEXT("Stunned ability fully ended"));
 }

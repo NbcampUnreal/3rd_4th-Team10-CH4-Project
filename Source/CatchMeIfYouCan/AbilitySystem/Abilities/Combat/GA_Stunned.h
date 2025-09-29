@@ -17,10 +17,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
 	UAnimMontage* FallingMontage;
 
-	// 쓰러져있는 애니메이션 몽타주
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Animation")
-	UAnimMontage* LyingMontage;
-
 	// Stunned 지속 시간
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stunned")
 	float StunnedDuration = 5.0f;
@@ -52,7 +48,6 @@ private:
 	UFUNCTION()
 	void RecoverFromStun();
 
-	// 몽타주 콜백
 	UFUNCTION()
 	void OnFallingMontageCompleted();
 
