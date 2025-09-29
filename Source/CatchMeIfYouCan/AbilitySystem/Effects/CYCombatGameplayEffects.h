@@ -65,3 +65,11 @@ class CATCHMEIFYOUCAN_API UGE_DamageTrap : public UGameplayEffect
 public:
 	UGE_DamageTrap();
 };
+
+UCLASS()
+class CATCHMEIFYOUCAN_API UGE_Heal : public UGameplayEffect
+{
+	GENERATED_BODY()
+public:
+	UGE_Heal();
+};

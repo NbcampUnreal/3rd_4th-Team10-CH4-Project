@@ -325,12 +325,12 @@ void UCYInventoryComponent::AttachItemToHand(ACYItemBase* Item)
     ACharacter* Character = Cast<ACharacter>(GetOwner());
     if (!Character || !Character->GetMesh()) return;
     
-    // 아이템을 hand_r 소켓에 부착
-    Item->AttachToComponent(
-        Character->GetMesh(),
-        FAttachmentTransformRules::SnapToTargetIncludingScale,
-        TEXT("hand_r")
-    );
+    // 아이템을 프로퍼티 소켓에 부착
+	Item->AttachToComponent(
+		Character->GetMesh(),
+		FAttachmentTransformRules::SnapToTargetIncludingScale,
+		ItemSocketName
+	);
     
     // 충돌 비활성화 (들고 있는 동안)
     if (Item->ItemMesh)

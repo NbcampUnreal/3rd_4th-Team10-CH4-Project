@@ -24,7 +24,7 @@ public:
 
 	// 무기 장착 소켓
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
-	FName WeaponSocketName = TEXT("hand_r");
+	FName WeaponSocketName = TEXT("RightHand");
 
 	// 이벤트
 	UPROPERTY(BlueprintAssignable, Category = "Events")
@@ -36,6 +36,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	bool UnequipWeapon();
 
+	// 애니메이션 블루프린트 설정
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation")
+	TSubclassOf<UAnimInstance> UnarmedAnimBP;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Animation")
+	TMap<TSubclassOf<ACYWeaponBase>, TSubclassOf<UAnimInstance>> WeaponAnimBPMap;
+
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -45,4 +52,7 @@ protected:
 	UCYAbilitySystemComponent* GetOwnerAbilitySystemComponent() const;
 	USkeletalMeshComponent* GetOwnerMesh() const;
 	void AttachWeaponToOwner(ACYWeaponBase* Weapon);
+
+	// 애니메이션 블루프린트 변경
+	void UpdateAnimationBlueprint();
 };

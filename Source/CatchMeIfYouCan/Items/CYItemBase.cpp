@@ -159,13 +159,5 @@ bool ACYItemBase::CanBePickedUpBy(ACYPlayerCharacter* Character) const
 	// AllowedTeams에 캐릭터 팀이 포함되어 있는지 확인
 	bool bCanPickup = AllowedTeams.Contains(CharacterTeam);
     
-	if (!bCanPickup)
-	{
-		UE_LOG(LogTemp, Log, TEXT("Character team %s cannot pickup item %s (Allowed teams: %d)"), 
-			CharacterTeam == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"),
-			*ItemName.ToString(),
-			AllowedTeams.Num());
-	}
-    
 	return bCanPickup;
 }

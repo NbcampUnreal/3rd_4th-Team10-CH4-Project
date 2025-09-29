@@ -5,6 +5,7 @@ namespace CYGameplayTags
 	// Combat Ability Tags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Combat_WeaponAttack, "Ability.Combat.WeaponAttack");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Combat_PlaceTrap, "Ability.Combat.PlaceTrap");
+	UE_DEFINE_GAMEPLAY_TAG(Event_Combat_WeaponAttack, "Event.Combat.WeaponAttack");
 
 	// Team Tags
 	UE_DEFINE_GAMEPLAY_TAG(Team_Cop, "Team.Cop");
@@ -13,9 +14,10 @@ namespace CYGameplayTags
 	// State Tags
 	UE_DEFINE_GAMEPLAY_TAG(State_Combat_Attacking, "State.Combat.Attacking");
 	UE_DEFINE_GAMEPLAY_TAG(State_Stunned, "State.Stunned");
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Stunned, "Ability.Stunned");
 	UE_DEFINE_GAMEPLAY_TAG(State_Captured, "State.Captured");
 	UE_DEFINE_GAMEPLAY_TAG(State_Jail, "State.Jail");
-	UE_DEFINE_GAMEPLAY_TAG(State_Free, "State.Free");        
+	UE_DEFINE_GAMEPLAY_TAG(State_Free, "State.Free");
 
 	// Cooldown Tags
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Combat_WeaponAttack, "Cooldown.Combat.WeaponAttack");
@@ -24,4 +26,9 @@ namespace CYGameplayTags
 	// Effect Tags
 	UE_DEFINE_GAMEPLAY_TAG(Effect_Debuff_Slow, "Effect.Debuff.Slow");
 	UE_DEFINE_GAMEPLAY_TAG(Effect_Debuff_Freeze, "Effect.Debuff.Freeze");
+
+	// GameplayCue Tag
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Slow, "GameplayCue.Trap.Slow");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Freeze, "GameplayCue.Trap.Freeze");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Damage, "GameplayCue.Trap.Damage");
 }
