@@ -4,6 +4,7 @@
 #include "Components/SplineComponent.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "AI/Characters/CYAIDogCharacter.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 UCYBTTask_FollowSplinePath::UCYBTTask_FollowSplinePath()
 {
@@ -23,145 +24,94 @@ EBTNodeResult::Type UCYBTTask_FollowSplinePath::ExecuteTask(UBehaviorTreeCompone
 // ===== TickTask 함수 내용을 새로운 로직으로 전체 교체 =====
 void UCYBTTask_FollowSplinePath::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-    AAIController* AIController = OwnerComp.GetAIOwner();
-    UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
+  AAIController* AIController = OwnerComp.GetAIOwner();
+	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
+	
+	// 필수 컴포넌트들이 하나라도 없으면 태스크를 실패 처리하고 즉시 종료합니다.
+	if (!AIController || !BlackboardComp)
+	{
+		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
 
-    ACharacter* ControlledCharacter = AIController ? Cast<ACharacter>(AIController->GetPawn()) : nullptr;
-    if (!AIController || !ControlledCharacter || !BlackboardComp)
-    {
-        FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-        return;
-    }
-    
-    AActor* PatrolPathActor = Cast<AActor>(BlackboardComp->GetValueAsObject(TEXT("PatrolPathActor")));
-    if (!PatrolPathActor)
-    {
-        FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-        return;
-    }
-    
-    USplineComponent* PatrolSpline = PatrolPathActor->FindComponentByClass<USplineComponent>();
-    if (!PatrolSpline)
-    {
-        FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
-        return;
-    }
+	ACharacter* ControlledCharacter = Cast<ACharacter>(AIController->GetPawn());
+	if (!ControlledCharacter)
+	{
+		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
+	
+	// 블랙보드에서 순찰 경로 액터를 가져옵니다.
+	AActor* PatrolPathActor = Cast<AActor>(BlackboardComp->GetValueAsObject(GetSelectedBlackboardKey()));
+	USplineComponent* PatrolSpline = PatrolPathActor ? PatrolPathActor->FindComponentByClass<USplineComponent>() : nullptr;
+	
+	if (!PatrolSpline)
+	{
+		// 스플라인이 유효하지 않으면 태스크 실패
+		UE_LOG(LogTemp, Warning, TEXT("%s: Patrol Spline not found."), *GetNodeName());
+		FinishLatentTask(OwnerComp, EBTNodeResult::Failed);
+		return;
+	}
 
-    float CurrentDistance = BlackboardComp->GetValueAsFloat(TEXT("CurrentSplineDistance"));
-    float OldDistance = CurrentDistance;
-    
-    bool bOnSpline = BlackboardComp->GetValueAsBool(TEXT("bOnSpline"));
-    
-    FVector TargetLocation = PatrolSpline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-    FVector Direction = TargetLocation - ControlledCharacter->GetActorLocation();
-    float DistanceToTarget = Direction.Size();
-    
-    // 한번이라도 스플라인 근처(50유닛)에 도달하면 bOnSpline = true로 설정
-    if (!bOnSpline && DistanceToTarget < 50.0f)
-    {
-        bOnSpline = true;
-        BlackboardComp->SetValueAsBool(TEXT("bOnSpline"), true);
-    }
-    
-    // 스플라인에 한번 도달한 후에는 계속 스플라인 경로를 따라 이동
-    if (bOnSpline)
-    {
-        CurrentDistance += PatrolSpeed * DeltaSeconds;
-        float SplineLength = PatrolSpline->GetSplineLength();
-        
-        if (CurrentDistance >= SplineLength)
-        {
-            CurrentDistance = FMath::Fmod(CurrentDistance, SplineLength);
-        }
-        
-        TargetLocation = PatrolSpline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-        Direction = TargetLocation - ControlledCharacter->GetActorLocation();
-        DistanceToTarget = Direction.Size();
-    }
 
-    // 실제 이동 처리
-    if (DistanceToTarget > 5.0f)
-    {
-        Direction.Normalize();
-        ControlledCharacter->AddMovementInput(Direction, 1.0f);
-    }
 
-    // NPC 회전 처리
-    FRotator CurrentRotation = ControlledCharacter->GetActorRotation();
-    FRotator NewRotation;
-    
-    if (bOnSpline)
-    {
-        // 스플라인에 도달 후: 스플라인의 방향을 바라봄
-        const FRotator SplineRotation = PatrolSpline->GetRotationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-        NewRotation = FRotator(0.f, SplineRotation.Yaw, 0.f);
-    }
-    else
-    {
-        // 스플라인 도달 전: 실제 이동 방향을 바라봄
-        if (DistanceToTarget > 5.0f)
-        {
-            FRotator MoveRotation = Direction.Rotation();
-            NewRotation = FRotator(0.f, MoveRotation.Yaw, 0.f);
-        }
-        else
-        {
-            NewRotation = CurrentRotation;
-        }
-    }
-    
-    const FRotator InterpolatedRotation = FMath::RInterpTo(CurrentRotation, NewRotation, DeltaSeconds, 3.0f);
-    ControlledCharacter->SetActorRotation(InterpolatedRotation);
+	// 1. 블랙보드에서 현재까지 이동한 거리를 가져옵니다.
+	float CurrentDistance = BlackboardComp->GetValueAsFloat(TEXT("CurrentSplineDistance"));
 
-    // AI 애니메이션 변수 업데이트
-    ACYAIDogCharacter* DogCharacter = Cast<ACYAIDogCharacter>(ControlledCharacter);
-    if (DogCharacter)
-    {
-        float RealSpeed = 0.0f;
-        float DirectionAngle = 0.0f;
-        
-        if (bOnSpline)
-        {
-            // 스플라인 위에서의 속도/방향 계산
-            float DistanceMoved = FMath::Abs(CurrentDistance - OldDistance);
-            if (CurrentDistance < OldDistance && (OldDistance - CurrentDistance) > (PatrolSpline->GetSplineLength() * 0.5f))
-            {
-                DistanceMoved = (PatrolSpline->GetSplineLength() - OldDistance) + CurrentDistance;
-            }
-            RealSpeed = DistanceMoved / DeltaSeconds;
-            
-            FVector SplineDirection = PatrolSpline->GetDirectionAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
-            SplineDirection.Normalize();
-            
-            FVector CharacterForward = ControlledCharacter->GetActorForwardVector();
-            FVector CharacterRight = ControlledCharacter->GetActorRightVector();
-            
-            if (RealSpeed > 5.0f)
-            {
-                float ForwardDot = FVector::DotProduct(SplineDirection, CharacterForward);
-                float RightDot = FVector::DotProduct(SplineDirection, CharacterRight);
-                DirectionAngle = FMath::RadiansToDegrees(FMath::Atan2(RightDot, ForwardDot));
-            }
-        }
-        else
-        {
-            // 스플라인 도달 전의 속도/방향 계산
-            if (DistanceToTarget > 5.0f)
-            {
-                RealSpeed = PatrolSpeed;
-                DirectionAngle = 0.0f; // 정면으로 전진
-            }
-        }
-        
-        if (RealSpeed < 5.0f || DistanceToTarget < 5.0f)
-        {
-            RealSpeed = 0.0f; // 대기 상태
-        }
-        
-        // 애니메이션 변수 최종 업데이트
-        float ScaledSpeed = FMath::Clamp(RealSpeed * 1.5f, 0.0f, 200.0f);
-        DogCharacter->UpdateAIAnimationVariables(ScaledSpeed, DirectionAngle);
-    }
+	// 2. 이번 프레임에 이동할 거리를 계산합니다.
+	CurrentDistance += PatrolSpeed * DeltaSeconds;
+	const float SplineLength = PatrolSpline->GetSplineLength();
+	
+	// 3. 스플라인 경로의 끝에 도달하면 처음으로 되돌립니다.
+	if (CurrentDistance >= SplineLength)
+	{
+		CurrentDistance = FMath::Fmod(CurrentDistance, SplineLength);
+	}
+	
+	// 4. 계산된 거리의 스플라인 위 위치와 방향을 구합니다.
+	const FVector TargetLocation = PatrolSpline->GetLocationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
+	const FRotator TargetRotation = PatrolSpline->GetRotationAtDistanceAlongSpline(CurrentDistance, ESplineCoordinateSpace::World);
 
-    BlackboardComp->SetValueAsFloat(TEXT("CurrentSplineDistance"), CurrentDistance);
+	// 5. AI를 부드럽게 회전시킵니다.
+	const FRotator NewRotation = FMath::RInterpTo(
+		ControlledCharacter->GetActorRotation(),
+		FRotator(0.f, TargetRotation.Yaw, 0.f), // Z축 회전(Yaw)만 사용
+		DeltaSeconds,
+		5.0f // 회전 속도
+	);
+	ControlledCharacter->SetActorRotation(NewRotation);
+
+	// 6. 목표 위치로 이동 입력을 줍니다.
+	const FVector Direction = TargetLocation - ControlledCharacter->GetActorLocation();
+	ControlledCharacter->AddMovementInput(Direction.GetSafeNormal());
+	
+	// 7. (선택사항) 애니메이션을 위해 속도와 방향 정보를 업데이트합니다.
+	if (ACYAIDogCharacter* DogCharacter = Cast<ACYAIDogCharacter>(ControlledCharacter))
+	{
+		DogCharacter->UpdateAIAnimationVariables(PatrolSpeed, 0.f); // 스플라인 정방향이므로 방향은 0
+	}
+
+	// 8. 계산된 최종 이동 거리를 다시 블랙보드에 저장합니다.
+	BlackboardComp->SetValueAsFloat(TEXT("CurrentSplineDistance"), CurrentDistance);
+}
+
+EBTNodeResult::Type UCYBTTask_FollowSplinePath::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	// 이 태스크가 다른 행동(예: 플레이어 추격)에 의해 중단될 때 호출됩니다.
+	// AI의 움직임을 즉시 멈추고 애니메이션을 초기화하여 자연스러운 전환을 만듭니다.
+	AAIController* AIController = OwnerComp.GetAIOwner();
+	if (AIController)
+	{
+		if (ACharacter* Character = Cast<ACharacter>(AIController->GetPawn()))
+		{
+			Character->GetCharacterMovement()->StopMovementImmediately();
+
+			if (ACYAIDogCharacter* DogCharacter = Cast<ACYAIDogCharacter>(Character))
+			{
+				//경비견의 움직임도 멈춤
+				DogCharacter->UpdateAIAnimationVariables(0.0f, 0.0f);
+			}
+		}
+	}
+	return EBTNodeResult::Aborted;
 }

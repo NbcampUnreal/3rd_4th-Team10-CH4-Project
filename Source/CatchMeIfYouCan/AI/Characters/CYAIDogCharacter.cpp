@@ -80,6 +80,13 @@ void ACYAIDogCharacter::SetPoolManager(ACYGuardDogPoolManager* InManager)
 	PoolManager = InManager;
 }
 //경비견 활성화
+// CYAIDogCharacter.cpp
+
+// 파일 상단에 이 두 헤더 파일이 있는지 확인하고, 없으면 추가해주세요.
+#include "AI/Controllers/CYAIDogController.h"
+#include "BehaviorTree/BlackboardComponent.h"
+
+//경비견 활성화
 void ACYAIDogCharacter::ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath)
 {
 	if (!HasAuthority()) return;
@@ -91,26 +98,33 @@ void ACYAIDogCharacter::ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath
 	//애니메이션 변수 초기화
 	UpdateAIAnimationVariables(0.0f, 0.0f);
     
-	// 3. AI 로직 재시작
+	// AI 컨트롤러를 가져옵니다.
 	ACYAIDogController* DogController = Cast<ACYAIDogController>(GetController());
 	if (DogController)
 	{
-		// 블랙보드 초기화 - 스플라인 관련 상태도 포함
+		// 컨트롤러에서 블랙보드 컴포넌트를 가져옵니다.
 		UBlackboardComponent* BBComp = DogController->GetBlackboardComponent();
 		if (BBComp)
 		{
+          
+			// 기존 추적/공격 상태를 초기화합니다.
 			BBComp->SetValueAsObject(FName("Target"), nullptr);
 			BBComp->SetValueAsBool(FName("bIsBarking"), false);
             
-			// 스플라인 관련 상태 초기화
+			// 새로 부여된 순찰 임무를 블랙보드에 설정합니다.
+			BBComp->SetValueAsObject(FName("PatrolPathActor"), NewPatrolPath);
+          
+			// AI가 처음에는 스플라인 위에 있지 않다고 상태를 초기화합니다.
 			BBComp->SetValueAsBool(FName("bOnSpline"), false);
+          
+			// 스플라인 순찰 진행도를 0으로 초기화합니다.
 			BBComp->SetValueAsFloat(FName("CurrentSplineDistance"), 0.0f);
 		}
-		// AI 로직 시작
+		// AI 로직 (행동 트리)을 시작/재시작합니다.
 		DogController->StartLogic();
 	}
 
-	// 4. 상태 초기화
+	// 4. 캐릭터 상태 초기화
 	SetBarkingState(false);
 
 	// 5. 모든 클라이언트에게 활성화 상태를 알림
