@@ -107,23 +107,34 @@ void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, flo
     }
     else if (Speed < 200.0f)
     {
-        // 느림 상태
-        MovementComp->MaxAcceleration = 500.0f;
-        MovementComp->BrakingDecelerationWalking = 1000.0f;
-        MovementComp->JumpZVelocity = 0.0f;
+    	// 느림 상태 (Slow Trap)
+    	MovementComp->MaxAcceleration = 500.0f;
+    	MovementComp->BrakingDecelerationWalking = 1000.0f;
+    	MovementComp->JumpZVelocity = 0.0f;
         
-        UE_LOG(LogTemp, Warning, TEXT("SLOWED: %s to %f"), *Character->GetName(), Speed);
+    	UE_LOG(LogTemp, Warning, TEXT("SLOWED: %s to %f"), *Character->GetName(), Speed);
     }
-    else
+    else if (Speed > 400.0f)
     {
-        // 정상 복구
-        MovementComp->MaxAcceleration = 2048.0f;
-        MovementComp->BrakingDecelerationWalking = 2000.0f;
-        MovementComp->GroundFriction = 8.0f;
-        MovementComp->JumpZVelocity = 600.0f;
+    	// 속도 증가 상태 (Speed Boost)
+    	MovementComp->MaxAcceleration = 4096.0f;
+    	MovementComp->BrakingDecelerationWalking = 4000.0f;
+    	MovementComp->GroundFriction = 8.0f;
+    	MovementComp->JumpZVelocity = 600.0f;
         
-        UE_LOG(LogTemp, Warning, TEXT("MOVEMENT RESTORED: %s"), *Character->GetName());
+    	UE_LOG(LogTemp, Warning, TEXT("SPEED BOOSTED: %s to %f (MaxAccel: 4096)"), 
+			   *Character->GetName(), Speed);
     }
+	else
+	{
+		MovementComp->MaxAcceleration = 2048.0f;
+		MovementComp->BrakingDecelerationWalking = 2000.0f;
+		MovementComp->GroundFriction = 8.0f;
+		MovementComp->JumpZVelocity = 600.0f;
+        
+		UE_LOG(LogTemp, Warning, TEXT("MOVEMENT RESTORED: %s to %f"), 
+			   *Character->GetName(), Speed);
+	}
 }
 
 void UCYCombatAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldMoveSpeed)
