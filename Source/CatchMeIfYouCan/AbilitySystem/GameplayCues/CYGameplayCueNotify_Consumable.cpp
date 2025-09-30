@@ -1,51 +1,51 @@
-﻿#include "AbilitySystem/GameplayCues/CYGameplayCueNotify_Trap.h"
+﻿#include "AbilitySystem/GameplayCues/CYGameplayCueNotify_Consumable.h"
 #include "Particles/ParticleSystem.h"
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 #include "NiagaraSystem.h"
 #include "NiagaraFunctionLibrary.h"
 
-UCYGameplayCueNotify_Trap::UCYGameplayCueNotify_Trap()
+UCYGameplayCueNotify_Consumable::UCYGameplayCueNotify_Consumable()
 {
 }
 
-bool UCYGameplayCueNotify_Trap::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
-{
-	if (!MyTarget) return false;
-
-	PlayTrapEffects(MyTarget, Parameters);
-	
-	UE_LOG(LogTemp, Log, TEXT("Trap effect played (Instant): %s"), *MyTarget->GetName());
-	return true;
-}
-
-bool UCYGameplayCueNotify_Trap::OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
+bool UCYGameplayCueNotify_Consumable::OnExecute_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	if (!MyTarget) return false;
 
-	PlayTrapEffects(MyTarget, Parameters);
+	PlayConsumableEffects(MyTarget, Parameters);
 	
-	UE_LOG(LogTemp, Log, TEXT("Trap effect played (Duration Start): %s"), *MyTarget->GetName());
+	UE_LOG(LogTemp, Log, TEXT("Consumable effect played (Instant): %s"), *MyTarget->GetName());
 	return true;
 }
 
-void UCYGameplayCueNotify_Trap::PlayTrapEffects(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
+bool UCYGameplayCueNotify_Consumable::OnActive_Implementation(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
+{
+	if (!MyTarget) return false;
+
+	PlayConsumableEffects(MyTarget, Parameters);
+	
+	UE_LOG(LogTemp, Log, TEXT("Consumable effect played (Duration Start): %s"), *MyTarget->GetName());
+	return true;
+}
+
+void UCYGameplayCueNotify_Consumable::PlayConsumableEffects(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
 {
 	if (!MyTarget) return;
 
 	// 소켓이 설정되어 있는지 확인
 	bool bShouldAttach = (AttachSocketName != NAME_None);
-
+	
 	if (bShouldAttach)
 	{
 		// 소켓 부착 모드
 		USceneComponent* AttachComponent = MyTarget->GetRootComponent();
 		
-		// 파티클 (Cascade)
-		if (TriggerParticle)
+		// 파티클 (Cascade) - 부착
+		if (UseParticle)
 		{
 			UGameplayStatics::SpawnEmitterAttached(
-				TriggerParticle,
+				UseParticle,
 				AttachComponent,
 				AttachSocketName,
 				FVector::ZeroVector,
@@ -55,11 +55,11 @@ void UCYGameplayCueNotify_Trap::PlayTrapEffects(AActor* MyTarget, const FGamepla
 			);
 		}
 
-		// 파티클 (Niagara)
-		if (TriggerNiagara)
+		// 파티클 (Niagara) - 부착
+		if (UseNiagara)
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAttached(
-				TriggerNiagara,
+				UseNiagara,
 				AttachComponent,
 				AttachSocketName,
 				FVector::ZeroVector,
@@ -82,35 +82,35 @@ void UCYGameplayCueNotify_Trap::PlayTrapEffects(AActor* MyTarget, const FGamepla
 			Location = FVector(Parameters.Location);
 		}
 
-		// 파티클 (Cascade)
-		if (TriggerParticle)
+		// 파티클 (Cascade) - 위치
+		if (UseParticle)
 		{
 			UGameplayStatics::SpawnEmitterAtLocation(
 				MyTarget->GetWorld(),
-				TriggerParticle,
+				UseParticle,
 				Location,
 				FRotator::ZeroRotator,
 				FVector(1.0f)
 			);
 		}
 
-		// 파티클 (Niagara)
-		if (TriggerNiagara)
+		// 파티클 (Niagara) - 위치
+		if (UseNiagara)
 		{
 			UNiagaraFunctionLibrary::SpawnSystemAtLocation(
 				MyTarget->GetWorld(),
-				TriggerNiagara,
+				UseNiagara,
 				Location
 			);
 		}
 	}
 
 	// 사운드는 항상 위치 기반
-	if (TriggerSound)
+	if (UseSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
 			MyTarget->GetWorld(),
-			TriggerSound,
+			UseSound,
 			MyTarget->GetActorLocation()
 		);
 	}

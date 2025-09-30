@@ -150,21 +150,33 @@ UGE_Heal::UGE_Heal()
 	HealthModifier.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCallerData);
     
 	Modifiers.Add(HealthModifier);
+
+	// GameplayCue 추가
+	FGameplayTag CueTag = CYGameplayTags::GameplayCue_Consumable_Heal;
+	GameplayCues.Add(FGameplayEffectCue(CueTag, 0.0f, 0.0f));
     
 	UE_LOG(LogTemp, Warning, TEXT("Heal GE created"));
 }
 
-// 속도 증가 이펙트 +200
+// 속도 증가 이펙트
 UGE_SpeedBoost::UGE_SpeedBoost()
 {
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
-	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(5.0f));
+	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(4.0f));
     
 	FGameplayModifierInfo MoveSpeedModifier;
 	MoveSpeedModifier.Attribute = UCYCombatAttributeSet::GetMoveSpeedAttribute();
 	MoveSpeedModifier.ModifierOp = EGameplayModOp::Additive;
-	MoveSpeedModifier.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(200.0f));
+
+	FSetByCallerFloat SetByCallerData;
+	SetByCallerData.DataName = FName("SpeedBoostAmount");
+	MoveSpeedModifier.ModifierMagnitude = FGameplayEffectModifierMagnitude(SetByCallerData);
+	
 	Modifiers.Add(MoveSpeedModifier);
+
+	// GameplayCue 추가
+	FGameplayTag CueTag = CYGameplayTags::GameplayCue_Consumable_SpeedBoost;
+	GameplayCues.Add(FGameplayEffectCue(CueTag, 0.0f, 0.0f));
     
 	UE_LOG(LogTemp, Warning, TEXT("SpeedBoost GE created"));
 }
@@ -174,4 +186,8 @@ UGE_Invisibility::UGE_Invisibility()
 {
 	DurationPolicy = EGameplayEffectDurationType::HasDuration;
 	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(4.0f));
+
+	// GameplayCue 추가
+	FGameplayTag CueTag = CYGameplayTags::GameplayCue_Consumable_Invisibility;
+	GameplayCues.Add(FGameplayEffectCue(CueTag, 0.0f, 0.0f));
 }

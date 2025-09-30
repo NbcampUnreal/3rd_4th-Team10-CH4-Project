@@ -6,6 +6,9 @@
 
 class UGameplayEffect;
 class ACYPlayerCharacter;
+class UParticleSystem;
+class UNiagaraSystem;
+class USoundBase;
 
 UCLASS(Abstract)
 class CATCHMEIFYOUCAN_API ACYConsumableBase : public ACYItemBase

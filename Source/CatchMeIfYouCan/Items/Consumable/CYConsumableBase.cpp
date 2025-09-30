@@ -3,8 +3,11 @@
 #include "AbilitySystemComponent.h"
 #include "CYHealPotion.h"
 #include "CYInvisibilityPotion.h"
+#include "CYSpeedBoost.h"
+#include "NiagaraFunctionLibrary.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "AbilitySystem/Effects/CYCombatGameplayEffects.h"
+#include "Kismet/GameplayStatics.h"
 
 ACYConsumableBase::ACYConsumableBase()
 {
@@ -64,6 +67,14 @@ bool ACYConsumableBase::UseItem(ACYPlayerCharacter* Character)
                         EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), HealPotion->HealAmount);
                     }
                 }
+            	// Caller로 속도 증가량 처리
+                else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
+                {
+                	if (ACYSpeedBoost* SpeedBoost = Cast<ACYSpeedBoost>(this))
+                	{
+                		EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), SpeedBoost->SpeedBoostAmount);
+                	}
+                }
 
                 ASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
                 bSuccess = true;
@@ -71,12 +82,13 @@ bool ACYConsumableBase::UseItem(ACYPlayerCharacter* Character)
         }
     }
 
-    if (bSuccess)
-    {
-        OnConsumableUsed(Character);
-        UE_LOG(LogTemp, Warning, TEXT("%s used consumable: %s"), 
-               *Character->GetName(), *ItemName.ToString());
-    }
+	if (bSuccess)
+	{
+		OnConsumableUsed(Character);
+		UE_LOG(LogTemp, Warning, TEXT("%s used consumable: %s"), 
+			   *Character->GetName(), *ItemName.ToString());
+	}
+
 
     return bSuccess;
 }

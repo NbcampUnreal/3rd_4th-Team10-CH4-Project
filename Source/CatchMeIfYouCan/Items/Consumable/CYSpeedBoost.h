@@ -11,4 +11,7 @@ class CATCHMEIFYOUCAN_API ACYSpeedBoost : public ACYConsumableBase
 
 public:
 	ACYSpeedBoost();
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Speed Boost")
+	float SpeedBoostAmount = 400.0f;
 };

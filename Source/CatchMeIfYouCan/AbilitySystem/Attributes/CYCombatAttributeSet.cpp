@@ -27,62 +27,80 @@ void UCYCombatAttributeSet::PreAttributeChange(const FGameplayAttribute& Attribu
     if (Attribute == GetMoveSpeedAttribute())
     {
         NewValue = FMath::Max(NewValue, 0.0f);
-        UE_LOG(LogTemp, Warning, TEXT("PreAttributeChange MoveSpeed: %f -> %f"), 
-               GetMoveSpeed(), NewValue);
     }
+}
+
+void UCYCombatAttributeSet::PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue)
+{
+	Super::PostAttributeChange(Attribute, OldValue, NewValue);
+
+	if (Attribute == GetMoveSpeedAttribute())
+	{
+		// 서버에서만 처리
+		if (GetOwningActor() && GetOwningActor()->HasAuthority())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[Server] PostAttributeChange MoveSpeed: %f -> %f"), 
+				   OldValue, NewValue);
+			HandleMoveSpeedChange();
+		}
+	}
 }
 
 void UCYCombatAttributeSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData& Data)
 {
-    Super::PostGameplayEffectExecute(Data);
+	Super::PostGameplayEffectExecute(Data);
+
+	AActor* Owner = GetOwningActor();
 
 	if (Data.EvaluatedData.Attribute == GetMoveSpeedAttribute())
-    {
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[%s] MoveSpeed attribute changed, calling HandleMoveSpeedChange"), 
+			   Owner && Owner->HasAuthority() ? TEXT("Server") : TEXT("Client"));
+        
 		// 서버와 클라이언트 모두에서 이동속도 변경 처리
-        HandleMoveSpeedChange();
-    }
+		HandleMoveSpeedChange();
+	}
 }
 
 void UCYCombatAttributeSet::HandleMoveSpeedChange()
 {
-    float NewMoveSpeed = GetMoveSpeed();
+	float NewMoveSpeed = GetMoveSpeed();
+	AActor* Owner = GetOwningActor();
     
-    UE_LOG(LogTemp, Warning, TEXT("HandleMoveSpeedChange: %f"), NewMoveSpeed);
+	ACharacter* TargetCharacter = nullptr;
     
-    ACharacter* TargetCharacter = nullptr;
+	// 직접 Character인 경우
+	TargetCharacter = Cast<ACharacter>(GetOwningActor());
     
-    // 직접 Character인 경우
-    TargetCharacter = Cast<ACharacter>(GetOwningActor());
+	// PlayerState가 Owner인 경우
+	if (!TargetCharacter)
+	{
+		if (APlayerState* PS = Cast<APlayerState>(GetOwningActor()))
+		{
+			TargetCharacter = Cast<ACharacter>(PS->GetPawn());
+		}
+	}
     
-    // PlayerState가 Owner인 경우
-    if (!TargetCharacter)
-    {
-        if (APlayerState* PS = Cast<APlayerState>(GetOwningActor()))
-        {
-            TargetCharacter = Cast<ACharacter>(PS->GetPawn());
-        }
-    }
+	// Instigator를 통해 찾기
+	if (!TargetCharacter)
+	{
+		if (APawn* Pawn = GetOwningActor() ? GetOwningActor()->GetInstigator() : nullptr)
+		{
+			TargetCharacter = Cast<ACharacter>(Pawn);
+		}
+	}
     
-    // Instigator를 통해 찾기
-    if (!TargetCharacter)
-    {
-        if (APawn* Pawn = GetOwningActor() ? GetOwningActor()->GetInstigator() : nullptr)
-        {
-            TargetCharacter = Cast<ACharacter>(Pawn);
-        }
-    }
-    
-    // Character를 찾았으면 이동 속도 적용
-    if (TargetCharacter)
-    {
-        ApplyMovementRestrictions(TargetCharacter, NewMoveSpeed);
+	// Character를 찾았으면 이동 속도 적용
+	if (TargetCharacter)
+	{
+		ApplyMovementRestrictions(TargetCharacter, NewMoveSpeed);
 
-    	// 서버에서 네트워크 업데이트 강제
-        if (TargetCharacter->HasAuthority())
-        {
-            TargetCharacter->ForceNetUpdate();
-        }
-    }
+		// 서버에서 네트워크 업데이트 강제
+		if (TargetCharacter->HasAuthority())
+		{
+			TargetCharacter->ForceNetUpdate();
+		}
+	}
 }
 
 void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, float Speed)
@@ -96,7 +114,6 @@ void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, flo
     
     if (Speed <= 0.0f)
     {
-        // 완전 정지
         MovementComp->StopMovementImmediately();
         MovementComp->MaxAcceleration = 0.0f;
         MovementComp->BrakingDecelerationWalking = 10000.0f;
@@ -107,34 +124,47 @@ void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, flo
     }
     else if (Speed < 200.0f)
     {
-    	// 느림 상태 (Slow Trap)
-    	MovementComp->MaxAcceleration = 500.0f;
-    	MovementComp->BrakingDecelerationWalking = 1000.0f;
-    	MovementComp->JumpZVelocity = 0.0f;
+        MovementComp->MaxAcceleration = 500.0f;
+        MovementComp->BrakingDecelerationWalking = 1000.0f;
+        MovementComp->JumpZVelocity = 0.0f;
         
-    	UE_LOG(LogTemp, Warning, TEXT("SLOWED: %s to %f"), *Character->GetName(), Speed);
+        UE_LOG(LogTemp, Warning, TEXT("SLOWED: %s to %f"), *Character->GetName(), Speed);
     }
     else if (Speed > 400.0f)
     {
-    	// 속도 증가 상태 (Speed Boost)
-    	MovementComp->MaxAcceleration = 4096.0f;
-    	MovementComp->BrakingDecelerationWalking = 4000.0f;
-    	MovementComp->GroundFriction = 8.0f;
-    	MovementComp->JumpZVelocity = 600.0f;
+        MovementComp->MaxAcceleration = 8192.0f;
+        MovementComp->BrakingDecelerationWalking = 8192.0f;
+        MovementComp->GroundFriction = 4.0f;
+        MovementComp->JumpZVelocity = 800.0f;
         
-    	UE_LOG(LogTemp, Warning, TEXT("SPEED BOOSTED: %s to %f (MaxAccel: 4096)"), 
-			   *Character->GetName(), Speed);
+        // 네트워크 오류 체크 완화
+        if (Character->HasAuthority())
+        {
+            MovementComp->NetworkMaxSmoothUpdateDistance = 256.0f;
+            MovementComp->NetworkNoSmoothUpdateDistance = 512.0f;
+        }
+        
+        UE_LOG(LogTemp, Warning, TEXT("SPEED BOOSTED: %s to %f (MaxAccel: %f)"), 
+               *Character->GetName(), Speed, MovementComp->MaxAcceleration);
     }
-	else
-	{
-		MovementComp->MaxAcceleration = 2048.0f;
-		MovementComp->BrakingDecelerationWalking = 2000.0f;
-		MovementComp->GroundFriction = 8.0f;
-		MovementComp->JumpZVelocity = 600.0f;
+    else
+    {
+        MovementComp->MaxAcceleration = 2048.0f;
+        MovementComp->BrakingDecelerationWalking = 2000.0f;
+        MovementComp->GroundFriction = 8.0f;
+        MovementComp->JumpZVelocity = 600.0f;
         
-		UE_LOG(LogTemp, Warning, TEXT("MOVEMENT RESTORED: %s to %f"), 
-			   *Character->GetName(), Speed);
-	}
+        if (Character->HasAuthority())
+        {
+            MovementComp->NetworkMaxSmoothUpdateDistance = 92.0f;
+            MovementComp->NetworkNoSmoothUpdateDistance = 140.0f;
+        }
+        
+        UE_LOG(LogTemp, Warning, TEXT("MOVEMENT RESTORED: %s to %f"), 
+               *Character->GetName(), Speed);
+    }
+    
+    MovementComp->bForceNextFloorCheck = true;
 }
 
 void UCYCombatAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldMoveSpeed)
@@ -143,15 +173,8 @@ void UCYCombatAttributeSet::OnRep_MoveSpeed(const FGameplayAttributeData& OldMov
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYCombatAttributeSet, MoveSpeed, OldMoveSpeed);
 		
-		UE_LOG(LogTemp, Warning, TEXT("OnRep_MoveSpeed: %f -> %f"), 
-			   OldMoveSpeed.GetCurrentValue(), GetMoveSpeed());
-		
-		// 클라이언트에서도 즉시 이동 속도 적용 (원래대로)
+		// 클라이언트에서 이동 속도 적용
 		HandleMoveSpeedChange();
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("OnRep_MoveSpeed: No valid AbilitySystemComponent"));
 	}
 }
 
@@ -160,9 +183,5 @@ void UCYCombatAttributeSet::OnRep_AttackPower(const FGameplayAttributeData& OldA
 	if (GetOwningAbilitySystemComponent())
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYCombatAttributeSet, AttackPower, OldAttackPower);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("OnRep_AttackPower: No valid AbilitySystemComponent"));
 	}
 }
