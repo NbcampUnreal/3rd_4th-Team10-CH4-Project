@@ -3,9 +3,11 @@
 
 #include "CYGameplayAbility_Interact_Arrest.h"
 
+#include "CYLogChannels.h"
 #include "EngineUtils.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
+#include "Actors/CYJailPoint.h"
 #include "Character/CYCharacterBase.h"
 #include "GameModes/InGame/CYInGameState.h"
 #include "Player/CYPlayerState.h"
@@ -105,9 +107,24 @@ void UCYGameplayAbility_Interact_Arrest::DoArrest(ACYCharacterBase* InstigatorCo
 		return;
 	}
 
-	// 태그 갱신: 스턴 제거, 캡쳐/감옥 부여
+	UAbilitySystemComponent* TargetASC = TargetRobber->GetAbilitySystemComponent();
+	if (!TargetASC)
+	{
+		return;
+	}
+	// 태그 갱신: 스턴 제거, 감옥 상태 부여
 	TargetRobber->RemoveGameplayTag(CYGameplayTags::State_Stunned);
-	TargetRobber->AddGameplayTag(CYGameplayTags::State_Jail);
+	//TargetRobber->AddGameplayTag(CYGameplayTags::State_Jail);
+
+	if (JailStateGameplayEffectClass)
+	{
+		FGameplayEffectContextHandle EffectContextHandle= TargetASC->MakeEffectContext();
+		FGameplayEffectSpecHandle EffectSpecHandle = TargetASC->MakeOutgoingSpec(JailStateGameplayEffectClass, 1.f, EffectContextHandle);
+		if (EffectSpecHandle.IsValid())
+		{
+			TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
+		}
+	}
 
 	// 감방 위치 탐색 → 텔레포트
 	FTransform JailTransform;
@@ -129,19 +146,16 @@ void UCYGameplayAbility_Interact_Arrest::DoArrest(ACYCharacterBase* InstigatorCo
 
 bool UCYGameplayAbility_Interact_Arrest::FindJailTransform(FTransform& OutTransform) const
 {
-	UWorld* World = GetWorld();
+	UE_LOG(LogCY, Warning, TEXT("Activate FindJailTransform"));
+	if (UWorld* World = GetWorld())
 	{
-		if (!World) return false;
-	}
-	
-	// 1) Tag=="JailTransForm" 을 가진 액터 우선 TODO : 특정 타입 or 다른 방식으로 위치 미리 가져오기(GameMode/State 등)
-	for (TActorIterator<AActor> It(World); It; ++It)
-	{
-		AActor*	A = *It;
-		if (A && A->Tags.Contains(FName("JailTransform")))
+		if (ACYInGameState* CYGS = World->GetGameState<ACYInGameState>())
 		{
-			OutTransform = A->GetActorTransform();
-			return true;
+			if (ACYJailPoint* JailPoint = CYGS->GetJailPoint())
+			{
+				OutTransform = JailPoint->GetSnapTransform();
+				return true;
+			}
 		}
 	}
 
