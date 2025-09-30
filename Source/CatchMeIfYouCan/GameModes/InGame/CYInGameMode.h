@@ -53,6 +53,7 @@ protected:
 	bool ArePawnDataLoaded() const { return bPawnDataLoaded; }
 
 	void CachePlayerStarts();
+	void CacheJailPoint();
 
 private:
 	// 인원/비율 기반 페이즈 전환 시도
@@ -62,7 +63,10 @@ private:
 	bool HasRequiredRatio() const;
 
 	void StartPreparing();        
-	void StartMatch();           
+	void StartMatch();
+
+	void OnMatchTimeExpired();
+	void EvaluateTimeUpWinCondition();
 	
 private:
 	// TODO : 제거 예정 디버깅용 임시 변수
@@ -83,6 +87,14 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category="CY|Team", Meta = (ClampMin="1", ClampMax="6"))
 	int32 RequiredRobberCount = 2;
+
+	// 시간 만료 시 경찰 승리로 간주하기 위한 최소 체포 수
+	UPROPERTY(EditDefaultsOnly, Category="CY|WinCondition", meta=(ClampMin="0"))
+	int32 RequiredCapturedRobbersForTimeWin = 2;
+
+	// true면 "전체 도둑 체포"가 시간승리 조건
+	UPROPERTY(EditDefaultsOnly, Category="CY|WinCondition")
+	bool bRequireAllRobbersForTimeWin = false;
 	
 	// PawnData 로드 완료 여부
 	bool bPawnDataLoaded = false;
@@ -97,6 +109,13 @@ private:
 	// 페이즈 전환 타이머
 	FTimerHandle PreparingTimerHandle;
 
+	// 인게임 진행 타이머
+	FTimerHandle MatchTimerHandle;
+
 	UPROPERTY()
 	TObjectPtr<ACYInGameState> CYGameState;
+
+	// TODO : 삭제 예정
+	UPROPERTY(EditDefaultsOnly, Category = "CY|Debug")
+	bool bForceRobberInListenServer = false;
 };

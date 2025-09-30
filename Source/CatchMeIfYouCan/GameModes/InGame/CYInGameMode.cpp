@@ -6,6 +6,7 @@
 #include "CYInGameState.h"
 #include "CYLogChannels.h"
 #include "EngineUtils.h"
+#include "Actors/CYJailPoint.h"
 #include "Player/CYPlayerController.h"
 #include "Player/CYPlayerState.h"
 #include "Character/CYPawnData.h"
@@ -44,6 +45,7 @@ void ACYInGameMode::BeginPlay()
 	}
 	
 	CachePlayerStarts();
+	CacheJailPoint();
 	
 	UCYAssetManager::Get().LoadAllPawnData(
 		FStreamableDelegate::CreateUObject(this, &ThisClass::OnPawnDataLoaded)
@@ -191,6 +193,13 @@ ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 	{
 		return ECYTeamRole::Robber;
 	}
+
+	// TODO : 테스트용 코드로써 삭제 예정
+	if (bForceRobberInListenServer && GetNetMode() == NM_ListenServer)
+	{
+		bForceRobberInListenServer = false;
+		return ECYTeamRole::Robber;
+	}
 	
 	// GameState에서 현재 팀 비율 계산
 	float CurrentRatio = CYGameState->GetCopRatio();
@@ -314,6 +323,20 @@ void ACYInGameMode::CachePlayerStarts()
 	RobberPlayerStarts.Sort(SortByPriority);
 }
 
+void ACYInGameMode::CacheJailPoint()
+{
+	if (CYGameState)
+	{
+		ACYJailPoint* JailPoint = nullptr;
+		for (TActorIterator<ACYJailPoint> It(GetWorld()); It; ++It)
+		{
+			JailPoint = *It;
+			break; 
+		}
+		CYGameState->SetJailPoint(JailPoint);
+	}
+}
+
 void ACYInGameMode::TryChangeInGamePhase()
 {
 	if (!CYGameState)
@@ -398,7 +421,57 @@ void ACYInGameMode::StartMatch()
 
 	// InProgress 시작: 서버 시간 기록 및 페이즈 전환
 	CYGameState->StartMatch_Server(MatchDurationSeconds);
-	CYGameState->UpdateAliveRobberCount(CYGameState->GetRobberCount());
+
+	// 게임 시작시 Alive 카운트 초기화
+	CYGameState->InitAliveCountsMatchStart();
+
+	GetWorld()->GetTimerManager().ClearTimer(MatchTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		MatchTimerHandle,
+		this, &ThisClass::OnMatchTimeExpired,
+		MatchDurationSeconds, false
+		);
+}
+
+void ACYInGameMode::OnMatchTimeExpired()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	// 이미 승패가 난 상태면 무시
+	if (CYGameState->GetCurrentGamePhase() != EGamePhase::InProgress)
+	{
+		return;
+	}
+	
+	// 시간 종료 승리 조건 체크
+	EvaluateTimeUpWinCondition();
+}
+
+void ACYInGameMode::EvaluateTimeUpWinCondition()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	const int32 TotalRobbers = CYGameState->GetRobberCount();
+	const int32 AliveRobbers = CYGameState->GetAliveRobberCount();
+	const int32 CapturedRobbers = FMath::Max(0, TotalRobbers - AliveRobbers);
+	
+	// 전체 도둑 체포 조건 or 최소 체포 수로 승패 유무 판단
+	int32 RequiredCapturedRobbers = bRequireAllRobbersForTimeWin ? TotalRobbers : RequiredCapturedRobbersForTimeWin;
+
+	if (CapturedRobbers >= RequiredCapturedRobbers)
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::CopsWin);
+	}
+	else
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::RobbersWin);
+	}
 }
 
 
