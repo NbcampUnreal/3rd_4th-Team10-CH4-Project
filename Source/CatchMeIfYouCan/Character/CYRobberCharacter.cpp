@@ -13,8 +13,13 @@ void ACYRobberCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// TODO : 함수화로 부착된 mesh들 CustomDepthStencilValue값 설정
+	// TODO : StencilValue 처리를 상호작용 타입에 따라 적용되도록 처리하는 위치나 구조 변경 고민
 	GetMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
+	GetHelmetMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
+	GetEyewearMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
+	GetChestMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
+	GetLegsMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);
+	GetFootwearMesh()->SetCustomDepthStencilValue(CustomDepthStencilValue);	
 }
 
 FCYInteractionInfo ACYRobberCharacter::GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const
@@ -25,11 +30,35 @@ FCYInteractionInfo ACYRobberCharacter::GetPreInteractionInfo(const FCYInteractio
 
 void ACYRobberCharacter::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const
 {
-	if (USkeletalMeshComponent* MainMesh = GetMesh())
+	if (GetMesh()->GetSkeletalMeshAsset())
 	{
-		OutMeshComponents.Add(MainMesh);
+		OutMeshComponents.Add(GetMesh());
 	}
-	// TODO : 필요시 추가 장착 메쉬 등록
+
+	if (GetHelmetMesh()->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(GetHelmetMesh());
+	}
+
+	if (GetEyewearMesh()->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(GetEyewearMesh());
+	}
+
+	if (GetChestMesh()->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(GetChestMesh());
+	}
+
+	if (GetLegsMesh()->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(GetLegsMesh());
+	}
+
+	if (GetFootwearMesh()->GetSkeletalMeshAsset())
+	{
+		OutMeshComponents.Add(GetFootwearMesh());
+	}
 }
 
 bool ACYRobberCharacter::CanInteraction(const FCYInteractionQuery& InteractionQuery) const

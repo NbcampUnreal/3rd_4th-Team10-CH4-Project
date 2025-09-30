@@ -56,6 +56,21 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "CY|AbilitySystem")
 	bool HasGameplayTag(const FGameplayTag& Tag) const;
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
+	USkeletalMeshComponent* GetHelmetMesh() const { return HelmetMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
+	USkeletalMeshComponent* GetEyewearMesh() const { return EyewearMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
+	USkeletalMeshComponent* GetChestMesh() const { return ChestMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
+	USkeletalMeshComponent* GetLegsMesh() const { return LegsMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
+	USkeletalMeshComponent* GetFootwearMesh() const { return FootwearMesh; }
 	
 protected:
 	virtual void BeginPlay() override;
@@ -85,4 +100,25 @@ protected:
 
 	// 초기화 상태 추적
 	bool bAbilitySetsInitialized = false;
+
+private:
+	// 헬멧
+	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
+	USkeletalMeshComponent* HelmetMesh;
+
+	// 안경/고글/눈
+	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
+	USkeletalMeshComponent* EyewearMesh; 
+
+	// 상체
+	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
+	USkeletalMeshComponent* ChestMesh;    
+
+	// 하체
+	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
+	USkeletalMeshComponent* LegsMesh;    
+
+	// 신발
+	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
+	USkeletalMeshComponent* FootwearMesh; 
 };

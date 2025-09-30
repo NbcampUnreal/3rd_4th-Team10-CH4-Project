@@ -17,6 +17,8 @@ public:
 
 	// Begin ICYInteractable Interface
 	virtual FCYInteractionInfo GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const override;
+
+	// TODO : 추후 경찰이나 도둑, 다른 캐릭터 타입에 대해 해당 함수 필요할 경우 CharacterBase로 옮기거나 다른 최적의 위치나 방법 고민
 	virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
 	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
 	// End ICYInteractable Interface
