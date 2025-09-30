@@ -1,52 +1,54 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "CYBTTask_FindSplineStartPoint.h"
-
 #include "BehaviorTree/BlackboardComponent.h"
+#include "AIController.h"
 #include "Components/SplineComponent.h"
-
+#include "GameFramework/Actor.h"
 
 UCYBTTask_FindSplineStartPoint::UCYBTTask_FindSplineStartPoint()
 {
 	NodeName = "Find Spline Start Point";
 
-	//지정된 타입의 키만 보이도록 필터링
+	// --- ✨ 바로 이 부분이 핵심 해결책입니다! ---
+	// 에디터에게 PatrolPathActorKey 변수에는 'Actor' 타입의 키만 보여달라고 알려줍니다.
 	PatrolPathActorKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UCYBTTask_FindSplineStartPoint, PatrolPathActorKey), AActor::StaticClass());
+
+	// 에디터에게 TargetLocationKey 변수에는 'Vector' 타입의 키만 보여달라고 알려줍니다.
 	TargetLocationKey.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UCYBTTask_FindSplineStartPoint, TargetLocationKey));
+	// ------------------------------------
 }
 
 EBTNodeResult::Type UCYBTTask_FindSplineStartPoint::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	//행동트리로 부터 블랙보드 가져오기
+	AAIController* AIController = OwnerComp.GetAIOwner();
 	UBlackboardComponent* BlackboardComp = OwnerComp.GetBlackboardComponent();
-
-	if (!BlackboardComp)
+	if (!AIController || !BlackboardComp)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BTTask_FindSplineStartPoint: 블랙보드를 가져오는데 실패 했습니다."));
 		return EBTNodeResult::Failed;
 	}
 
-	//블랙보드로부터 순찰 경로 액터 가져오기
-	AActor* PatrolPathActor = Cast<AActor>(BlackboardComp->GetValueAsObject(PatrolPathActorKey.SelectedKeyName));
-
+	// 1. 블랙보드에서 순찰 경로 액터(스플라인)를 가져옵니다.
+	UObject* PatrolPathObject = BlackboardComp->GetValueAsObject(PatrolPathActorKey.SelectedKeyName);
+	AActor* PatrolPathActor = Cast<AActor>(PatrolPathObject);
 	if (!PatrolPathActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BTTask_FindSplineStartPoint: 순찰 액터를 가져오는데 실패 했습니다."));
+		// 순찰 경로가 없으면 실패 처리
 		return EBTNodeResult::Failed;
 	}
 
-	//액터에 스플라인 컴포넌트 있는지 확인
+	// 2. 액터에서 스플라인 컴포넌트를 찾습니다.
 	USplineComponent* PatrolSpline = PatrolPathActor->FindComponentByClass<USplineComponent>();
 	if (!PatrolSpline)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("BTTask_FindSplineStartPoint: 액터에서 스플라인을 찾지 못했습니다."));
+		// 스플라인 컴포넌트가 없으면 실패 처리
 		return EBTNodeResult::Failed;
 	}
 
-	//스플라인 시작 위치 가져와서 블랙보드에 저장
-	const FVector StartPointLocation = PatrolSpline->GetLocationAtSplinePoint(0.0f, ESplineCoordinateSpace::World);
+	// 3. 스플라인의 시작점(인덱스 0)의 월드 좌표를 가져옵니다.
+	const FVector StartPointLocation = PatrolSpline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+
+	// 4. 계산된 시작점 좌표를 TargetLocationKey가 가리키는 블랙보드 키에 저장합니다.
 	BlackboardComp->SetValueAsVector(TargetLocationKey.SelectedKeyName, StartPointLocation);
-	
+
+	// 성공적으로 계산 및 저장을 완료했음을 알립니다.
 	return EBTNodeResult::Succeeded;
 }
