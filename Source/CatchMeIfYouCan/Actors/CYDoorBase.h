@@ -26,6 +26,7 @@ public:
 
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
 	
 public:
 	// 상호작용 Info 제공

@@ -193,6 +193,13 @@ ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 	{
 		return ECYTeamRole::Robber;
 	}
+
+	// TODO : 테스트용 코드로써 삭제 예정
+	if (bForceRobberInListenServer && GetNetMode() == NM_ListenServer)
+	{
+		bForceRobberInListenServer = false;
+		return ECYTeamRole::Robber;
+	}
 	
 	// GameState에서 현재 팀 비율 계산
 	float CurrentRatio = CYGameState->GetCopRatio();

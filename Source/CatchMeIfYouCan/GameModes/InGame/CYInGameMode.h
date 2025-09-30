@@ -114,4 +114,8 @@ private:
 
 	UPROPERTY()
 	TObjectPtr<ACYInGameState> CYGameState;
+
+	// TODO : 삭제 예정
+	UPROPERTY(EditDefaultsOnly, Category = "CY|Debug")
+	bool bForceRobberInListenServer = false;
 };

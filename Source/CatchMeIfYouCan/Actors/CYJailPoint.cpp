@@ -1,5 +1,6 @@
 #include "CYJailPoint.h"
 
+#include "AbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "Character/CYCharacterBase.h"
 #include "Components/ArrowComponent.h"
@@ -80,10 +81,16 @@ void ACYJailPoint::OnVolumeEndOverlap(UPrimitiveComponent* OverlappedComp, AActo
 
 void ACYJailPoint::ReleasePrisoner(ACYCharacterBase* Robber)
 {
-	Robber->RemoveGameplayTag(CYGameplayTags::State_Jail);
-
-	if (ACYInGameState* CYGS = GetWorld()->GetGameState<ACYInGameState>())
+	if (UAbilitySystemComponent* RobberASC = Robber->GetAbilitySystemComponent())
 	{
-		CYGS->UpdateAliveRobberCount(CYGS->GetAliveRobberCount() + 1);
+		// 태그 기반으로 해당 태그를 부여한 GE들을 제거
+		if (RobberASC->RemoveActiveEffectsWithSourceTags(FGameplayTagContainer(CYGameplayTags::State_Jail)))
+		{
+			// 제거 성공시 생존 도둑 수 증가
+			if (ACYInGameState* CYGS = GetWorld()->GetGameState<ACYInGameState>())
+			{
+				CYGS->UpdateAliveRobberCount(CYGS->GetAliveRobberCount() + 1);
+			}
+		}
 	}
 }

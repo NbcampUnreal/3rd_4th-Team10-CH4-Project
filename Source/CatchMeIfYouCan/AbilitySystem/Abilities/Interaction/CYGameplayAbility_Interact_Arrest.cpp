@@ -107,9 +107,24 @@ void UCYGameplayAbility_Interact_Arrest::DoArrest(ACYCharacterBase* InstigatorCo
 		return;
 	}
 
-	// 태그 갱신: 스턴 제거, 캡쳐/감옥 부여
+	UAbilitySystemComponent* TargetASC = TargetRobber->GetAbilitySystemComponent();
+	if (!TargetASC)
+	{
+		return;
+	}
+	// 태그 갱신: 스턴 제거, 감옥 상태 부여
 	TargetRobber->RemoveGameplayTag(CYGameplayTags::State_Stunned);
-	TargetRobber->AddGameplayTag(CYGameplayTags::State_Jail);
+	//TargetRobber->AddGameplayTag(CYGameplayTags::State_Jail);
+
+	if (JailStateGameplayEffectClass)
+	{
+		FGameplayEffectContextHandle EffectContextHandle= TargetASC->MakeEffectContext();
+		FGameplayEffectSpecHandle EffectSpecHandle = TargetASC->MakeOutgoingSpec(JailStateGameplayEffectClass, 1.f, EffectContextHandle);
+		if (EffectSpecHandle.IsValid())
+		{
+			TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpecHandle.Data.Get());
+		}
+	}
 
 	// 감방 위치 탐색 → 텔레포트
 	FTransform JailTransform;
