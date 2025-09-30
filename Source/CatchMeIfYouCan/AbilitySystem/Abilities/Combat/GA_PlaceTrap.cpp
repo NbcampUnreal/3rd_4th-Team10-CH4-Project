@@ -10,29 +10,30 @@
 
 UGA_PlaceTrap::UGA_PlaceTrap()
 {
-	// 어빌리티마다 새 인스턴스 생성 (상태 보존 안 함)
-    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerExecution;
-	// 서버에서 시작해서 클라이언트로 전파
-    NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::ServerInitiated;
+	// 어빌리티마다 새 인스턴스 생성
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerExecution;
+	
+	// LocalPredicted 클라이언트에서 예측 실행하고 서버에서 검증
+	NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 
-    // 태그 설정
-    FGameplayTagContainer AssetTags;
-    AssetTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
-    SetAssetTags(AssetTags);
+	// 태그 설정
+	FGameplayTagContainer AssetTags;
+	AssetTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
+	SetAssetTags(AssetTags);
     
-    // 블로킹 태그 설정
-    FGameplayTagContainer BlockedTags;
+	// 블로킹 태그 설정
+	FGameplayTagContainer BlockedTags;
 	BlockedTags.AddTag(CYGameplayTags::State_Stunned);
 	BlockedTags.AddTag(CYGameplayTags::State_Captured);
 	BlockedTags.AddTag(CYGameplayTags::State_Jail);
 	BlockedTags.AddTag(CYGameplayTags::Ability_Combat_PlaceTrap);
 	BlockedTags.AddTag(CYGameplayTags::State_Combat_Attacking);
-    ActivationBlockedTags = BlockedTags;
+	ActivationBlockedTags = BlockedTags;
     
-    // 쿨다운 GE 클래스 설정
-    CooldownGameplayEffectClass = UGE_TrapPlaceCooldown::StaticClass();
+	// 쿨다운 GE 클래스 설정
+	CooldownGameplayEffectClass = UGE_TrapPlaceCooldown::StaticClass();
     
-    UE_LOG(LogTemp, Warning, TEXT("PlaceTrap GA created"));
+	UE_LOG(LogTemp, Warning, TEXT("PlaceTrap GA created"));
 }
 
 void UGA_PlaceTrap::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -68,13 +69,13 @@ void UGA_PlaceTrap::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
         }
     }
 
-	// // 수량 체크
-	// if (TrapItem->ItemCount <= 0)
-	// {
-	// 	UE_LOG(LogTemp, Warning, TEXT("Trap item count is 0 or less"));
-	// 	EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
-	// 	return;
-	// }
+	// 수량 체크
+	if (TrapItem->ItemCount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Trap item count is 0"));
+		EndAbility(Handle, ActorInfo, ActivationInfo, true, true);
+		return;
+	}
 
 	// 정보 캐시 (몽타주 완료 후 사용)
 	CachedHandle = Handle;
@@ -86,24 +87,22 @@ void UGA_PlaceTrap::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	// 애니메이션 몽타주 재생
 	if (PlaceTrapMontage)
 	{
-		ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-		if (Character && Character->GetMesh() && Character->GetMesh()->GetAnimInstance())
+		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+			this,
+			TEXT("PlayPlaceTrapMontage"),
+			PlaceTrapMontage,
+			1.0f
+		);
+
+		if (MontageTask)
 		{
-			UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance();
+			MontageTask->OnCompleted.AddDynamic(this, &UGA_PlaceTrap::OnPlaceTrapMontageCompleted);
+			MontageTask->OnCancelled.AddDynamic(this, &UGA_PlaceTrap::OnPlaceTrapMontageCancelled);
+			MontageTask->OnInterrupted.AddDynamic(this, &UGA_PlaceTrap::OnPlaceTrapMontageCancelled);
+			MontageTask->ReadyForActivation();
 			
-			// 몽타주 재생
-			float MontageLength = AnimInstance->Montage_Play(PlaceTrapMontage);
-			
-			if (MontageLength > 0.0f)
-			{
-				// 몽타주 완료 이벤트 바인딩
-				FOnMontageEnded EndDelegate;
-				EndDelegate.BindUFunction(this, FName("OnPlaceTrapMontageCompleted"));
-				AnimInstance->Montage_SetEndDelegate(EndDelegate, PlaceTrapMontage);
-				
-				UE_LOG(LogTemp, Warning, TEXT("🎬 Place trap montage started: %f seconds"), MontageLength);
-				return; // 몽타주가 끝날 때까지 대기
-			}
+			UE_LOG(LogTemp, Warning, TEXT("🎬 Place trap montage started via AbilityTask"));
+			return;
 		}
 	}
 	
@@ -123,6 +122,16 @@ void UGA_PlaceTrap::OnPlaceTrapMontageCompleted()
 	
 	// 어빌리티 종료
 	EndAbility(CachedHandle, CachedActorInfo, CachedActivationInfo, true, false);
+
+	// 태스크 정리
+	MontageTask = nullptr;
+}
+
+void UGA_PlaceTrap::OnPlaceTrapMontageCancelled()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Place trap montage cancelled"));
+	EndAbility(CachedHandle, CachedActorInfo, CachedActivationInfo, true, true);
+	MontageTask = nullptr;
 }
 
 bool UGA_PlaceTrap::IsOnCooldown(const FGameplayAbilityActorInfo* ActorInfo) const
@@ -150,6 +159,20 @@ void UGA_PlaceTrap::ApplyTrapCooldown(const FGameplayAbilitySpecHandle Handle,
 
 void UGA_PlaceTrap::PerformTrapPlacement()
 {
+	// 서버에서만 실제 트랩 생성
+	if (!GetCurrentActorInfo()->IsNetAuthority())
+	{
+		UE_LOG(LogTemp, Log, TEXT("Client prediction - trap will be created on server"));
+		return;
+	}
+	
+	// 다시 한번 수량 체크 (서버 검증)
+	if (!CachedTrapItem || CachedTrapItem->ItemCount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Trap item no longer available on server"));
+		return;
+	}
+	
 	// 트랩 아이템 정보로 실제 트랩 액터 생성
 	ACYTrapBase* NewTrap = CreateTrapFromItem(CachedTrapItem, CachedSpawnLocation);
 	
@@ -308,12 +331,17 @@ FVector UGA_PlaceTrap::CalculateSpawnLocation()
 
 void UGA_PlaceTrap::ConsumeItemFromInventory(ACYItemBase* Item)
 {
-    if (!Item) return;
+	if (!Item) return;
 
-	// 어빌리티 실행자(플레이어) 가져오기
-    AActor* OwnerActor = GetAvatarActorFromActorInfo();
-    UCYInventoryComponent* InventoryComp = OwnerActor->FindComponentByClass<UCYInventoryComponent>();
-    if (!InventoryComp) return;
+	// 서버에서만 소비
+	if (!GetCurrentActorInfo()->IsNetAuthority())
+	{
+		return;
+	}
+
+	AActor* OwnerActor = GetAvatarActorFromActorInfo();
+	UCYInventoryComponent* InventoryComp = OwnerActor->FindComponentByClass<UCYInventoryComponent>();
+	if (!InventoryComp) return;
 
 	if (Item->ItemCount <= 0)
 	{
@@ -321,44 +349,44 @@ void UGA_PlaceTrap::ConsumeItemFromInventory(ACYItemBase* Item)
 		return;
 	}
 
-    // 아이템 수량 감소
-    Item->ItemCount--;
+	// 아이템 수량 감소
+	Item->ItemCount--;
     
-    if (Item->ItemCount <= 0)
-    {
-        // 아이템이 모두 소모되면 슬롯에서 제거
-        for (int32 i = 0; i < InventoryComp->ItemSlots.Num(); i++)
-        {
-            if (InventoryComp->ItemSlots[i] == Item)
-            {
-                InventoryComp->ItemSlots[i] = nullptr;
-                InventoryComp->OnInventoryChanged.Broadcast(i + 4, nullptr); // 4~9번 키
+	if (Item->ItemCount <= 0)
+	{
+		// 아이템이 모두 소모되면 슬롯에서 제거
+		for (int32 i = 0; i < InventoryComp->ItemSlots.Num(); i++)
+		{
+			if (InventoryComp->ItemSlots[i] == Item)
+			{
+				InventoryComp->ItemSlots[i] = nullptr;
+				InventoryComp->OnInventoryChanged.Broadcast(i + 4, nullptr);
 
-            	// CurrentHeldItem이 소진된 아이템이면 null로 설정
-            	if (InventoryComp->CurrentHeldItem == Item)
-            	{
-            		InventoryComp->CurrentHeldItem = nullptr;
-            		InventoryComp->OnHeldItemChanged.Broadcast(Item, nullptr);
-            	}
+				// CurrentHeldItem이 소진된 아이템이면 null로 설정
+				if (InventoryComp->CurrentHeldItem == Item)
+				{
+					InventoryComp->CurrentHeldItem = nullptr;
+					InventoryComp->OnHeldItemChanged.Broadcast(Item, nullptr);
+				}
             	
-                Item->Destroy();
-                break;
-            }
-        }
-    }
-    else
-    {
-        // 수량만 감소한 경우
-        for (int32 i = 0; i < InventoryComp->ItemSlots.Num(); i++)
-        {
-            if (InventoryComp->ItemSlots[i] == Item)
-            {
-                InventoryComp->OnInventoryChanged.Broadcast(i + 4, Item); // 4~9번 키
-                break;
-            }
-        }
-    }
+				Item->Destroy();
+				break;
+			}
+		}
+	}
+	else
+	{
+		// 수량만 감소한 경우
+		for (int32 i = 0; i < InventoryComp->ItemSlots.Num(); i++)
+		{
+			if (InventoryComp->ItemSlots[i] == Item)
+			{
+				InventoryComp->OnInventoryChanged.Broadcast(i + 4, Item);
+				break;
+			}
+		}
+	}
     
-    UE_LOG(LogTemp, Warning, TEXT("Consumed trap item: %s (Remaining: %d)"), 
-           *Item->ItemName.ToString(), Item->ItemCount);
+	UE_LOG(LogTemp, Warning, TEXT("Consumed trap item: %s (Remaining: %d)"), 
+		   *Item->ItemName.ToString(), Item->ItemCount);
 }

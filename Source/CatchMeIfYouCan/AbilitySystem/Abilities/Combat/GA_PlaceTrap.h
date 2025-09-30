@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/Abilities/CYGameplayAbility.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GA_PlaceTrap.generated.h"
 
 class ACYTrapBase;
@@ -29,6 +30,8 @@ protected:
 	// 애니메이션 완료 콜백
 	UFUNCTION()
 	void OnPlaceTrapMontageCompleted();
+	UFUNCTION()
+	void OnPlaceTrapMontageCancelled();
 
 private:
 	// 실제 트랩 설치 로직
@@ -61,4 +64,8 @@ private:
 	UPROPERTY()
 	ACYTrapBase* CachedTrapItem;
 	FVector CachedSpawnLocation;
+
+	// AbilityTask 추가
+	UPROPERTY()
+	UAbilityTask_PlayMontageAndWait* MontageTask;
 };
