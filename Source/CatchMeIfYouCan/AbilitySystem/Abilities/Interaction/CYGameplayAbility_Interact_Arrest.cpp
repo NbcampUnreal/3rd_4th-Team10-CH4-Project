@@ -7,6 +7,7 @@
 #include "EngineUtils.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
+#include "AbilitySystem/Effects/CYCombatGameplayEffects.h"
 #include "Actors/CYJailPoint.h"
 #include "Character/CYCharacterBase.h"
 #include "GameModes/InGame/CYInGameState.h"
@@ -113,7 +114,15 @@ void UCYGameplayAbility_Interact_Arrest::DoArrest(ACYCharacterBase* InstigatorCo
 		return;
 	}
 	// 태그 갱신: 스턴 제거, 감옥 상태 부여
-	TargetRobber->RemoveGameplayTag(CYGameplayTags::State_Stunned);
+	// 명시적으로 Stunned 어빌리티 취소
+	FGameplayTagContainer StunnedAbilityTag;
+	StunnedAbilityTag.AddTag(CYGameplayTags::Ability_Stunned);
+	TargetASC->CancelAbilities(&StunnedAbilityTag);
+    
+	// Stunned GE도 제거
+	FGameplayEffectQuery StunQuery;
+	StunQuery.EffectTagQuery = FGameplayTagQuery::MakeQuery_MatchTag(CYGameplayTags::State_Stunned);
+	TargetASC->RemoveActiveEffects(StunQuery);
 	//TargetRobber->AddGameplayTag(CYGameplayTags::State_Jail);
 
 	if (JailStateGameplayEffectClass)

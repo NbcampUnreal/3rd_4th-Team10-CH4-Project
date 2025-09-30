@@ -230,15 +230,14 @@ bool UCYInventoryComponent::HoldItem(int32 SlotIndex)
 
 bool UCYInventoryComponent::UseHeldItem()
 {
-    if (!CurrentHeldItem || !GetOwner()->HasAuthority())
-    {
-        if (!GetOwner()->HasAuthority())
-        {
-        	// 클라이언트에서 서버 RPC 호출
-            ServerUseHeldItem();
-        }
-        return false;
-    }
+	if (!CurrentHeldItem) return false;
+    
+	// 클라이언트인 경우
+	if (!GetOwner()->HasAuthority())
+	{
+		ServerUseHeldItem();
+		return true;
+	}
 
 	// 수량이 0 이하면 사용하지 않음
 	if (CurrentHeldItem->ItemCount <= 0)
