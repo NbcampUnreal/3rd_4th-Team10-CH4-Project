@@ -18,6 +18,7 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Captured, "State.Captured");
 	UE_DEFINE_GAMEPLAY_TAG(State_Jail, "State.Jail");
 	UE_DEFINE_GAMEPLAY_TAG(State_Free, "State.Free");
+	UE_DEFINE_GAMEPLAY_TAG(State_Invisible, "State.Invisible");
 
 	// Cooldown Tags
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Combat_WeaponAttack, "Cooldown.Combat.WeaponAttack");

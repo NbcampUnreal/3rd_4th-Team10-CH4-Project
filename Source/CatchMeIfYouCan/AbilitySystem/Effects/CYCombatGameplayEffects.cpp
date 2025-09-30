@@ -153,3 +153,25 @@ UGE_Heal::UGE_Heal()
     
 	UE_LOG(LogTemp, Warning, TEXT("Heal GE created"));
 }
+
+// 속도 증가 이펙트 +200
+UGE_SpeedBoost::UGE_SpeedBoost()
+{
+	DurationPolicy = EGameplayEffectDurationType::HasDuration;
+	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(5.0f));
+    
+	FGameplayModifierInfo MoveSpeedModifier;
+	MoveSpeedModifier.Attribute = UCYCombatAttributeSet::GetMoveSpeedAttribute();
+	MoveSpeedModifier.ModifierOp = EGameplayModOp::Additive;
+	MoveSpeedModifier.ModifierMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(200.0f));
+	Modifiers.Add(MoveSpeedModifier);
+    
+	UE_LOG(LogTemp, Warning, TEXT("SpeedBoost GE created"));
+}
+
+// 투명화 이펙트
+UGE_Invisibility::UGE_Invisibility()
+{
+	DurationPolicy = EGameplayEffectDurationType::HasDuration;
+	DurationMagnitude = FGameplayEffectModifierMagnitude(FScalableFloat(4.0f));
+}
