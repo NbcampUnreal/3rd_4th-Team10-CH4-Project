@@ -159,58 +159,44 @@ void ACYTrapBase::OnTrapSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
 
 void ACYTrapBase::OnTrapTriggered(ACYPlayerCharacter* Target)
 {
-    if (!Target || !HasAuthority()) return;
+	if (!Target || !HasAuthority()) return;
     
-    UE_LOG(LogTemp, Warning, TEXT("TRAP TRIGGERED! %s stepped on %s's trap"), 
-           *Target->GetName(), 
-           GetOwner() ? *GetOwner()->GetName() : TEXT("Unknown"));
-    
-    // GAS 효과 적용
-    UAbilitySystemComponent* TargetASC = Target->GetAbilitySystemComponent();
-    if (TargetASC)
-    {
-        for (TSubclassOf<UGameplayEffect> EffectClass : TrapEffects)
-        {
-            if (EffectClass)
-            {
-                FGameplayEffectContextHandle EffectContext = TargetASC->MakeEffectContext();
-                EffectContext.AddSourceObject(this);
+	UAbilitySystemComponent* TargetASC = Target->GetAbilitySystemComponent();
+	if (TargetASC)
+	{
+		for (TSubclassOf<UGameplayEffect> EffectClass : TrapEffects)
+		{
+			if (!EffectClass) continue;
+            
+			FGameplayEffectContextHandle EffectContext = TargetASC->MakeEffectContext();
+			EffectContext.AddInstigator(GetOwner(), Target);
+            
+			FGameplayEffectSpecHandle EffectSpec = TargetASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
+			if (EffectSpec.IsValid())
+			{
+				if (OverrideDuration > 0.0f)
+				{
+					EffectSpec.Data->SetDuration(OverrideDuration, true);
+				}
                 
-                FGameplayEffectSpecHandle EffectSpec = TargetASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
-            	if (EffectSpec.IsValid())
-            	{
-            		// Duration 오버라이드 적용 (Freeze, Slow용)
-            		if (OverrideDuration > 0.0f)
-            		{
-            			EffectSpec.Data->SetDuration(OverrideDuration, true);
-            		}
-                    
-            		// Damage 오버라이드 적용
-            		if (EffectClass == UGE_DamageTrap::StaticClass())
-            		{
-            			if (OverridePrimaryValue > 0.0f)
-            			{
-            				EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -OverridePrimaryValue);
-            			}
-            			else if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
-            			{
-            				EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -DamageTrap->DamageAmount);
-            			}
-            		}
-                    
-            		TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-            		UE_LOG(LogTemp, Warning, TEXT("Applied trap effect: %s (Primary:%.1f, Duration:%.1f)"), 
-						   *EffectClass->GetName(), OverridePrimaryValue, OverrideDuration);
-            	}
-            }
-        }
-    }
+				if (EffectClass == UGE_DamageTrap::StaticClass())
+				{
+					if (OverridePrimaryValue > 0.0f)
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -OverridePrimaryValue);
+					}
+					else if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -DamageTrap->DamageAmount);
+					}
+				}
+                
+				TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+			}
+		}
+	}
     
-    // 블루프린트 커스텀 효과
-    ApplyTrapEffect(Target);
-	
-    // 트랩 제거
-    Destroy();
+	Destroy();
 }
 
 void ACYTrapBase::OnRep_TrapState()

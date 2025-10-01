@@ -25,6 +25,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	UFUNCTION()
+	void OnGamePhaseChanged(EGamePhase NewPhase);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -48,4 +50,7 @@ private:
     
 	UPROPERTY()
 	TWeakObjectPtr<ACYItemBase> CurrentSpawnedItem;
+
+	// 첫 스폰 트리거 여부
+	bool bFirstSpawnTriggered = false;
 };

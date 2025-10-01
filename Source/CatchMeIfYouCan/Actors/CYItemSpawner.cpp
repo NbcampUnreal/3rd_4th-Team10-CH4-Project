@@ -34,12 +34,36 @@ void ACYItemSpawner::BeginPlay()
     
     if (!HasAuthority() || !SpawnData) return;
     
-    TrySpawnItem();
+	if (UWorld* World = GetWorld())
+	{
+		if (ACYInGameState* GameState = World->GetGameState<ACYInGameState>())
+		{
+			GameState->OnGamePhaseChanged.AddUObject(this, &ACYItemSpawner::OnGamePhaseChanged);
+            
+			// 이미 InProgress면 바로 스폰 시도
+			if (GameState->GetCurrentGamePhase() == EGamePhase::InProgress)
+			{
+				bFirstSpawnTriggered = true;
+				TrySpawnItem();
+			}
+		}
+	}
 }
 
 void ACYItemSpawner::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-    GetWorld()->GetTimerManager().ClearTimer(SpawnTimerHandle);
+	// 타이머 정리
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(SpawnTimerHandle);
+        
+		// 델리게이트 언바인드
+		if (ACYInGameState* GameState = World->GetGameState<ACYInGameState>())
+		{
+			GameState->OnGamePhaseChanged.RemoveAll(this);
+		}
+	}
+	
     Super::EndPlay(EndPlayReason);
 }
 
@@ -85,6 +109,9 @@ void ACYItemSpawner::UpdateDebugVisuals()
 void ACYItemSpawner::TrySpawnItem()
 {
 	if (!SpawnData || !HasAuthority()) return;
+
+	UWorld* World = GetWorld();
+	if (!World) return;
     
 	if (HasItemInRadius())
 	{
@@ -93,7 +120,20 @@ void ACYItemSpawner::TrySpawnItem()
 	}
     
 	ACYInGameState* GameState = GetWorld()->GetGameState<ACYInGameState>();
-	float RemainingTime = GameState ? GameState->GetMatchRemainingTimeLocal() : 300.0f;
+
+	// 게임이 InProgress가 아니거나 시간이 0이면 스폰 안 함
+	if (!GameState || GameState->GetCurrentGamePhase() != EGamePhase::InProgress)
+	{
+		ScheduleNextSpawn(SpawnData->NormalSpawnCooldown);
+		return;
+	}
+
+	float RemainingTime = GameState->GetMatchRemainingTimeLocal();
+
+	if (RemainingTime <= 0.0f)
+	{
+		return;
+	}
     
 	UE_LOG(LogTemp, Warning, TEXT("Spawner trying to spawn - Remaining Time: %.1f"), RemainingTime);
     
@@ -190,7 +230,8 @@ void ACYItemSpawner::OnSpawnedItemPickedUp(ACYItemBase* Item)
 
 void ACYItemSpawner::ScheduleNextSpawn(float Delay)
 {
-	if (!GetWorld())
+	UWorld* World = GetWorld();
+	if (!World)
 	{
 		UE_LOG(LogTemp, Error, TEXT("ScheduleNextSpawn: World is null"));
 		return;
@@ -198,4 +239,14 @@ void ACYItemSpawner::ScheduleNextSpawn(float Delay)
     
 	GetWorld()->GetTimerManager().SetTimer(
 		SpawnTimerHandle, this, &ACYItemSpawner::TrySpawnItem, Delay, false);
+}
+
+void ACYItemSpawner::OnGamePhaseChanged(EGamePhase NewPhase)
+{
+	// InProgress로 변경되면 즉시 첫 스폰
+	if (NewPhase == EGamePhase::InProgress && !bFirstSpawnTriggered)
+	{
+		bFirstSpawnTriggered = true;
+		TrySpawnItem();
+	}
 }

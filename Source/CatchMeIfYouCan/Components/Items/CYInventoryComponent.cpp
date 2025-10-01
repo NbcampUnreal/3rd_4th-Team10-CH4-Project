@@ -508,25 +508,42 @@ int32 UCYInventoryComponent::FindStackableItemSlot(ACYItemBase* Item) const
 
 bool UCYInventoryComponent::TryStackWithExistingItem(ACYItemBase* Item)
 {
-    int32 StackableSlot = FindStackableItemSlot(Item);
-    if (StackableSlot == -1) return false;
+	int32 StackableSlot = FindStackableItemSlot(Item);
+	if (StackableSlot == -1) return false;
 
-    ACYItemBase* ExistingItem = ItemSlots[StackableSlot];
-    int32 AddableCount = FMath::Min(Item->ItemCount, 
-                                    ExistingItem->MaxStackCount - ExistingItem->ItemCount);
+	ACYItemBase* ExistingItem = ItemSlots[StackableSlot];
+	
+	if (!IsValid(ExistingItem))
+	{
+		ItemSlots[StackableSlot] = nullptr;
+		return false;
+	}
     
-    ExistingItem->ItemCount += AddableCount;
-    Item->ItemCount -= AddableCount;
+	// 오버라이드 값 업데이트
+	if (Item->OverridePrimaryValue > 0.0f)
+	{
+		ExistingItem->OverridePrimaryValue = Item->OverridePrimaryValue;
+	}
+	if (Item->OverrideDuration > 0.0f)
+	{
+		ExistingItem->OverrideDuration = Item->OverrideDuration;
+	}
     
-    OnInventoryChanged.Broadcast(StackableSlot + 4, ExistingItem);
+	int32 AddableCount = FMath::Min(Item->ItemCount, 
+									ExistingItem->MaxStackCount - ExistingItem->ItemCount);
     
-    if (Item->ItemCount <= 0)
-    {
-        Item->Destroy();
-        return true;
-    }
+	ExistingItem->ItemCount += AddableCount;
+	Item->ItemCount -= AddableCount;
     
-    return false;
+	OnInventoryChanged.Broadcast(StackableSlot + 4, ExistingItem);
+    
+	if (Item->ItemCount <= 0)
+	{
+		Item->Destroy();
+		return true;
+	}
+    
+	return false;
 }
 
 void UCYInventoryComponent::OnRep_WeaponSlots()
