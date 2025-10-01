@@ -73,3 +73,19 @@ class CATCHMEIFYOUCAN_API UGE_Heal : public UGameplayEffect
 public:
 	UGE_Heal();
 };
+
+UCLASS()
+class CATCHMEIFYOUCAN_API UGE_SpeedBoost : public UGameplayEffect
+{
+	GENERATED_BODY()
+public:
+	UGE_SpeedBoost();
+};
+
+UCLASS()
+class CATCHMEIFYOUCAN_API UGE_Invisibility : public UGameplayEffect
+{
+	GENERATED_BODY()
+public:
+	UGE_Invisibility();
+};

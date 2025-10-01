@@ -18,6 +18,7 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(State_Captured, "State.Captured");
 	UE_DEFINE_GAMEPLAY_TAG(State_Jail, "State.Jail");
 	UE_DEFINE_GAMEPLAY_TAG(State_Free, "State.Free");
+	UE_DEFINE_GAMEPLAY_TAG(State_Invisible, "State.Invisible");
 
 	// Cooldown Tags
 	UE_DEFINE_GAMEPLAY_TAG(Cooldown_Combat_WeaponAttack, "Cooldown.Combat.WeaponAttack");
@@ -27,8 +28,13 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Effect_Debuff_Slow, "Effect.Debuff.Slow");
 	UE_DEFINE_GAMEPLAY_TAG(Effect_Debuff_Freeze, "Effect.Debuff.Freeze");
 
-	// GameplayCue Tag
+	// GameplayCue Tag - Traps
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Slow, "GameplayCue.Trap.Slow");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Freeze, "GameplayCue.Trap.Freeze");
 	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Trap_Damage, "GameplayCue.Trap.Damage");
+
+	// GameplayCue Tags - Consumables
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_Heal, "GameplayCue.Consumable.Heal");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_SpeedBoost, "GameplayCue.Consumable.SpeedBoost");
+	UE_DEFINE_GAMEPLAY_TAG(GameplayCue_Consumable_Invisibility, "GameplayCue.Consumable.Invisibility");
 }

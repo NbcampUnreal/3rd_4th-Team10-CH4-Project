@@ -18,17 +18,13 @@ void UCYItemInteractionComponent::BeginPlay()
 {
     Super::BeginPlay();
     
-    // 서버에서만 타이머 시작
-    if (GetOwner()->HasAuthority())
-    {
-        GetWorld()->GetTimerManager().SetTimer(
-            ItemCheckTimer,
-            this,
-            &UCYItemInteractionComponent::CheckForNearbyItems,
-            CheckInterval,
-            true // 반복
-        );
-    }
+	GetWorld()->GetTimerManager().SetTimer(
+		ItemCheckTimer,
+		this,
+		&UCYItemInteractionComponent::CheckForNearbyItems,
+		CheckInterval,
+		true
+	);
 }
 
 void UCYItemInteractionComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -121,11 +117,11 @@ void UCYItemInteractionComponent::CheckForNearbyItems()
         }
     }
     
-    // 변경사항이 있을 때만 업데이트
-    if (NearbyItem != ClosestItem)
-    {
-        NearbyItem = ClosestItem;
-    }
+    // 서버에서 NearbyItem 업데이트
+	if (GetOwner()->HasAuthority() && NearbyItem != ClosestItem)
+	{
+		NearbyItem = ClosestItem;
+	}
 
 	// 클라이언트 로컬용 (하이라이트)
 	if (Character->IsLocallyControlled())
@@ -161,7 +157,7 @@ void UCYItemInteractionComponent::ApplyHighlight(ACYItemBase* Item)
     
 	// Stencil Buffer 값 설정 (Outline용)
 	Item->ItemMesh->SetRenderCustomDepth(true);
-	Item->ItemMesh->SetCustomDepthStencilValue(1); // Outline 스텐실 값
+	Item->ItemMesh->SetCustomDepthStencilValue(255); // Outline 스텐실 값
     
 	UE_LOG(LogTemp, Log, TEXT("Applied stencil highlight to %s"), *Item->ItemName.ToString());
 }
