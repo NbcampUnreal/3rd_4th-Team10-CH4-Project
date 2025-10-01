@@ -1,7 +1,11 @@
 #include "Items/CYItemBase.h"
+
+#include "CYWeaponBase.h"
 #include "Character/CYPlayerCharacter.h"
+#include "Player/CYPlayerState.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/Items/CYWeaponComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/Engine.h"
 
@@ -34,6 +38,10 @@ ACYItemBase::ACYItemBase()
     bIsPickedUp = false;
     ItemCount = 1;
     MaxStackCount = 10;
+
+	// 기본값: 모든 팀이 픽업 가능
+	AllowedTeams.Add(ECYTeamRole::Cop);
+	AllowedTeams.Add(ECYTeamRole::Robber);
 }
 
 void ACYItemBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -58,15 +66,15 @@ void ACYItemBase::BeginPlay()
 
 void ACYItemBase::OnPickup(ACYPlayerCharacter* Character)
 {
-    if (!Character || bIsPickedUp || !HasAuthority()) return;
+	if (!Character || bIsPickedUp || !HasAuthority()) return;
 
-    bIsPickedUp = true;
+	bIsPickedUp = true;
     
-    // 아이템을 숨기고 충돌 비활성화
-    SetActorHiddenInGame(true);
-    SetActorEnableCollision(false);
+	// 모든 아이템을 기본적으로 숨김
+	SetActorHiddenInGame(true);
+	SetActorEnableCollision(false);
     
-    UE_LOG(LogTemp, Warning, TEXT("Item picked up: %s"), *ItemName.ToString());
+	UE_LOG(LogTemp, Warning, TEXT("Item picked up: %s"), *ItemName.ToString());
 }
 
 bool ACYItemBase::UseItem(ACYPlayerCharacter* Character)
@@ -136,4 +144,23 @@ void ACYItemBase::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, A
         // UI 힌트 숨기기
         UE_LOG(LogTemp, Log, TEXT("Player left item area: %s"), *ItemName.ToString());
     }
+}
+
+bool ACYItemBase::CanBePickedUpBy(ACYPlayerCharacter* Character) const
+{
+	if (!Character) return false;
+    
+	// AllowedTeams가 비어있으면 모두 픽업 가능
+	if (AllowedTeams.Num() == 0) return true;
+    
+	// PlayerState에서 팀 확인
+	ACYPlayerState* PS = Character->GetPlayerState<ACYPlayerState>();
+	if (!PS) return false;
+    
+	ECYTeamRole CharacterTeam = PS->GetTeamRole();
+    
+	// AllowedTeams에 캐릭터 팀이 포함되어 있는지 확인
+	bool bCanPickup = AllowedTeams.Contains(CharacterTeam);
+    
+	return bCanPickup;
 }

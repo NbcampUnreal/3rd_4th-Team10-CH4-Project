@@ -39,6 +39,9 @@ public:
     UPROPERTY(ReplicatedUsing = OnRep_IsArmed, BlueprintReadOnly, Category = "Trap")
     bool bIsArmed = false;
 
+	UPROPERTY(Replicated)
+	bool bHasTriggered = false;
+
     // 트랩 설정
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Trap")
     float TriggerRadius = 100.0f;

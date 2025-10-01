@@ -1,5 +1,8 @@
 #include "CYVitalSet.h"
 #include "GameplayEffectExtension.h"
+#include "AbilitySystem/CYAbilitySystemComponent.h"
+#include "AbilitySystem/CYCombatGameplayTags.h"
+#include "AbilitySystem/Effects/CYCombatGameplayEffects.h"
 #include "Net/UnrealNetwork.h"
 
 UCYVitalSet::UCYVitalSet()
@@ -38,24 +41,32 @@ void UCYVitalSet::HandleHealthChange()
 	// Health를 0과 MaxHealth 사이로 제한
 	SetHealth(FMath::Clamp(NewHealth, 0.0f, GetMaxHealth()));
 
-	// 사망 처리
+	AActor* Owner = GetOwningActor();
+	if (!Owner) return;
+
+	// 서버인 경우만 실행
+	if (!Owner->HasAuthority())
+	{
+		return;
+	}
+
+	UAbilitySystemComponent* ASC = GetOwningAbilitySystemComponent();
+	if (!ASC) return;
+
+	// 사망 처리 (체력이 0 이하)
 	if (GetHealth() <= 0.0f)
 	{
-		if (AActor* Owner = GetOwningActor())
+		if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
 		{
-			UE_LOG(LogTemp, Warning, TEXT("%s has died (Health: %.1f)"), *Owner->GetName(), GetHealth());
-            
-			// 여기에 사망 이벤트 처리 추가 가능
-			// OnHealthZero.Broadcast(Owner);
+			return;
 		}
-	}
-	else
-	{
-		// Health 변경 로그
-		if (AActor* Owner = GetOwningActor())
+
+		UE_LOG(LogTemp, Warning, TEXT("[Server] %s has died"), *Owner->GetName());
+
+		// Stunned Ability 활성화
+		if (UCYAbilitySystemComponent* CYASC = Cast<UCYAbilitySystemComponent>(ASC))
 		{
-			UE_LOG(LogTemp, Log, TEXT("%s Health changed: %.1f/%.1f"), 
-				   *Owner->GetName(), GetHealth(), GetMaxHealth());
+			CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
 		}
 	}
 }
@@ -74,8 +85,9 @@ void UCYVitalSet::OnRep_Health(const FGameplayAttributeData& OldHealth)
 	{
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, Health, OldHealth);
         
-		// 클라이언트에서도 Health 변경 처리
-		HandleHealthChange();
+		// 클라이언트에서도 Health 변경 처리 (UI 업데이트 등)
+		UE_LOG(LogTemp, Log, TEXT("[Client] Health replicated: %.1f/%.1f"), 
+			   GetHealth(), GetMaxHealth());
 	}
 	else
 	{
@@ -90,7 +102,7 @@ void UCYVitalSet::OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth)
 		GAMEPLAYATTRIBUTE_REPNOTIFY(UCYVitalSet, MaxHealth, OldMaxHealth);
         
 		// MaxHealth 변경 시 현재 Health도 재검증
-		HandleHealthChange();
+		SetHealth(FMath::Clamp(GetHealth(), 0.0f, GetMaxHealth()));
 	}
 	else
 	{

@@ -2,9 +2,15 @@
 
 
 #include "AI/Characters/CYAIDogCharacter.h"
+
+#include "AI/Controllers/CYAIDogController.h"
+#include "AI/Managers/CYGuardDogPoolManager.h"
+#include "AI/Managers/CYSplineManager.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
-
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 // Sets default values
 ACYAIDogCharacter::ACYAIDogCharacter()
@@ -12,7 +18,6 @@ ACYAIDogCharacter::ACYAIDogCharacter()
 
 	//네트워크 복제 활성화
 	bReplicates = true;
-
 	AutoPossessAI= EAutoPossessAI::PlacedInWorldOrSpawned;
 
 	// 기본 이동 속도 설정
@@ -23,11 +28,14 @@ ACYAIDogCharacter::ACYAIDogCharacter()
 	AISpeed = 0.0f;
 	AIDirection = 0.0f;
 
-	//회전 설정
+	// 회전 설정 개선
 	GetCharacterMovement()->bOrientRotationToMovement = false;
+	GetCharacterMovement()->bUseControllerDesiredRotation = true;
+	// 회전 속도 조정
 	GetCharacterMovement()->RotationRate = FRotator(0.0f, 360.0f, 0.0f);
 	
 }
+
 
 void ACYAIDogCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -37,56 +45,182 @@ void ACYAIDogCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(ThisClass, bIsBarking);    // 감지 상태
 	DOREPLIFETIME(ThisClass, AISpeed);       // 속도
 	DOREPLIFETIME(ThisClass, AIDirection);   // 방향 각도
+	DOREPLIFETIME(ThisClass, TargetPatrolPath);//패스
+
 }
+//아웃라인 함수 구현
+void ACYAIDogCharacter::Multicast_SetTargetOutline_Implementation(AActor* TargetActor, bool bEnable)
+{
+	//타겟이 유효하지 않을시 리턴
+	if (!TargetActor|| !IsValid(TargetActor))return;
+
+	//컴포넌트 가져오기
+	UPrimitiveComponent* MeshComponent = TargetActor->FindComponentByClass<USkeletalMeshComponent>();
+	if (!MeshComponent)
+	{
+		MeshComponent = TargetActor->FindComponentByClass<UStaticMeshComponent>();
+	}
+	
+	//커스텀 뎁스 렌더링 및 스텐실 값 설정
+	if (MeshComponent)
+	{
+		MeshComponent->SetRenderCustomDepth(bEnable);
+		if (bEnable)
+		{
+			MeshComponent->SetCustomDepthStencilValue(1);
+		}
+	}
+}
+
+
+
+//풀 매니저 설정
+void ACYAIDogCharacter::SetPoolManager(ACYGuardDogPoolManager* InManager)
+{
+	PoolManager = InManager;
+}
+//경비견 활성화
+void ACYAIDogCharacter::ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath)
+{
+	if (!HasAuthority()) return;
+
+	//위치 및 순찰 경로 설정
+	SetActorLocation(SpawnLocation);
+	TargetPatrolPath = NewPatrolPath;
+    
+	//애니메이션 변수 초기화
+	UpdateAIAnimationVariables(0.0f, 0.0f);
+    
+	// 3. AI 로직 재시작
+	ACYAIDogController* DogController = Cast<ACYAIDogController>(GetController());
+	if (DogController)
+	{
+		// 블랙보드 초기화 - 스플라인 관련 상태도 포함
+		UBlackboardComponent* BBComp = DogController->GetBlackboardComponent();
+		if (BBComp)
+		{
+			BBComp->SetValueAsObject(FName("Target"), nullptr);
+			BBComp->SetValueAsBool(FName("bIsBarking"), false);
+            
+			// 스플라인 관련 상태 초기화
+			BBComp->SetValueAsBool(FName("bOnSpline"), false);
+			BBComp->SetValueAsFloat(FName("CurrentSplineDistance"), 0.0f);
+		}
+		// AI 로직 시작
+		DogController->StartLogic();
+	}
+
+	// 4. 상태 초기화
+	SetBarkingState(false);
+
+	// 5. 모든 클라이언트에게 활성화 상태를 알림
+	Multicast_OnStateChanged(true);
+}
+//경비견 비활성화 실제 서버에서만 실행
+void ACYAIDogCharacter::DeactivateDog()
+{
+	//서버인 경우만 실행
+	if (HasAuthority())
+	{
+		DeactivateDog_Internal();
+	}
+}
+//경비견 실제 비활성화 함수
+void ACYAIDogCharacter::DeactivateDog_Internal()
+{
+	//AI 로직 중지
+	ACYAIDogController* DogController= Cast<ACYAIDogController>(GetController());
+	if (DogController)
+	{
+		//비활성화 시 타겟의 아웃라인을 끄도록 처리
+		if (AActor* CurrentTarget = Cast<AActor>(DogController->GetBlackboardComponent()->GetValueAsObject(FName("Target"))))
+		{
+			Multicast_SetTargetOutline(CurrentTarget, false);
+		}
+		
+		DogController->StopLogic();
+
+		// 블랙보드 상태 리셋
+		UBlackboardComponent* BBComp = DogController->GetBlackboardComponent();
+		if (BBComp)
+		{
+			BBComp->SetValueAsBool(FName("bOnSpline"), false);
+			BBComp->SetValueAsFloat(FName("CurrentSplineDistance"), 0.0f);
+			BBComp->SetValueAsObject(FName("Target"), nullptr);
+			BBComp->SetValueAsBool(FName("bIsBarking"), false);
+		}
+	}
+	//애니메이션 초기화
+	UpdateAIAnimationVariables(0.0f, 0.0f);
+	//스플라인 반환
+	ACYSplineManager* SplineManager=ACYSplineManager::GetInstance(GetWorld());
+	if (SplineManager&& TargetPatrolPath)
+	{
+		//스플라인 매니저에서 반환 및 현재 경비견의 스플라인 nullptr로 설정
+		SplineManager->ReleaseSpline(TargetPatrolPath);
+		TargetPatrolPath = nullptr;
+	}
+	if (PoolManager)
+	{
+		PoolManager->ReturnDogToPool(this);
+	}
+
+	Multicast_OnStateChanged(false);
+}
+
+//풀링 함수
+void ACYAIDogCharacter::Multicast_OnStateChanged_Implementation(bool bIsActive)
+{
+	// 액터를 보이게/숨기고, 충돌 및 틱을 활성화/비활성화합니다.
+	SetActorHiddenInGame(!bIsActive);
+	SetActorEnableCollision(bIsActive);
+	SetActorTickEnabled(bIsActive);
+
+	// 비활성화 시에는 월드 밖 안전한 장소로 이동시킬 수도 있습니다.
+	if (!bIsActive)
+	{
+		SetActorLocation(FVector(0, 0, -10000)); // 예: 맵 아래
+	}
+}
+
 
 void ACYAIDogCharacter::SetBarkingState(bool bNewBarking)
 {
-	// 서버에서만 상태 변경 가능
 	if (HasAuthority())
 	{
 		if (bIsBarking != bNewBarking)
 		{
 			bIsBarking = bNewBarking;
+			
+			//리슨서버 전용
+			if(GetNetMode() != NM_DedicatedServer)
+			{
+				ONRep_IsBarking();
+			}
 		}
 	}
 }
 
-//추후 필요시 추가 아니면 최종 버전에서 삭제
-//void ACYAIDogCharacter::ServerSetBarkingState_Implementation(bool bNewBarking)
-//{
-	// 클라이언트에서 서버로의 RPC 요청 처리
-//	SetBarkingState(bNewBarking);
-//}
+void ACYAIDogCharacter::ServerSetBarkingState_Implementation(bool bNewBarking)
+{
+	SetBarkingState(bNewBarking);
+}
 
 void ACYAIDogCharacter::ONRep_IsBarking()
 {
-	// 데디케이티드 서버에서 이벤트 실행 x
+	// 데디케이티드 서버에서는 시각적 효과를 실행하지 않음
 	if (GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
     
-	// 클라이언트에서 상태에 따른 시각적 효과 실행
 	if (bIsBarking)
 	{
-		OnStartBarkingVisuals();  // 블루프린트 이벤트 호출
-
-		//추후 사용할 위치 전달용 함수 =============================================================
-		APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
-		if (PlayerController && PlayerController->GetPawn())
-		{
-			APawn* MyPawn = PlayerController->GetPawn();
-			if (MyPawn->ActorHasTag(FName("Police")))
-			{
-				FVector DogLocation = GetActorLocation();
-			}
-
-		}
-		//==========================================================================================
+		OnStartBarkingVisuals();
 	}
 	else
 	{
-		OnStopBarkingVisuals();   // 블루프린트 이벤트 호출
+		OnStopBarkingVisuals();
 	}
 }
 

@@ -6,6 +6,7 @@
 #include "CYInGameState.h"
 #include "CYLogChannels.h"
 #include "EngineUtils.h"
+#include "Actors/CYJailPoint.h"
 #include "Player/CYPlayerController.h"
 #include "Player/CYPlayerState.h"
 #include "Character/CYPawnData.h"
@@ -15,6 +16,7 @@
 #include "Systems/CYAssetManager.h"
 
 ACYInGameMode::ACYInGameMode(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
 {
 	DefaultPawnClass = nullptr; // GetDefaultPawnClassForController에서 팀 별 클래스를 지정할 예정
 	PlayerControllerClass = ACYPlayerController::StaticClass();
@@ -22,16 +24,28 @@ ACYInGameMode::ACYInGameMode(const FObjectInitializer& ObjectInitializer)
 	GameStateClass = ACYInGameState::StaticClass();
 }
 
+void ACYInGameMode::InitGameState()
+{
+	Super::InitGameState();
+
+	CYGameState = GetGameState<ACYInGameState>();
+}
+
 void ACYInGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	
 	UE_LOG(LogCY, Warning, TEXT("========================================"));
 	UE_LOG(LogCY, Warning, TEXT("GameMode Started on SERVER"));
 	UE_LOG(LogCY, Warning, TEXT("DefaultPawnClass: %s"), *GetNameSafe(DefaultPawnClass));
 	UE_LOG(LogCY, Warning, TEXT("========================================"));
 
+	if (CYGameState)
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+	}
+	
 	CachePlayerStarts();
+	CacheJailPoint();
 	
 	UCYAssetManager::Get().LoadAllPawnData(
 		FStreamableDelegate::CreateUObject(this, &ThisClass::OnPawnDataLoaded)
@@ -54,6 +68,26 @@ void ACYInGameMode::PostLogin(APlayerController* NewPlayer)
 	}
 	
 	Super::PostLogin(NewPlayer);
+
+	TryChangeInGamePhase();
+}
+
+void ACYInGameMode::Logout(AController* Exiting)
+{
+	// 팀 카운트 감소
+	if (ACYPlayerState* CYPS = Exiting->GetPlayerState<ACYPlayerState>())
+	{
+		if (CYGameState)
+		{
+			CYGameState->UpdateTeamCount(CYPS->GetTeamRole(), -1);
+		}
+	}
+
+	ConnectedPlayerCount--;
+	
+	Super::Logout(Exiting);
+
+	TryChangeInGamePhase();
 }
 
 void ACYInGameMode::AssignRandomPawnDataToPlayer(APlayerController* NewPlayer)
@@ -88,17 +122,12 @@ void ACYInGameMode::AssignRandomPawnDataToPlayer(APlayerController* NewPlayer)
 	if (SelectedPawnData)
 	{
 		CYPS->SetPawnData(SelectedPawnData);
+
+		if (CYGameState)
+		{
+			CYGameState->UpdateTeamCount(SelectedPawnData->TeamRole, 1);
+		}
 	}
-}
-
-void ACYInGameMode::Logout(AController* Exiting)
-{
-	// TODO : Logout 로직 변경 필요
-	// 팀 카운트 업데이트
-
-	ConnectedPlayerCount--;
-	
-	Super::Logout(Exiting);
 }
 
 UClass* ACYInGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -154,34 +183,34 @@ void ACYInGameMode::OnPawnDataLoaded()
 		}
 	}
 	PendingPlayers.Empty();
+
+	TryChangeInGamePhase();
 }
 
 ECYTeamRole ACYInGameMode::DetermineTeamForPlayer()
 {
-	// 현재 팀 인원 계산
-	int32 CurrentCops = 0;
-	int32 CurrentRobbers = 0;
-    
-	for (APlayerState* PS : GameState->PlayerArray)
+	if (!CYGameState)
 	{
-		if (ACYPlayerState* CYPS = Cast<ACYPlayerState>(PS))
-		{
-			ECYTeamRole Team = CYPS->GetTeamRole();
-			if (Team == ECYTeamRole::Cop) CurrentCops++;
-			else if (Team == ECYTeamRole::Robber) CurrentRobbers++;
-		}
+		return ECYTeamRole::Robber;
 	}
+
+	// TODO : 테스트용 코드로써 삭제 예정
+	if (bForceRobberInListenServer && GetNetMode() == NM_ListenServer)
+	{
+		bForceRobberInListenServer = false;
+		return ECYTeamRole::Robber;
+	}
+	
+	// GameState에서 현재 팀 비율 계산
+	float CurrentRatio = CYGameState->GetCopRatio();
+	float IdealCopRatio = 0.33f; // 2:4 비율(경찰:도둑)
     
-	// 2:4 비율 (경찰:도둑)
-	float IdealCopRatio = 0.33f;
-	float CurrentRatio = (CurrentCops + CurrentRobbers > 0) ? 
-		static_cast<float>(CurrentCops) / static_cast<float>(CurrentCops + CurrentRobbers) : 0.0f;
-    
-	ECYTeamRole Result = (CurrentRatio < IdealCopRatio) ? ECYTeamRole::Cop : ECYTeamRole::Robber;
+	ECYTeamRole Result = (CurrentRatio < IdealCopRatio) ? 
+						 ECYTeamRole::Cop : ECYTeamRole::Robber;
     
 	UE_LOG(LogCY, Log, TEXT("DetermineTeam: Cops=%d, Robbers=%d, Ratio=%.2f, Result=%s"),
-		CurrentCops, CurrentRobbers, CurrentRatio,
-		Result == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
+		   CYGameState->GetCopCount(), CYGameState->GetRobberCount(), CurrentRatio,
+		   Result == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
     
 	return Result;
 }
@@ -293,5 +322,158 @@ void ACYInGameMode::CachePlayerStarts()
 	CopPlayerStarts.Sort(SortByPriority);
 	RobberPlayerStarts.Sort(SortByPriority);
 }
+
+void ACYInGameMode::CacheJailPoint()
+{
+	if (CYGameState)
+	{
+		ACYJailPoint* JailPoint = nullptr;
+		for (TActorIterator<ACYJailPoint> It(GetWorld()); It; ++It)
+		{
+			JailPoint = *It;
+			break; 
+		}
+		CYGameState->SetJailPoint(JailPoint);
+	}
+}
+
+void ACYInGameMode::TryChangeInGamePhase()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+
+	switch (CYGameState->GetCurrentGamePhase())
+	{
+	case EGamePhase::WaitingToStart:
+		{
+			if (HasRequiredRatio())
+			{
+				StartPreparing();
+			}
+			break;
+		}
+	case EGamePhase::Preparing:
+		{
+			// 준비 중에 인원 변화 했을 때 취소 처리
+			if (!HasRequiredRatio())
+			{
+				// 준비 취소 → 다시 대기
+				GetWorld()->GetTimerManager().ClearTimer(PreparingTimerHandle);
+				CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+
+				UE_LOG(LogCY, Warning, TEXT("Preparing cancelled - not enough players"))
+			}
+			break;
+		}
+	default:
+		break;
+	}
+}
+
+bool ACYInGameMode::HasRequiredRatio() const
+{
+	if (!CYGameState || CYGameState->GetCurrentGamePhase() >= EGamePhase::InProgress)
+	{
+		return false;
+	}
+	
+	const int32 Cops = CYGameState->GetCopCount();
+	const int32 Robs = CYGameState->GetRobberCount();
+
+	return Cops >= RequiredCopCount && Robs >= RequiredRobberCount;
+}
+
+void ACYInGameMode::StartPreparing()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	// 준비 시작: GameState에 서버 시각/길이 기록 + 페이즈 전환
+	CYGameState->StartPreparing_Server(PreparingCountdownSeconds);
+
+	// 카운트다운 종료 시 매치 시작
+	GetWorld()->GetTimerManager().SetTimer(
+		PreparingTimerHandle,
+		this,
+		&ThisClass::StartMatch,
+		PreparingCountdownSeconds,
+		false
+	);
+}
+
+void ACYInGameMode::StartMatch()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+
+	// 시작 직전 비율 재검증
+	if (!HasRequiredRatio())
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
+		return;
+	}
+
+	// InProgress 시작: 서버 시간 기록 및 페이즈 전환
+	CYGameState->StartMatch_Server(MatchDurationSeconds);
+
+	// 게임 시작시 Alive 카운트 초기화
+	CYGameState->InitAliveCountsMatchStart();
+
+	GetWorld()->GetTimerManager().ClearTimer(MatchTimerHandle);
+	GetWorld()->GetTimerManager().SetTimer(
+		MatchTimerHandle,
+		this, &ThisClass::OnMatchTimeExpired,
+		MatchDurationSeconds, false
+		);
+}
+
+void ACYInGameMode::OnMatchTimeExpired()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	// 이미 승패가 난 상태면 무시
+	if (CYGameState->GetCurrentGamePhase() != EGamePhase::InProgress)
+	{
+		return;
+	}
+	
+	// 시간 종료 승리 조건 체크
+	EvaluateTimeUpWinCondition();
+}
+
+void ACYInGameMode::EvaluateTimeUpWinCondition()
+{
+	if (!CYGameState)
+	{
+		return;
+	}
+	
+	const int32 TotalRobbers = CYGameState->GetRobberCount();
+	const int32 AliveRobbers = CYGameState->GetAliveRobberCount();
+	const int32 CapturedRobbers = FMath::Max(0, TotalRobbers - AliveRobbers);
+	
+	// 전체 도둑 체포 조건 or 최소 체포 수로 승패 유무 판단
+	int32 RequiredCapturedRobbers = bRequireAllRobbersForTimeWin ? TotalRobbers : RequiredCapturedRobbersForTimeWin;
+
+	if (CapturedRobbers >= RequiredCapturedRobbers)
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::CopsWin);
+	}
+	else
+	{
+		CYGameState->SetGamePhase_Server(EGamePhase::RobbersWin);
+	}
+}
+
+
 
 

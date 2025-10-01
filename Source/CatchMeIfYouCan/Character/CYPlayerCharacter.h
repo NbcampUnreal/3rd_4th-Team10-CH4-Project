@@ -33,7 +33,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	void SetupPlayerSystems();
+	void SetupAbilitySystemComponent();
 
 	void Input_Move(const FInputActionValue& InputActionValue);
 	void Input_Look(const FInputActionValue& InputActionValue);
@@ -59,6 +59,16 @@ protected:
 	void Input_UseSlot7(const FInputActionValue& InputActionValue);         // 아이템 슬롯 4
 	void Input_UseSlot8(const FInputActionValue& InputActionValue);         // 아이템 슬롯 5
 	void Input_UseSlot9(const FInputActionValue& InputActionValue);         // 아이템 슬롯 6
+
+	// 투명화
+	void RegisterInvisibilityTagEvent();
+	void OnInvisibilityChanged(const FGameplayTag Tag, int32 NewCount);
+
+	UFUNCTION(NetMulticast, Reliable)
+	void MulticastHandleInvisibilityChanged(bool bIsInvisible);
+
+	void UpdateVisibilityForLocalPlayer(bool bIsInvisible);
+	void SetMeshVisibility(UMeshComponent* MeshComponent, bool bVisible);
 	
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Camera")
@@ -66,7 +76,7 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Camera")
 	TObjectPtr<UCameraComponent> FollowCamera;
-
+	
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "CY|Input")
 	TObjectPtr<UCYInputConfig> DefaultInputConfig;

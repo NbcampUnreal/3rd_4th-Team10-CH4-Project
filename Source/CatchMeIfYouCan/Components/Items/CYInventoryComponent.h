@@ -25,6 +25,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
     int32 ItemSlotCount = 6;    // 4~9번 키
 
+	// 아이템을 부착할 소켓 이름 (BP에서 설정 가능)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory|Socket")
+	FName ItemSocketName = TEXT("RightHand");
+
     // 슬롯 배열 (네트워크 동기화)
     UPROPERTY(ReplicatedUsing = OnRep_WeaponSlots, BlueprintReadOnly, Category = "Inventory")
     TArray<ACYItemBase*> WeaponSlots;
@@ -114,4 +118,9 @@ private:
     // 중복 실행 방지
     UPROPERTY(Replicated)
     bool bIsProcessingUse = false;
+
+	// 트랩 사용 중복 방지
+	UPROPERTY(Replicated)
+	bool bIsUsingTrap = false;
+	FTimerHandle TrapUseCooldownTimer; 
 };

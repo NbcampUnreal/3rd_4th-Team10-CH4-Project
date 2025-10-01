@@ -32,6 +32,7 @@ void ACYTrapBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
     
     DOREPLIFETIME(ACYTrapBase, TrapState);
     DOREPLIFETIME(ACYTrapBase, bIsArmed);
+	DOREPLIFETIME(ACYTrapBase, bHasTriggered);
 }
 
 void ACYTrapBase::BeginPlay()
@@ -127,6 +128,12 @@ void ACYTrapBase::OnTrapSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
     UPrimitiveComponent* OtherComp, int32 OtherBodyIndex,
     bool bFromSweep, const FHitResult& SweepResult)
 {
+	// 이미 트리거됐으면 무시
+	if (bHasTriggered)
+	{
+		return;
+	}
+	
     // 트랩이 활성화 상태가 아니면 무시
     if (TrapState != ETrapState::PlayerPlaced || !bIsArmed || !HasAuthority()) return;
     
@@ -144,7 +151,9 @@ void ACYTrapBase::OnTrapSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
 			return;
 		}
 	}
-    
+
+	// 트리거 플래그 설정
+	bHasTriggered = true;
     OnTrapTriggered(Target);
 }
 

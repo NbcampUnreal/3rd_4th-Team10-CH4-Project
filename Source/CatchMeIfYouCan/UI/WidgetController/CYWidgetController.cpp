@@ -9,4 +9,5 @@ void UCYWidgetController::SetWidgetControllerParams(const FWidgetControllerParam
 	PlayerState = WCParams.PlayerState;
 	AbilitySystemComponent = WCParams.AbilitySystemComponent;
 	AttributeSet = WCParams.AttributeSet;
+	GameState = WCParams.GameState;
 }

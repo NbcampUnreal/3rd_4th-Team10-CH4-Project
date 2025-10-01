@@ -9,6 +9,8 @@
 
 ACYAIDogController::ACYAIDogController()
 {
+	bReplicates = true;
+	
 	// 감지 컴포넌트 생성 및 설정
 	AIPerceptionComponent = CreateDefaultSubobject<UAIPerceptionComponent>(TEXT("AIPerception"));
 	UAISenseConfig_Sight* SightConfig = CreateDefaultSubobject<UAISenseConfig_Sight>(TEXT("SightConfig"));
@@ -21,7 +23,6 @@ ACYAIDogController::ACYAIDogController()
 		SightConfig->PeripheralVisionAngleDegrees = 90.0f;    //  감지 각도
 		SightConfig->SetMaxAge(5.0f);                         // 감지 기억 시간
         
-		// 감지 대상 설정
 		SightConfig->DetectionByAffiliation.bDetectEnemies = true;
 		//여기서 감지될 예정
 		SightConfig->DetectionByAffiliation.bDetectNeutrals = true;
@@ -53,13 +54,26 @@ void ACYAIDogController::OnPossess(APawn* InPawn)
 	// 감지 이벤트 콜백 함수 바인딩
 	AIPerceptionComponent->OnTargetPerceptionUpdated.AddDynamic(this, &ACYAIDogController::OnTargetPerceived);
 
-	// 행동 트리 및 블랙보드 실행
+	// 블랙보드 설정
 	if (BehaviorTreeAsset && BehaviorTreeAsset->BlackboardAsset)
 	{
-		if (UseBlackboard(BehaviorTreeAsset->BlackboardAsset, BlackboardComp))
-		{
-			RunBehaviorTree(BehaviorTreeAsset);
-		}
+		UseBlackboard(BehaviorTreeAsset->BlackboardAsset, BlackboardComp);
+	}
+}
+
+//행동 트리 시작
+void ACYAIDogController::StartLogic()
+{
+	if (BehaviorTreeAsset)
+	{
+		RunBehaviorTree(BehaviorTreeAsset);
+	}
+}
+void ACYAIDogController::StopLogic()
+{
+	if (BrainComponent)
+	{
+		BrainComponent->StopLogic(TEXT("Pooled"));
 	}
 }
 
@@ -76,6 +90,11 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 
 	if (bIsSensed)
 	{
+		//만약 감지된 액터 배열에 있다면 타이머 초기화
+		CancelDelayTimer(Actor);
+		//모든 캐릭터에 아웃라인 실행
+		ControlledDog->Multicast_SetTargetOutline(Actor, true);
+		
 		// 새로운 대상 감지시 처리
 		BlackboardComp->SetValueAsObject(FName("Target"), Actor);
         
@@ -100,6 +119,7 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 			{
 				// 다른 thief 발견시 그것을 새 타겟으로 설정
 				bIsOtherThiefVisible = true;
+				ControlledDog->Multicast_SetTargetOutline(PerceivedActor, true);
 				BlackboardComp->SetValueAsObject(FName("Target"), PerceivedActor);
 				break;
 			}
@@ -108,22 +128,74 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 		// 시야에 thief가 아무도 없을 때만 짖기 중단
 		if (!bIsOtherThiefVisible)
 		{
+			StartOutlineDelayTimer(Actor);
 			ControlledDog->SetBarkingState(false);
 			BlackboardComp->SetValueAsBool(FName("bIsBarking"), false);
 			BlackboardComp->SetValueAsObject(FName("Target"), nullptr);
 			StopBarkingTimer();
 		}
+		else
+		{
+			StartOutlineDelayTimer(Actor);
+		}
 	}
 }
 
+void ACYAIDogController::StartOutlineDelayTimer(AActor* TargetActor)
+{
+	CancelDelayTimer(TargetActor);
+	
+	FDelayedOutlineTarget NewDelayTarget;
+	NewDelayTarget.TargetActor = TargetActor;
+	
+	TWeakObjectPtr<AActor> TargetActorPtr = TargetActor;
 
-//디버그용 최종 버전에서는 제거 예정===================================
+	GetWorld()->GetTimerManager().SetTimer(
+		NewDelayTarget.DelayTimer,
+		[this, TargetActorPtr]()
+		{
+			if (TargetActorPtr.IsValid())
+			{
+				RemoveOutlineFromTarget(TargetActorPtr.Get());
+			}
+		},
+		5.0f,
+		false
+	);
+	
+	DelayedOutlineTargets.Add(NewDelayTarget);
+}
+
+void ACYAIDogController::RemoveOutlineFromTarget(AActor* TargetActor)
+{
+	if (TargetActor && IsValid(TargetActor) && ControlledDog)
+	{
+		ControlledDog->Multicast_SetTargetOutline(TargetActor, false);
+	}
+
+	DelayedOutlineTargets.RemoveAll([TargetActor](const FDelayedOutlineTarget& Target) {
+		return Target.TargetActor == TargetActor;
+	});
+}
+
+void ACYAIDogController::CancelDelayTimer(AActor* TargetActor)
+{
+	for (int32 i = DelayedOutlineTargets.Num() - 1; i >= 0; --i)
+	{
+		if (DelayedOutlineTargets[i].TargetActor == TargetActor)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(DelayedOutlineTargets[i].DelayTimer);
+			DelayedOutlineTargets.RemoveAt(i);
+			break;
+		}
+	}
+}
+
 void ACYAIDogController::StartBarkingTimer()
 {
 	if(GetWorld())
 	{
-		// 1초마다 BarkOnce 함수 호출 (반복)
-		GetWorld()->GetTimerManager().SetTimer(BarkingTimerHandle, this, &ACYAIDogController::BarkOnce, 1.0f, true);
+       GetWorld()->GetTimerManager().SetTimer(BarkingTimerHandle, this, &ACYAIDogController::BarkOnce, 1.0f, true);
 	}
 }
 
@@ -131,13 +203,12 @@ void ACYAIDogController::StopBarkingTimer()
 {
 	if(GetWorld())
 	{
-		// 타이머 정지
 		GetWorld()->GetTimerManager().ClearTimer(BarkingTimerHandle);
 	}
 }
 
 void ACYAIDogController::BarkOnce()
 {
-
+	//
 }
-//============================================================================
+

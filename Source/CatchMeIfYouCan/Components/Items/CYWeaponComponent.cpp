@@ -34,10 +34,9 @@ bool UCYWeaponComponent::EquipWeapon(ACYWeaponBase* Weapon)
 	CurrentWeapon = Weapon;
 	AttachWeaponToOwner(Weapon);
     
-	// 무기를 보이게 설정 (픽업 상태에서 장착 상태로)
 	Weapon->SetActorHiddenInGame(false);
     
-	// 충돌 비활성화 (장착된 무기는 월드와 충돌하지 않음)
+	// 충돌 비활성화
 	if (Weapon->ItemMesh)
 	{
 		Weapon->ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -46,7 +45,15 @@ bool UCYWeaponComponent::EquipWeapon(ACYWeaponBase* Weapon)
 	{
 		Weapon->InteractionSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+
+	UpdateAnimationBlueprint();
     
+	// 네트워크 업데이트 강제
+	if (AActor* OwnerActor = GetOwner())
+	{
+		OwnerActor->ForceNetUpdate();
+	}
+	
 	OnWeaponChanged.Broadcast(nullptr, CurrentWeapon);
     
 	UE_LOG(LogTemp, Warning, TEXT("Weapon equipped: %s"), *Weapon->ItemName.ToString());
@@ -66,10 +73,48 @@ bool UCYWeaponComponent::UnequipWeapon()
 	OldWeapon->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 	CurrentWeapon = nullptr;
 
+	// 애니메이션 블루프린트를 맨손 상태로 변경
+	UpdateAnimationBlueprint();
+
 	OnWeaponChanged.Broadcast(OldWeapon, nullptr);
     
 	UE_LOG(LogTemp, Warning, TEXT("Weapon unequipped: %s"), *OldWeapon->ItemName.ToString());
 	return true;
+}
+
+void UCYWeaponComponent::UpdateAnimationBlueprint()
+{
+	USkeletalMeshComponent* OwnerMesh = GetOwnerMesh();
+	if (!OwnerMesh)
+	{
+		return;
+	}
+
+	TSubclassOf<UAnimInstance> TargetAnimBP = UnarmedAnimBP; // 기본값: 맨손
+
+	if (CurrentWeapon)
+	{
+		// 무기별 애니메이션 블루프린트 찾기
+		TSubclassOf<ACYWeaponBase> WeaponClass = CurrentWeapon->GetClass();
+		if (TSubclassOf<UAnimInstance>* FoundAnimBP = WeaponAnimBPMap.Find(WeaponClass))
+		{
+			TargetAnimBP = *FoundAnimBP;
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("No animation blueprint found for weapon: %s"), 
+				   *WeaponClass->GetName());
+		}
+	}
+
+	if (TargetAnimBP)
+	{
+		// Link Anim Class Layers 사용
+		OwnerMesh->LinkAnimClassLayers(TargetAnimBP);
+        
+		UE_LOG(LogTemp, Warning, TEXT("Animation blueprint changed to: %s"), 
+			   *TargetAnimBP->GetName());
+	}
 }
 
 UCYAbilitySystemComponent* UCYWeaponComponent::GetOwnerAbilitySystemComponent() const
@@ -121,4 +166,7 @@ void UCYWeaponComponent::OnRep_CurrentWeapon()
 	{
 		UE_LOG(LogTemp, Log, TEXT("Client weapon unequipped"));
 	}
+
+	// 클라이언트에서도 애니메이션 블루프린트 변경
+	UpdateAnimationBlueprint();
 }

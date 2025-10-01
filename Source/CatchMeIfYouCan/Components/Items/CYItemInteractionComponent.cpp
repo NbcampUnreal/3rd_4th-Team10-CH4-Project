@@ -18,23 +18,19 @@ void UCYItemInteractionComponent::BeginPlay()
 {
     Super::BeginPlay();
     
-    // 서버에서만 타이머 시작
-    if (GetOwner()->HasAuthority())
-    {
-        GetWorld()->GetTimerManager().SetTimer(
-            ItemCheckTimer,
-            this,
-            &UCYItemInteractionComponent::CheckForNearbyItems,
-            CheckInterval,
-            true // 반복
-        );
-    }
+	GetWorld()->GetTimerManager().SetTimer(
+		ItemCheckTimer,
+		this,
+		&UCYItemInteractionComponent::CheckForNearbyItems,
+		CheckInterval,
+		true
+	);
 }
 
 void UCYItemInteractionComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(UCYItemInteractionComponent, NearbyItem);
+	DOREPLIFETIME(UCYItemInteractionComponent, NearbyItem);
 }
 
 void UCYItemInteractionComponent::InteractWithNearbyItem()
@@ -52,6 +48,16 @@ void UCYItemInteractionComponent::InteractWithNearbyItem()
 void UCYItemInteractionComponent::ServerPickupItem_Implementation(ACYItemBase* Item)
 {
     if (!Item || !GetOwner()->HasAuthority() || Item->bIsPickedUp) return;
+
+	ACYPlayerCharacter* Character = Cast<ACYPlayerCharacter>(GetOwner());
+	if (!Character) return;
+    
+	// 팀 체크
+	if (!Item->CanBePickedUpBy(Character))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot pickup item: Team restriction"));
+		return;
+	}
     
     UCYInventoryComponent* InventoryComp = GetOwner()->FindComponentByClass<UCYInventoryComponent>();
     if (!InventoryComp)
@@ -77,6 +83,9 @@ void UCYItemInteractionComponent::ServerPickupItem_Implementation(ACYItemBase* I
 void UCYItemInteractionComponent::CheckForNearbyItems()
 {
     if (!GetOwner()) return;
+
+	ACYPlayerCharacter* Character = Cast<ACYPlayerCharacter>(GetOwner());
+	if (!Character) return;
     
     FVector PlayerLocation = GetOwner()->GetActorLocation();
     ACYItemBase* ClosestItem = nullptr;
@@ -90,6 +99,9 @@ void UCYItemInteractionComponent::CheckForNearbyItems()
     {
         ACYItemBase* Item = Cast<ACYItemBase>(Actor);
         if (!Item || Item->bIsPickedUp) continue;
+
+    	// 팀 체크
+    	if (!Item->CanBePickedUpBy(Character)) continue;
         
         // 트랩의 경우 맵에 배치된 것만 픽업 가능
         if (ACYTrapBase* Trap = Cast<ACYTrapBase>(Item))
@@ -105,37 +117,57 @@ void UCYItemInteractionComponent::CheckForNearbyItems()
         }
     }
     
-    // 변경사항이 있을 때만 업데이트
-    if (NearbyItem != ClosestItem)
-    {
-        NearbyItem = ClosestItem;
-        OnRep_NearbyItem();
-    }
+    // 서버에서 NearbyItem 업데이트
+	if (GetOwner()->HasAuthority() && NearbyItem != ClosestItem)
+	{
+		NearbyItem = ClosestItem;
+	}
+
+	// 클라이언트 로컬용 (하이라이트)
+	if (Character->IsLocallyControlled())
+	{
+		if (LocalNearbyItem != ClosestItem)
+		{
+			LocalNearbyItem = ClosestItem;
+			UpdateLocalHighlight();
+		}
+	}
 }
 
-void UCYItemInteractionComponent::OnRep_NearbyItem()
+void UCYItemInteractionComponent::UpdateLocalHighlight()
 {
-	// 이전 아이템 하이라이트 해제
-	if (PreviousNearbyItem && PreviousNearbyItem->ItemMesh)
+	// 이전 하이라이트 제거
+	if (CurrentHighlightedItem)
 	{
-		// 기존 Material이 Dynamic Material인지 확인 후 파라미터 설정
-		if (UMaterialInstanceDynamic* DynMat = Cast<UMaterialInstanceDynamic>(PreviousNearbyItem->ItemMesh->GetMaterial(0)))
-		{
-			DynMat->SetVectorParameterValue(TEXT("HighlightColor"), FLinearColor::Black);
-		}
+		RemoveHighlight(CurrentHighlightedItem);
 	}
     
-	// 새 아이템 하이라이트
-	if (NearbyItem && NearbyItem->ItemMesh)
+	// 새 하이라이트 적용
+	if (LocalNearbyItem)
 	{
-		UMaterialInterface* OriginalMaterial = NearbyItem->ItemMesh->GetMaterial(0);
-		if (OriginalMaterial)
-		{
-			UMaterialInstanceDynamic* DynMat = UMaterialInstanceDynamic::Create(OriginalMaterial, this);
-			NearbyItem->ItemMesh->SetMaterial(0, DynMat);
-			DynMat->SetVectorParameterValue(TEXT("HighlightColor"), FLinearColor::White);
-		}
+		ApplyHighlight(LocalNearbyItem);
 	}
     
-	PreviousNearbyItem = NearbyItem;
+	CurrentHighlightedItem = LocalNearbyItem;
+}
+
+void UCYItemInteractionComponent::ApplyHighlight(ACYItemBase* Item)
+{
+	if (!Item || !Item->ItemMesh) return;
+    
+	// Stencil Buffer 값 설정 (Outline용)
+	Item->ItemMesh->SetRenderCustomDepth(true);
+	Item->ItemMesh->SetCustomDepthStencilValue(255); // Outline 스텐실 값
+    
+	UE_LOG(LogTemp, Log, TEXT("Applied stencil highlight to %s"), *Item->ItemName.ToString());
+}
+
+void UCYItemInteractionComponent::RemoveHighlight(ACYItemBase* Item)
+{
+	if (!Item || !Item->ItemMesh) return;
+    
+	// Stencil Buffer 해제
+	Item->ItemMesh->SetRenderCustomDepth(false);
+    
+	UE_LOG(LogTemp, Log, TEXT("Removed stencil highlight from %s"), *Item->ItemName.ToString());
 }

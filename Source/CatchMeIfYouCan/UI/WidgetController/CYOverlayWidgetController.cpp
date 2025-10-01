@@ -3,34 +3,164 @@
 
 #include "CYOverlayWidgetController.h"
 
+#include "CYLogChannels.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
+#include "GameModes/InGame/CYInGameState.h"
 
 void UCYOverlayWidgetController::BroadcastInitialValues()
 {
 	const UCYVitalSet* VitalSet = CastChecked<UCYVitalSet>(AttributeSet);
+	const ACYInGameState* CYGameState = CastChecked<ACYInGameState>(GameState);
 
-	// 초기 체력 및 최대 체력 값을 UI에 전달
+	// 초기 VitalSet 정보를 UI에 전달
 	OnHealthChanged.Broadcast(VitalSet->GetHealth());
 	OnMaxHealthChanged.Broadcast(VitalSet->GetMaxHealth());
+
+	// 초기 인게임 정보를 UI에 전달
+	OnTeamCountInfoChanged.Broadcast(CYGameState->GetCopCount(), CYGameState->GetRobberCount());
+	OnAliveRobberCountInfoChanged.Broadcast(CYGameState->GetAliveRobberCount());
+
+	CurrentGamePhase = CYGameState->GetCurrentGamePhase();
+	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+	
+	switch (CurrentGamePhase)
+	{
+	case EGamePhase::Preparing:
+		OnPreparingTimeChanged.Broadcast(CYGameState->GetPreparingRemainingTimeLocal());
+		StartCountdownTick(CurrentGamePhase);
+		break;
+	case EGamePhase::InProgress:
+		OnMatchTimeChanged.Broadcast(CYGameState->GetMatchRemainingTimeLocal());
+		StartCountdownTick(CurrentGamePhase);
+		break;
+	default:
+		break;
+	}
 }
 
 void UCYOverlayWidgetController::BindCallbacksToDependencies()
 {
-	const UCYVitalSet* VitalSet = CastChecked<UCYVitalSet>(AttributeSet);
+	const UCYVitalSet* VitalSet = Cast<UCYVitalSet>(AttributeSet);
+	const ACYInGameState* CYGameState = Cast<ACYInGameState>(GameState);
 
-	// 체력 Attribute의 값이 변경될 때마다 HealthChanged 함수를 호출하도록 바인딩
-	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(VitalSet->GetHealthAttribute()).AddUObject(this, &UCYOverlayWidgetController::HandleHealthChanged);
+	TWeakObjectPtr<UCYOverlayWidgetController> WeakThis(this);
+	// VitalSet 정보 바인딩
+	if (VitalSet && AbilitySystemComponent)
+	{
+		// 체력 Attribute의 값이 변경될 때마다 HealthChanged 함수를 호출하도록 바인딩
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(VitalSet->GetHealthAttribute()).AddLambda(
+			[WeakThis](const FOnAttributeChangeData& Data)
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnHealthChanged.Broadcast(Data.NewValue);
+			}
+		});
 
-	// 최대 체력 Attribute의 값이 변경될 때마다 MaxHealthChanged 함수를 호출하도록 바인딩
-	AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(VitalSet->GetMaxHealthAttribute()).AddUObject(this, &UCYOverlayWidgetController::HandleMaxHealthChanged);
+		// 최대 체력 Attribute의 값이 변경될 때마다 MaxHealthChanged 함수를 호출하도록 바인딩
+		AbilitySystemComponent->GetGameplayAttributeValueChangeDelegate(VitalSet->GetMaxHealthAttribute()).AddLambda(
+			[WeakThis](const FOnAttributeChangeData& Data)
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnMaxHealthChanged.Broadcast(Data.NewValue);
+			}
+		});
+	}
+	
+	// 인게임 정보 바인딩
+	if (CYGameState)
+	{
+		CYGameState->OnTeamCountChanged.AddLambda(
+			[WeakThis](int32 Cops, int32 Robbers)
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnTeamCountInfoChanged.Broadcast(Cops, Robbers);
+			}
+		});
+
+		CYGameState->OnAliveRobberCountChanged.AddLambda(
+			[WeakThis](int32 AliveCount)
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnAliveRobberCountInfoChanged.Broadcast(AliveCount);
+			}
+		});
+
+		CYGameState->OnGamePhaseChanged.AddLambda(
+			[WeakThis](EGamePhase NewPhase)
+		{
+			if (WeakThis.IsValid())
+			{
+				WeakThis->OnGamePhaseChanged.Broadcast(NewPhase);
+			}
+		});
+
+		CYGameState->OnGamePhaseChanged.AddUObject(this, &ThisClass::HandleGamePhaseChanged);
+	}
 }
 
-void UCYOverlayWidgetController::HandleHealthChanged(const FOnAttributeChangeData& Data)
+void UCYOverlayWidgetController::HandleGamePhaseChanged(EGamePhase NewPhase)
 {
-	OnHealthChanged.Broadcast(Data.NewValue);
+	CurrentGamePhase = NewPhase;
+
+	switch (NewPhase)
+	{
+	case EGamePhase::Preparing:
+	case EGamePhase::InProgress:
+		StartCountdownTick(NewPhase);
+		break;
+	default:
+		StopCountdownTick();
+		break;
+	}
 }
 
-void UCYOverlayWidgetController::HandleMaxHealthChanged(const FOnAttributeChangeData& Data)
+void UCYOverlayWidgetController::StartCountdownTick(EGamePhase NewPhase)
 {
-	OnMaxHealthChanged.Broadcast(Data.NewValue);
+	if (GetWorld())
+	{
+		StopCountdownTick(); // 중복 방지
+		GetWorld()->GetTimerManager().SetTimer(
+			CountdownTickHandle,
+			this,
+			&ThisClass::TickCountdown,
+			CountdownTickInterval,
+			true
+		);
+	}
 }
+
+void UCYOverlayWidgetController::StopCountdownTick()
+{
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CountdownTickHandle);
+	}
+}
+
+void UCYOverlayWidgetController::TickCountdown()
+{
+	const ACYInGameState* CYGS = Cast<ACYInGameState>(GameState);
+	if (!CYGS)
+	{
+		return;
+	}
+	
+	switch (CurrentGamePhase)
+	{
+	case EGamePhase::Preparing:
+		OnPreparingTimeChanged.Broadcast(CYGS->GetPreparingRemainingTimeLocal());
+		break;
+	case EGamePhase::InProgress:
+		OnMatchTimeChanged.Broadcast(CYGS->GetMatchRemainingTimeLocal());
+		break;
+	default:
+		// 다른 페이즈면 틱 멈춤
+		StopCountdownTick();
+		break;
+	}
+} 
+

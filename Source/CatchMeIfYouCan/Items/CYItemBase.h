@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "CYItemBase.generated.h"
 
 class ACYPlayerCharacter;
@@ -35,6 +36,9 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
     int32 MaxStackCount = 10;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item|Team", meta = (Bitmask, BitmaskEnum = "ECYTeamRole"))
+	TArray<ECYTeamRole> AllowedTeams;
+
     // 현재 수량 (네트워크 동기화)
     UPROPERTY(ReplicatedUsing = OnRep_ItemCount, BlueprintReadOnly, Category = "Item")
     int32 ItemCount = 1;
@@ -59,6 +63,9 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Item")
     bool CanStackWith(ACYItemBase* OtherItem) const;
+
+	UFUNCTION(BlueprintCallable, Category = "Item|Team")
+	bool CanBePickedUpBy(ACYPlayerCharacter* Character) const;
 
 protected:
     virtual void BeginPlay() override;

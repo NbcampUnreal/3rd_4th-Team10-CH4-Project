@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystem/Abilities/CYGameplayAbility.h"
+#include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "GA_PlaceTrap.generated.h"
 
 class ACYTrapBase;
@@ -29,6 +30,8 @@ protected:
 	// 애니메이션 완료 콜백
 	UFUNCTION()
 	void OnPlaceTrapMontageCompleted();
+	UFUNCTION()
+	void OnPlaceTrapMontageCancelled();
 
 private:
 	// 실제 트랩 설치 로직
@@ -44,6 +47,13 @@ private:
 	// 사용한 트랩 아이템을 인벤토리에서 소모하기
 	void ConsumeItemFromInventory(ACYItemBase* Item);
 
+	// 쿨타운 상태 체크
+	bool IsOnCooldown(const FGameplayAbilityActorInfo* ActorInfo) const;
+	// 쿨타운 적용
+	void ApplyTrapCooldown(const FGameplayAbilitySpecHandle Handle, 
+		const FGameplayAbilityActorInfo* ActorInfo, 
+		const FGameplayAbilityActivationInfo ActivationInfo);
+
 private:
 	// 어빌리티 정보 캐시
 	FGameplayAbilitySpecHandle CachedHandle;
@@ -54,4 +64,8 @@ private:
 	UPROPERTY()
 	ACYTrapBase* CachedTrapItem;
 	FVector CachedSpawnLocation;
+
+	// AbilityTask 추가
+	UPROPERTY()
+	UAbilityTask_PlayMontageAndWait* MontageTask;
 };

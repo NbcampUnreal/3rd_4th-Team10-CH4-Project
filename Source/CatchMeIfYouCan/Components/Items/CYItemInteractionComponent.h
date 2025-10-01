@@ -19,9 +19,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
 	float InteractionRange = 200.0f;
 
-	// 현재 근처 아이템 (네트워크 동기화)
-	UPROPERTY(ReplicatedUsing = OnRep_NearbyItem, BlueprintReadOnly, Category = "Interaction")
+	// 현재 근처 아이템
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Interaction")
 	ACYItemBase* NearbyItem;
+
+	// 클라이언트 아이템 하이라이트
+	UPROPERTY(BlueprintReadOnly, Category = "Interaction")
+	ACYItemBase* LocalNearbyItem;
 
 	// E키로 호출되는 함수
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
@@ -34,17 +38,20 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	UFUNCTION()
-	void OnRep_NearbyItem();
-
 	// 주기적으로 근처 아이템 검사
 	UFUNCTION()
 	void CheckForNearbyItems();
+
+	// 로컬 전용 하이라이트 함수들
+	void UpdateLocalHighlight();
+	void ApplyHighlight(ACYItemBase* Item);
+	void RemoveHighlight(ACYItemBase* Item);
 
 private:
 	FTimerHandle ItemCheckTimer;
 	float CheckInterval = 0.1f; // 0.1초마다 체크
 
+	// 하이라이트 정보 저장
 	UPROPERTY()
-	ACYItemBase* PreviousNearbyItem = nullptr;
+	ACYItemBase* CurrentHighlightedItem = nullptr;
 };

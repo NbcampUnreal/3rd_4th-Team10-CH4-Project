@@ -19,7 +19,9 @@ public class CatchMeIfYouCan : ModuleRules
 			"GameplayTags", 
 			"GameplayTasks", 
 			"UMG",
-			"AnimGraphRuntime"
+			"AnimGraphRuntime",
+			"Niagara",
+			"NiagaraCore" 
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });

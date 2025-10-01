@@ -36,6 +36,7 @@ void UCYInventoryComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
     DOREPLIFETIME(UCYInventoryComponent, ItemSlots);
     DOREPLIFETIME(UCYInventoryComponent, CurrentHeldItem);
     DOREPLIFETIME(UCYInventoryComponent, bIsProcessingUse);
+	DOREPLIFETIME(UCYInventoryComponent, bIsUsingTrap); 
 }
 
 bool UCYInventoryComponent::AddItem(ACYItemBase* Item)
@@ -55,28 +56,54 @@ bool UCYInventoryComponent::AddItem(ACYItemBase* Item)
 
 bool UCYInventoryComponent::AddWeapon(ACYItemBase* Weapon)
 {
-    int32 EmptySlot = FindEmptyWeaponSlot();
-    if (EmptySlot == -1) 
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No empty weapon slot"));
-        return false;
-    }
+	// 같은 클래스의 무기가 이미 있는지 체크
+	for (ACYItemBase* ExistingWeapon : WeaponSlots)
+	{
+		if (ExistingWeapon && ExistingWeapon->GetClass() == Weapon->GetClass())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Already have this weapon type: %s"), 
+				*Weapon->ItemName.ToString());
+			return false;
+		}
+	}
+	
+	int32 EmptySlot = FindEmptyWeaponSlot();
+	if (EmptySlot == -1) 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No empty weapon slot"));
+		return false;
+	}
     
-    WeaponSlots[EmptySlot] = Weapon;
-    OnInventoryChanged.Broadcast(EmptySlot + 1, Weapon);
+	WeaponSlots[EmptySlot] = Weapon;
+	OnInventoryChanged.Broadcast(EmptySlot + 1, Weapon);
     
-    // 첫 무기 자동 장착
-    if (EmptySlot == 0)
-    {
-        if (UCYWeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UCYWeaponComponent>())
-        {
-            WeaponComp->EquipWeapon(Cast<ACYWeaponBase>(Weapon));
-        }
-    }
+	// 첫 무기만 자동 장착 (서버에서만)
+	if (EmptySlot == 0 && GetOwner()->HasAuthority())
+	{
+		// 약간 딜레이
+		FTimerHandle AutoEquipTimer;
+		GetWorld()->GetTimerManager().SetTimer(
+			AutoEquipTimer,
+			[this, Weapon]()
+			{
+				if (UCYWeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UCYWeaponComponent>())
+				{
+					if (ACYWeaponBase* WeaponBase = Cast<ACYWeaponBase>(Weapon))
+					{
+						WeaponComp->EquipWeapon(WeaponBase);
+						UE_LOG(LogTemp, Warning, TEXT("Auto-equipped first weapon: %s"), 
+							*Weapon->ItemName.ToString());
+					}
+				}
+			},
+			0.2f,
+			false
+		);
+	}
     
-    UE_LOG(LogTemp, Warning, TEXT("Added weapon: %s to slot %d"), 
-           *Weapon->ItemName.ToString(), EmptySlot + 1);
-    return true;
+	UE_LOG(LogTemp, Warning, TEXT("Added weapon: %s to slot %d"), 
+		   *Weapon->ItemName.ToString(), EmptySlot + 1);
+	return true;
 }
 
 bool UCYInventoryComponent::AddItemWithStacking(ACYItemBase* Item)
@@ -229,56 +256,79 @@ bool UCYInventoryComponent::HoldItem(int32 SlotIndex)
 
 bool UCYInventoryComponent::UseHeldItem()
 {
-    if (!CurrentHeldItem || !GetOwner()->HasAuthority())
-    {
-        if (!GetOwner()->HasAuthority())
-        {
-        	// 클라이언트에서 서버 RPC 호출
-            ServerUseHeldItem();
-        }
-        return false;
-    }
+	if (!CurrentHeldItem) return false;
     
+	// 클라이언트인 경우
+	if (!GetOwner()->HasAuthority())
+	{
+		ServerUseHeldItem();
+		return true;
+	}
+
+	// 수량이 0 이하면 사용하지 않음
+	if (CurrentHeldItem->ItemCount <= 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Item count is 0 or less, cannot use"));
+		return false;
+	}
+    
+	// 트랩 사용 중복 방지
+	if (CurrentHeldItem->ItemType == EItemType::Trap)
+	{
+		if (bIsUsingTrap)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Already using trap, ignoring duplicate call"));
+			return false;
+		}
+		bIsUsingTrap = true;
+        
+		// 0.5초 후 플래그 해제 (트랩 설치 완료 시간보다 짧게)
+		GetWorld()->GetTimerManager().SetTimer(
+			TrapUseCooldownTimer,
+			[this]() { bIsUsingTrap = false; },
+			0.5f,
+			false
+		);
+	}
+    
+	FText ItemName = CurrentHeldItem->ItemName;
     bool bSuccess = CurrentHeldItem->UseItem(Cast<ACYPlayerCharacter>(GetOwner()));
     
-    if (bSuccess && CurrentHeldItem->ItemType == EItemType::Trap)
-    {
-        // 트랩 사용 시 수량 감소
-        CurrentHeldItem->ItemCount--;
+	if (bSuccess && CurrentHeldItem->ItemType == EItemType::Consumable)
+	{
+		CurrentHeldItem->ItemCount--;
         
-        if (CurrentHeldItem->ItemCount <= 0)
-        {
-            // 아이템이 모두 소모되면 슬롯에서 제거하고 손에서도 해제
-            for (int32 i = 0; i < ItemSlots.Num(); ++i)
-            {
-                if (ItemSlots[i] == CurrentHeldItem)
-                {
-                    ItemSlots[i] = nullptr;
-                    OnInventoryChanged.Broadcast(i + 4, nullptr);
-                    break;
-                }
-            }
+		if (CurrentHeldItem->ItemCount <= 0)
+		{
+			for (int32 i = 0; i < ItemSlots.Num(); ++i)
+			{
+				if (ItemSlots[i] == CurrentHeldItem)
+				{
+					ItemSlots[i] = nullptr;
+					OnInventoryChanged.Broadcast(i + 4, nullptr);
+					break;
+				}
+			}
             
-            DetachItemFromHand(CurrentHeldItem);
-            ACYItemBase* OldHeldItem = CurrentHeldItem;
-            CurrentHeldItem = nullptr;
-            OnHeldItemChanged.Broadcast(OldHeldItem, nullptr);
+			DetachItemFromHand(CurrentHeldItem);
+			ACYItemBase* OldHeldItem = CurrentHeldItem;
+			CurrentHeldItem = nullptr;
+			OnHeldItemChanged.Broadcast(OldHeldItem, nullptr);
             
-            OldHeldItem->Destroy();
-        }
-        else
-        {
-            // 수량만 감소한 경우 인벤토리 업데이트
-            for (int32 i = 0; i < ItemSlots.Num(); ++i)
-            {
-                if (ItemSlots[i] == CurrentHeldItem)
-                {
-                    OnInventoryChanged.Broadcast(i + 4, CurrentHeldItem);
-                    break;
-                }
-            }
-        }
-    }
+			OldHeldItem->Destroy();
+		}
+		else
+		{
+			for (int32 i = 0; i < ItemSlots.Num(); ++i)
+			{
+				if (ItemSlots[i] == CurrentHeldItem)
+				{
+					OnInventoryChanged.Broadcast(i + 4, CurrentHeldItem);
+					break;
+				}
+			}
+		}
+	}
     
     return bSuccess;
 }
@@ -300,12 +350,12 @@ void UCYInventoryComponent::AttachItemToHand(ACYItemBase* Item)
     ACharacter* Character = Cast<ACharacter>(GetOwner());
     if (!Character || !Character->GetMesh()) return;
     
-    // 아이템을 hand_r 소켓에 부착
-    Item->AttachToComponent(
-        Character->GetMesh(),
-        FAttachmentTransformRules::SnapToTargetIncludingScale,
-        TEXT("hand_r")
-    );
+    // 아이템을 프로퍼티 소켓에 부착
+	Item->AttachToComponent(
+		Character->GetMesh(),
+		FAttachmentTransformRules::SnapToTargetIncludingScale,
+		ItemSocketName
+	);
     
     // 충돌 비활성화 (들고 있는 동안)
     if (Item->ItemMesh)

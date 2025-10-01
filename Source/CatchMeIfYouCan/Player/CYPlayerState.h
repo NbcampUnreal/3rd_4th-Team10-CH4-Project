@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AbilitySystemInterface.h"
-#include "CYTypes/CYTeamType.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/PlayerState.h"
 #include "CYPlayerState.generated.h"
 
@@ -50,6 +50,9 @@ protected:
 
 	UFUNCTION()
 	void OnRep_PawnData();
+
+private:
+	void NotifyControllerPawnDataReady();
 	
 private:
 	UPROPERTY(VisibleAnywhere, Category = "CY|PlayerState")
