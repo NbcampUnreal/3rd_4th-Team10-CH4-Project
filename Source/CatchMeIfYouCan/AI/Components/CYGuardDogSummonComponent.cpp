@@ -7,6 +7,8 @@
 #include "AI/Managers/CYGuardDogPoolManager.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "Character/CYPlayerCharacter.h"
+
 
 // Sets default values for this component's properties
 UCYGuardDogSummonComponent::UCYGuardDogSummonComponent()
@@ -150,6 +152,8 @@ void UCYGuardDogSummonComponent::ActivateOneDog_Staggered()
 	{
 		//경비견 활성화
 		NewDog->ActivateDog(SpawnPos, Spline);
+		//경비견에게 오너 정보를 설정합니다.
+		NewDog->SetSummoner(GetOwner());
 		//활성화 배열에 추가
 		ActiveDogs.Add(NewDog);
 	}
@@ -275,3 +279,36 @@ int32 UCYGuardDogSummonComponent::GetAvailableSplineCount() const
 //추후 클라이언트의 비정상적인 요청 차단
 bool UCYGuardDogSummonComponent::ServerSummonGuardDogs_Validate(FVector SpawnLocation){return true;}
 bool UCYGuardDogSummonComponent::ServerDismissAllDogs_Validate() { return true; }
+
+void UCYGuardDogSummonComponent::AddDetectedRobber(AActor* Robber)
+{
+	if (!Robber || !GetOwner()->HasAuthority()) return;
+
+	bool bWasEmpty = DetectedRobbers.Num() == 0;
+	DetectedRobbers.Add(Robber);
+
+	// 목록이 비어있다가 처음으로 도둑이 추가된 경우에만 UI를 켜라고 명령합니다.
+	if (bWasEmpty)
+	{
+		if (ACYPlayerCharacter* OwnerCharacter = Cast<ACYPlayerCharacter>(GetOwner()))
+		{
+			OwnerCharacter->Client_ShowRobberDetectedWarning(true, Robber);
+		}
+	}
+}
+
+void UCYGuardDogSummonComponent::RemoveDetectedRobber(AActor* Robber)
+{
+	if (!Robber || !GetOwner()->HasAuthority()) return;
+
+	DetectedRobbers.Remove(Robber);
+
+	// 목록에서 도둑을 제거한 후, 목록이 완전히 비었다면 UI를 끄라고 명령합니다.
+	if (DetectedRobbers.Num() == 0)
+	{
+		if (ACYPlayerCharacter* OwnerCharacter = Cast<ACYPlayerCharacter>(GetOwner()))
+		{
+			OwnerCharacter->Client_ShowRobberDetectedWarning(false, Robber);
+		}
+	}
+}

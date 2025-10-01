@@ -3,6 +3,10 @@
 
 #include "CYCopCharacter.h"
 
+#include "UI/WidgetController/CYOverlayWidgetController.h"
+
+class ACYPlayerState;
+
 ACYCopCharacter::ACYCopCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -29,4 +33,14 @@ void ACYCopCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ACYCopCharacter::Client_ShowRobberDetectedWarning_Implementation(bool bShow, AActor* DetectedThief)
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+
+	if (PC && PC->IsLocalController())
+	{
+		// TODO: 새로 만들 Cop 전용 HUD 클래스를 가져와서 로직을 구현해야 합니다.
+	}
 }

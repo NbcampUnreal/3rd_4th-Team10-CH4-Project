@@ -79,12 +79,6 @@ void ACYAIDogCharacter::SetPoolManager(ACYGuardDogPoolManager* InManager)
 {
 	PoolManager = InManager;
 }
-//경비견 활성화
-// CYAIDogCharacter.cpp
-
-// 파일 상단에 이 두 헤더 파일이 있는지 확인하고, 없으면 추가해주세요.
-#include "AI/Controllers/CYAIDogController.h"
-#include "BehaviorTree/BlackboardComponent.h"
 
 //경비견 활성화
 void ACYAIDogCharacter::ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath)
@@ -130,6 +124,8 @@ void ACYAIDogCharacter::ActivateDog(FVector SpawnLocation, AActor* NewPatrolPath
 	// 5. 모든 클라이언트에게 활성화 상태를 알림
 	Multicast_OnStateChanged(true);
 }
+
+
 //경비견 비활성화 실제 서버에서만 실행
 void ACYAIDogCharacter::DeactivateDog()
 {
@@ -248,3 +244,6 @@ void ACYAIDogCharacter::UpdateAIAnimationVariables(float NewSpeed, float NewDire
 		AIDirection = NewDirection;
 	}
 }
+
+void ACYAIDogCharacter::SetSummoner(AActor* InSummoner) { Summoner = InSummoner; }
+AActor* ACYAIDogCharacter::GetSummoner() const { return Summoner.Get(); }

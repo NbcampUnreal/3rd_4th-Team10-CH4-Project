@@ -30,6 +30,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Debug")
 	void ShowInventoryDebug();
 
+	//경비견 감지
+	UFUNCTION(Client, Reliable)
+	virtual void Client_ShowRobberDetectedWarning(bool bShow, AActor* DetectedThief);
+
 protected:
 	virtual void BeginPlay() override;
 

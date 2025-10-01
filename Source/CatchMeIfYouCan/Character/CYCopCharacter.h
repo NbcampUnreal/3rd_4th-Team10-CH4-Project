@@ -21,6 +21,8 @@ public:
 	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
 	// End ICYInteractable Interface
 
+	// 부모로부터 물려받은 가상 함수 재정의
+	virtual void Client_ShowRobberDetectedWarning_Implementation(bool bShow, AActor* DetectedThief) override;
 protected:
 	
 	virtual void BeginPlay() override;

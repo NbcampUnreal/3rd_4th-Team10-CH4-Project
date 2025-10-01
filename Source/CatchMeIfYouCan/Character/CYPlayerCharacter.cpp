@@ -16,6 +16,8 @@
 #include "UI/HUD/CYHUD.h"
 #include "Items/CYItemBase.h"
 #include "Items/CYWeaponBase.h"
+#include "UI/WidgetController/CYOverlayWidgetController.h"
+#include "UI/WidgetController/CYWidgetController.h"
 
 
 ACYPlayerCharacter::ACYPlayerCharacter(const FObjectInitializer& ObjectInitializer) 
@@ -240,6 +242,11 @@ void ACYPlayerCharacter::ShowInventoryDebug()
         InventoryComponent->ShowInventoryDebug();
     }
 }
+
+void ACYPlayerCharacter::Client_ShowRobberDetectedWarning_Implementation(bool bShow, AActor* DetectedThief)
+{
+}
+
 
 // 인벤토리 슬롯 입력 (1~9번 키)
 void ACYPlayerCharacter::Input_UseSlot1(const FInputActionValue& InputActionValue)
