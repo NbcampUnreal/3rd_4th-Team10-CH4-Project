@@ -331,6 +331,12 @@ void ACYPlayerCharacter::UpdateVisibilityForLocalPlayer(bool bIsInvisible)
 	if (LocalCharacter == this)
 	{
 		SetMeshVisibility(GetMesh(), true);
+		SetMeshVisibility(GetHelmetMesh(), true);
+		SetMeshVisibility(GetEyewearMesh(), true);
+		SetMeshVisibility(GetChestMesh(), true);
+		SetMeshVisibility(GetLegsMesh(), true);
+		SetMeshVisibility(GetFootwearMesh(), true);
+		
 		if (WeaponComponent && WeaponComponent->CurrentWeapon)
 			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, true);
 		if (InventoryComponent && InventoryComponent->CurrentHeldItem)
@@ -349,6 +355,11 @@ void ACYPlayerCharacter::UpdateVisibilityForLocalPlayer(bool bIsInvisible)
         
 		// 같은 팀: 보임 / 다른 팀: 안 보임
 		SetMeshVisibility(GetMesh(), bSameTeam);
+		SetMeshVisibility(GetHelmetMesh(), bSameTeam);
+		SetMeshVisibility(GetEyewearMesh(), bSameTeam);
+		SetMeshVisibility(GetChestMesh(), bSameTeam);
+		SetMeshVisibility(GetLegsMesh(), bSameTeam);
+		SetMeshVisibility(GetFootwearMesh(), bSameTeam);
         
 		if (WeaponComponent && WeaponComponent->CurrentWeapon)
 			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, bSameTeam);
@@ -360,6 +371,11 @@ void ACYPlayerCharacter::UpdateVisibilityForLocalPlayer(bool bIsInvisible)
 	{
 		// 투명 해제 - 모두 보임
 		SetMeshVisibility(GetMesh(), true);
+		SetMeshVisibility(GetHelmetMesh(), true);
+		SetMeshVisibility(GetEyewearMesh(), true);
+		SetMeshVisibility(GetChestMesh(), true);
+		SetMeshVisibility(GetLegsMesh(), true);
+		SetMeshVisibility(GetFootwearMesh(), true);
         
 		if (WeaponComponent && WeaponComponent->CurrentWeapon)
 			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, true);
