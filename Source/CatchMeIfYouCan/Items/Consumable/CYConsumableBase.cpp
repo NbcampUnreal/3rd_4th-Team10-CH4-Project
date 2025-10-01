@@ -36,20 +36,40 @@ bool ACYConsumableBase::UseItem(ACYPlayerCharacter* Character)
 		FGameplayEffectSpecHandle EffectSpec = ASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
 		if (EffectSpec.IsValid())
 		{
-			// Heal은 Caller로 힐량 처리
-			if (EffectClass->IsChildOf(UGE_Heal::StaticClass()))
+			// Duration 오버라이드 적용
+			if (OverrideDuration > 0.0f)
 			{
-				if (ACYHealPotion* HealPotion = Cast<ACYHealPotion>(this))
+				EffectSpec.Data->SetDuration(OverrideDuration, true);
+			}
+            
+			// Primary 값 오버라이드 적용
+			if (OverridePrimaryValue > 0.0f)
+			{
+				if (EffectClass->IsChildOf(UGE_Heal::StaticClass()))
 				{
-					EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), HealPotion->HealAmount);
+					EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), OverridePrimaryValue);
+				}
+				else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
+				{
+					EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), OverridePrimaryValue);
 				}
 			}
-			// Caller로 속도 증가량 처리
-			else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
+			// 오버라이드 값이 없으면 기존 로직 사용
+			else
 			{
-				if (ACYSpeedBoost* SpeedBoost = Cast<ACYSpeedBoost>(this))
+				if (EffectClass->IsChildOf(UGE_Heal::StaticClass()))
 				{
-					EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), SpeedBoost->SpeedBoostAmount);
+					if (ACYHealPotion* HealPotion = Cast<ACYHealPotion>(this))
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), HealPotion->HealAmount);
+					}
+				}
+				else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
+				{
+					if (ACYSpeedBoost* SpeedBoost = Cast<ACYSpeedBoost>(this))
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), SpeedBoost->SpeedBoostAmount);
+					}
 				}
 			}
 

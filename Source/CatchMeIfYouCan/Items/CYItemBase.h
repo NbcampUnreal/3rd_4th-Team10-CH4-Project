@@ -18,6 +18,8 @@ enum class EItemType : uint8
     Consumable
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnItemPickedUpDelegate, ACYItemBase*, Item);
+
 UCLASS(Abstract)
 class CATCHMEIFYOUCAN_API ACYItemBase : public AActor
 {
@@ -53,6 +55,18 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USphereComponent* InteractionSphere;
+
+	UPROPERTY(BlueprintAssignable, Category = "Events")
+	FOnItemPickedUpDelegate OnItemPickedUpDelegate;
+
+	// 스폰 시 설정되는 오버라이드 값들 (네트워크 동기화)
+	// HealAmount, DamageAmount, SpeedAmount 오버라이드
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Item|Override")
+	float OverridePrimaryValue = -1.0f; 
+
+	// Duration 시간 오버라이드
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = "Item|Override")
+	float OverrideDuration = -1.0f; 
 
     // 픽업/사용 함수들
     UFUNCTION(BlueprintCallable, Category = "Item")

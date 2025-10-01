@@ -179,17 +179,28 @@ void ACYTrapBase::OnTrapTriggered(ACYPlayerCharacter* Target)
                 FGameplayEffectSpecHandle EffectSpec = TargetASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
             	if (EffectSpec.IsValid())
             	{
-            		// 데미지 트랩인 경우 데미지 값 설정
+            		// Duration 오버라이드 적용 (Freeze, Slow용)
+            		if (OverrideDuration > 0.0f)
+            		{
+            			EffectSpec.Data->SetDuration(OverrideDuration, true);
+            		}
+                    
+            		// Damage 오버라이드 적용
             		if (EffectClass == UGE_DamageTrap::StaticClass())
             		{
-            			if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
+            			if (OverridePrimaryValue > 0.0f)
+            			{
+            				EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -OverridePrimaryValue);
+            			}
+            			else if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
             			{
             				EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -DamageTrap->DamageAmount);
             			}
             		}
                     
             		TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-            		UE_LOG(LogTemp, Warning, TEXT("Applied trap effect: %s"), *EffectClass->GetName());
+            		UE_LOG(LogTemp, Warning, TEXT("Applied trap effect: %s (Primary:%.1f, Duration:%.1f)"), 
+						   *EffectClass->GetName(), OverridePrimaryValue, OverrideDuration);
             	}
             }
         }
