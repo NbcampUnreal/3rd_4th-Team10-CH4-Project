@@ -87,4 +87,13 @@ private:
 	// 클라이언트에서 활성화/비활성화 시 시각 효과를 처리하기 위한 멀티캐스트 함수
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_OnStateChanged(bool bIsActive);
+
+private:
+	UPROPERTY()
+	TWeakObjectPtr<AActor> Summoner;
+
+public:
+	void SetSummoner(AActor* InSummoner);
+	AActor* GetSummoner() const;
+
 };

@@ -3,6 +3,11 @@
 
 #include "CYCopCharacter.h"
 
+#include "Blueprint/UserWidget.h"
+#include "UI/WidgetController/CYOverlayWidgetController.h"
+
+class ACYPlayerState;
+
 ACYCopCharacter::ACYCopCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -29,4 +34,37 @@ void ACYCopCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+}
+
+void ACYCopCharacter::Client_ShowRobberDetectedWarning_Implementation(bool bShow, AActor* DetectedThief)
+{
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController()) return;
+
+	if (bShow)
+	{
+		if (!WarningWidget && WarningWidgetClass)
+		{
+			WarningWidget = CreateWidget<UUserWidget>(PC, WarningWidgetClass);
+			if (WarningWidget)
+			{
+				WarningWidget->AddToViewport(100);
+			}
+		}
+	}
+	else
+	{
+		if (WarningWidget)
+		{
+			FTimerHandle RemoveTimer;
+			GetWorld()->GetTimerManager().SetTimer(RemoveTimer, [this]()
+			{
+				if (WarningWidget)
+				{
+					WarningWidget->RemoveFromParent();
+					WarningWidget = nullptr;
+				}
+			}, 0.3f, false);
+		}
+	}
 }

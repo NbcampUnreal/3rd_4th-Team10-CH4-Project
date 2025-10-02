@@ -40,14 +40,22 @@ EBTNodeResult::Type UCYBTTask_ResumePatrolPoint::ExecuteTask(UBehaviorTreeCompon
 		return EBTNodeResult::Failed;
 	}
 
-	// 현재 캐릭터 위치에서 스플라인상 가장 가까운 지점 찾기
+	// 현재 캐릭터 위치에서 스플라인상 가장 가까운 지점의 InputKey 찾기
 	const FVector CurrentLocation = ControlledCharacter->GetActorLocation();
 	const float ClosestInputKey = PatrolSpline->FindInputKeyClosestToWorldLocation(CurrentLocation);
     
-	// 그 지점의 스플라인상 거리 계산
+	// 그 지점의 스플라인상 '거리(Distance)' 계산
 	const float NewDistance = PatrolSpline->GetDistanceAlongSplineAtSplineInputKey(ClosestInputKey);
 
-	// 계산된 거리를 블랙보드에 저장 (다른 태스크에서 사용)
+	// --- ✨ 여기가 업그레이드된 부분입니다! ---
+	// 그 지점의 '월드 좌표(Location)'도 계산합니다.
+	const FVector ClosestLocationOnSpline = PatrolSpline->GetLocationAtSplineInputKey(ClosestInputKey, ESplineCoordinateSpace::World);
+	
+	// 계산된 '월드 좌표'를 'TargetLocation' 키에 저장하여 Move To 태스크가 사용하도록 합니다.
+	BlackboardComp->SetValueAsVector(TEXT("TargetLocation"), ClosestLocationOnSpline);
+	// ------------------------------------
+
+	// 계산된 '거리'를 블랙보드에 저장하여 Follow Spline Path 태스크가 사용하도록 합니다.
 	BlackboardComp->SetValueAsFloat(SplineDistanceKey.SelectedKeyName, NewDistance);
 
 	return EBTNodeResult::Succeeded;

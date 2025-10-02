@@ -63,9 +63,15 @@ public:
 	// 사용 가능한 스플라인 수 반환
 	UFUNCTION(BlueprintPure, Category = "Guard Dog Summon")
 	int32 GetAvailableSplineCount() const;
+
+	// 어빌리티가 호출할 함수들입니다.
+	UFUNCTION(BlueprintCallable, Category = "GuardDogSummon")
+	void AddDetectedRobber(AActor* Robber);
+	
+	UFUNCTION(BlueprintCallable, Category = "GuardDogSummon")
+	void RemoveDetectedRobber(AActor* Robber);
 	
 protected:
-	// Called when the game starts
 	virtual void BeginPlay() override;
 
 	// 컴포넌트가 제거될 때 호출
@@ -77,7 +83,10 @@ protected:
 private:
 
 	// ========== 내부 변수들 ==========
-
+	//감지된 모든 도둑의 목록 저장
+	UPROPERTY()
+	TSet<AActor*> DetectedRobbers;
+	
 	// 현재 풀에서 활성화된 경비견들
 	UPROPERTY()
 	TArray<ACYAIDogCharacter*> ActiveDogs;

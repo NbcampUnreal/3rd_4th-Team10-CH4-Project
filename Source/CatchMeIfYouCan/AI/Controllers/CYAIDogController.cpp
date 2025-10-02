@@ -6,6 +6,9 @@
 #include "Perception/AISenseConfig_Sight.h"
 #include "Perception/AISense.h"
 #include "TimerManager.h"
+#include "AbilitySystemBlueprintLibrary.h"
+#include "AbilitySystemComponent.h"
+#include "Character/CYStatusGameplayTags.h"
 
 ACYAIDogController::ACYAIDogController()
 {
@@ -80,66 +83,74 @@ void ACYAIDogController::StopLogic()
 //감지 변화시 호출될 함수
 void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 {
-	// 서버에서만 실행, 컨트롤할 개 유효성 검사
-	if (!HasAuthority() || !ControlledDog) return;
-    
-	// 'thief' 태그가 있는 액터만 반응
-	if (!Actor->ActorHasTag(FName("thief"))) return;
+    if (!HasAuthority() || !ControlledDog) return;
+    if (!Actor->ActorHasTag(FName("robber"))) return;
 
-	const bool bIsSensed = Stimulus.WasSuccessfullySensed();
+    const bool bIsSensed = Stimulus.WasSuccessfullySensed();
+    UAbilitySystemComponent* SummonerASC = nullptr;
+    if (ControlledDog->GetSummoner())
+    {
+        SummonerASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(ControlledDog->GetSummoner());
+    }
 
-	if (bIsSensed)
-	{
-		//만약 감지된 액터 배열에 있다면 타이머 초기화
-		CancelDelayTimer(Actor);
-		//모든 캐릭터에 아웃라인 실행
-		ControlledDog->Multicast_SetTargetOutline(Actor, true);
-		
-		// 새로운 대상 감지시 처리
-		BlackboardComp->SetValueAsObject(FName("Target"), Actor);
-        
-		if (!ControlledDog->IsBarking())
-		{
-			// 짖기 시작
-			ControlledDog->SetBarkingState(true);
-			BlackboardComp->SetValueAsBool(FName("bIsBarking"), true);
-			StartBarkingTimer();
-		}
-	}
-	else
-	{
-		// 대상을 잃었을 때 - 다른 thief가 있는지 확인
-		TArray<AActor*> PerceivedActors;
-		AIPerceptionComponent->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
+    if (bIsSensed)
+    {
+        // [발견 신호]
+        if (SummonerASC)
+        {
+            FGameplayEventData Payload;
+            Payload.EventTag = CYGameplayTags::Event_AI_RobberDetected;
+            Payload.Target = Actor;
+            SummonerASC->HandleGameplayEvent(Payload.EventTag, &Payload);
+        }
 
-		bool bIsOtherThiefVisible = false;
-		for (AActor* PerceivedActor : PerceivedActors)
-		{
-			if (PerceivedActor != Actor && PerceivedActor->ActorHasTag(FName("thief")))
-			{
-				// 다른 thief 발견시 그것을 새 타겟으로 설정
-				bIsOtherThiefVisible = true;
-				ControlledDog->Multicast_SetTargetOutline(PerceivedActor, true);
-				BlackboardComp->SetValueAsObject(FName("Target"), PerceivedActor);
-				break;
-			}
-		}
+        CancelDelayTimer(Actor);
+        ControlledDog->Multicast_SetTargetOutline(Actor, true);
+        BlackboardComp->SetValueAsObject(FName("Target"), Actor);
 
-		// 시야에 thief가 아무도 없을 때만 짖기 중단
-		if (!bIsOtherThiefVisible)
-		{
-			StartOutlineDelayTimer(Actor);
-			ControlledDog->SetBarkingState(false);
-			BlackboardComp->SetValueAsBool(FName("bIsBarking"), false);
-			BlackboardComp->SetValueAsObject(FName("Target"), nullptr);
-			StopBarkingTimer();
-		}
-		else
-		{
-			StartOutlineDelayTimer(Actor);
-		}
-	}
+        if (!ControlledDog->IsBarking())
+        {
+            ControlledDog->SetBarkingState(true);
+            BlackboardComp->SetValueAsBool(FName("bIsBarking"), true);
+            StartBarkingTimer();
+        }
+    }
+    else // 대상을 잃었을 때
+    {
+        // [놓침 신호]
+        if (SummonerASC)
+        {
+            FGameplayEventData Payload;
+            Payload.EventTag = CYGameplayTags::Event_AI_RobberLost;
+            Payload.Target = Actor;
+            SummonerASC->HandleGameplayEvent(Payload.EventTag, &Payload);
+        }
+
+        TArray<AActor*> PerceivedActors;
+        AIPerceptionComponent->GetCurrentlyPerceivedActors(UAISense_Sight::StaticClass(), PerceivedActors);
+
+        bool bIsOtherThiefVisible = false;
+        for (AActor* PerceivedActor : PerceivedActors)
+        {
+            if (PerceivedActor != Actor && PerceivedActor->ActorHasTag(FName("robber")))
+            {
+                bIsOtherThiefVisible = true;
+                BlackboardComp->SetValueAsObject(FName("Target"), PerceivedActor);
+                break;
+            }
+        }
+
+        if (!bIsOtherThiefVisible)
+        {
+            ControlledDog->SetBarkingState(false);
+            BlackboardComp->SetValueAsBool(FName("bIsBarking"), false);
+            BlackboardComp->SetValueAsObject(FName("Target"), nullptr);
+            StopBarkingTimer();
+        }
+        StartOutlineDelayTimer(Actor);
+    }
 }
+
 
 void ACYAIDogController::StartOutlineDelayTimer(AActor* TargetActor)
 {
