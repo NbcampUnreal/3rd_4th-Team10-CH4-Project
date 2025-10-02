@@ -35,7 +35,7 @@ void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
 	
 	switch (TeamRole)
 	{
-	case ECYTeamRole::Cop:
+	case ECYTeamRole ::Cop:
 		CopCount = FMath::Max(0, CopCount + Delta);
 		break;
 	case ECYTeamRole::Robber:

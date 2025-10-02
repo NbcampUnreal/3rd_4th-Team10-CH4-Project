@@ -19,7 +19,7 @@ ACYPlayerState::ACYPlayerState(const FObjectInitializer& ObjectInitializer)
 	AbilitySystemComponent->SetReplicationMode(EGameplayEffectReplicationMode::Mixed);
 
 	VitalSet = CreateDefaultSubobject<UCYVitalSet>(TEXT("VitalSet"));
-	SetNetUpdateFrequency(100.0f);
+	SetNetUpdateFrequency(100.0f);  
 }
 
 void ACYPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -51,6 +51,15 @@ void ACYPlayerState::SetTeamRole(ECYTeamRole NewTeamRole)
 	{
 		return;
 	}
+
+	// Team Role Change and Broadcast
+	if (TeamRole != NewTeamRole)
+	{
+		TeamRole = NewTeamRole;
+
+		FOnTeamRoleChanged.Broadcast(TeamRole);
+		ForceNetUpdate();
+	}
 	
 	TeamRole = NewTeamRole;
 }
@@ -81,12 +90,26 @@ void ACYPlayerState::SetPawnData(UCYPawnData* NewPawnData)
 	}
 }
 
+void ACYPlayerState::CopyProperties(APlayerState* PlayerState)
+{
+	Super::CopyProperties(PlayerState);
+
+	if (ACYPlayerState* NewPS = Cast<ACYPlayerState>(PlayerState))
+	{  
+		NewPS->TeamRole = TeamRole;
+		NewPS->PawnData = PawnData;
+	}
+}
+
 void ACYPlayerState::OnRep_TeamRole()
 {
-	// TODO : 함수 삭제 예정
+	// TODO : 나중에 필요 없을 시 삭제 예정
 	UE_LOG(LogCY, Warning, TEXT("Player %s assigned to team: %s"), 
 		*GetPlayerName(),
 		TeamRole == ECYTeamRole::Cop ? TEXT("Cop") : TEXT("Robber"));
+
+	// 클라이언트 동일 브로드캐스트
+	FOnTeamRoleChanged.Broadcast(TeamRole);
 }
 
 void ACYPlayerState::OnRep_PawnData()

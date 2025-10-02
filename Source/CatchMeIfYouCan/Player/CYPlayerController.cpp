@@ -108,12 +108,40 @@ void ACYPlayerController::OnGameStateSet(AGameStateBase* NewGameState)
 
 void ACYPlayerController::OnPawnDataReady()
 {
-    if (!IsLocalController())
+    // 입력 모드를 게임 전용(Game Only)으로 설정
+    // 이 작업은 클라이언트에서만 수행되어야 함 (PlayerState::NotifyControllerPawnDataReady에서 이미 확인)
+    
+    // 1. 입력 모드 설정 -> 게임전용 (Game Only) 설정
+    FInputModeGameOnly InputMode;
+    SetInputMode(InputMode);
+
+    // 2. 마우스 커서 숨기기 (Game Only 모드의 기본 동작을 따름)
+    bShowMouseCursor = false;
+    
+    // 3. Pawn에 입력 활성화: GetPawn()이 유효한지 확인하고 입력 활성화를 명시적으로 호출할 수 있습니다.
+    // Enhanced Input System을 사용한다면 Pawn/Character에 Input Mapping Context를 추가하는 로직이 필요합니다.
+    if (APawn* MyPawn = GetPawn())
     {
-        return;
+        // 일반적으로 Character/Pawn에서 AutoReceiveInput=Player0으로 설정되어 있으면 별도의 EnableInput은 필요 없으나,
+        // 명시적으로 설정해주거나, Pawn의 Input Component에 Enhanced Input Mapping Context를 추가하는 로직을 호출해야 합니다.
+        // Enhanced Input을 사용한다고 가정하고, Pawn/Character가 입력을 받을 준비를 하도록 합니다.
+        
+        // 예시: 캐릭터에 Enhanced Input Mapping Context를 추가하는 함수를 Character 클래스에 만들고 여기서 호출합니다.
+        // todo: Input Data 한 곳으로 옮길 예정
+        // if (ACYCharacterBase* Character = Cast<ACYCharacterBase>(MyPawn))
+        // {
+        //     Character->SetupPlayerInput(); // Character 클래스에서 구현
+        // }
     }
     
-    CheckClientInitialization();
+    // 디버그 출력 (선택 사항)
+    UE_LOG(LogTemp, Warning, TEXT("Local PlayerController: Input Mode set to Game Only."));
+    
+    if (IsLocalController())
+    {
+        CheckClientInitialization();
+    }
+    
 }
 
 void ACYPlayerController::CheckClientInitialization()
