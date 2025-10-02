@@ -172,6 +172,19 @@ void UGA_Stunned::RecoverFromStun()
 		return;
 	}
 
+	if (!CachedActorInfo->OwnerActor.IsValid() || 
+		!CachedActorInfo->AvatarActor.IsValid() ||
+		!CachedActorInfo->AbilitySystemComponent.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RecoverFromStun: Cached actors are no longer valid, aborting recovery"));
+		// 어빌리티 종료 시도
+		if (GetWorld() && RecoveryTimerHandle.IsValid())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(RecoveryTimerHandle);
+		}
+		return;
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("Recovering from stun"));
 
 	// HP 회복

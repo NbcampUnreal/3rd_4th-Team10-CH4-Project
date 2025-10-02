@@ -283,9 +283,15 @@ bool UCYInventoryComponent::UseHeldItem()
 		bIsUsingTrap = true;
         
 		// 0.5초 후 플래그 해제 (트랩 설치 완료 시간보다 짧게)
+		TWeakObjectPtr<UCYInventoryComponent> WeakThis(this);
 		GetWorld()->GetTimerManager().SetTimer(
 			TrapUseCooldownTimer,
-			[this]() { bIsUsingTrap = false; },
+			[WeakThis]() { 
+				if (WeakThis.IsValid())
+				{
+					WeakThis->bIsUsingTrap = false;
+				}
+			},
 			0.5f,
 			false
 		);

@@ -51,6 +51,27 @@ void ACYTrapBase::BeginPlay()
     }
 }
 
+void ACYTrapBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 타이머 정리
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		
+		if (ArmingTimer.IsValid())
+		{
+			TimerManager.ClearTimer(ArmingTimer);
+		}
+		
+		if (LifetimeTimer.IsValid())
+		{
+			TimerManager.ClearTimer(LifetimeTimer);
+		}
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 bool ACYTrapBase::UseItem(ACYPlayerCharacter* Character)
 {
     if (!Character || !HasAuthority()) return false;
@@ -111,15 +132,18 @@ void ACYTrapBase::PlaceTrap(const FVector& Location, ACYPlayerCharacter* Placer)
 
 void ACYTrapBase::ArmTrap()
 {
-    if (!HasAuthority() || TrapState != ETrapState::PlayerPlaced) return;
+	if (!IsValid(this) || !HasAuthority() || TrapState != ETrapState::PlayerPlaced) 
+	{
+		return;
+	}
     
     bIsArmed = true;
     
     // 트리거 반경으로 변경
-    if (InteractionSphere)
-    {
-        InteractionSphere->SetSphereRadius(TriggerRadius);
-    }
+	if (InteractionSphere && IsValid(InteractionSphere))
+	{
+		InteractionSphere->SetSphereRadius(TriggerRadius);
+	}
     
     UE_LOG(LogTemp, Warning, TEXT("Trap armed: %s"), *ItemName.ToString());
 }
@@ -211,10 +235,4 @@ void ACYTrapBase::OnRep_TrapState()
 
 void ACYTrapBase::OnRep_IsArmed()
 {
-    // 활성화 시 시각적 효과
-    if (bIsArmed && GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, 
-            FString::Printf(TEXT("%s ARMED!"), *ItemName.ToString()));
-    }
 }
