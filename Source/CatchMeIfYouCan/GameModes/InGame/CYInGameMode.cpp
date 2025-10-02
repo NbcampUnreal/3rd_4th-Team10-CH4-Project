@@ -22,6 +22,9 @@ ACYInGameMode::ACYInGameMode(const FObjectInitializer& ObjectInitializer)
 	PlayerControllerClass = ACYPlayerController::StaticClass();
 	PlayerStateClass = ACYPlayerState::StaticClass();
 	GameStateClass = ACYInGameState::StaticClass();
+
+	// For Seamless Travel
+	bUseSeamlessTravel = true;
 }
 
 void ACYInGameMode::InitGameState()

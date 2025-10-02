@@ -6,6 +6,7 @@
 #include "CYLogChannels.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
 #include "GameModes/InGame/CYInGameState.h"
+#include "Player/CYPlayerState.h"
 
 void UCYOverlayWidgetController::BroadcastInitialValues()
 {
@@ -42,6 +43,21 @@ void UCYOverlayWidgetController::BindCallbacksToDependencies()
 {
 	const UCYVitalSet* VitalSet = Cast<UCYVitalSet>(AttributeSet);
 	const ACYInGameState* CYGameState = Cast<ACYInGameState>(GameState);
+	const ACYPlayerState* CYPS = Cast<ACYPlayerState>(PlayerState);
+
+	// if (CYPS)
+	// {
+	// 	TWeakObjectPtr<UCYOverlayWidgetController> WeakThis(this);
+	// 	// PlayerState의 네이티브 멀티캐스트 → Lambda로 수신
+	// 	const_cast<ACYPlayerState*>(CYPS)->FOnTeamRoleChanged.AddLambda(
+	// 		[WeakThis](ECYTeamRole NewRole)
+	// 		{
+	// 			if (WeakThis.IsValid())
+	// 			{
+	// 				WeakThis->OnTeamRoleChanged.Broadcast(NewRole); // BP로 재브로드캐스트
+	// 			}
+	// 		});
+	// }
 
 	TWeakObjectPtr<UCYOverlayWidgetController> WeakThis(this);
 	// VitalSet 정보 바인딩

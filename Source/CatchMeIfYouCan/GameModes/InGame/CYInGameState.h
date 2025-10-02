@@ -5,14 +5,11 @@
 #include "CoreMinimal.h"
 #include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/GameStateBase.h"
+#include "UI/WidgetController/CYWidgetDelegates.h"
 #include "CYInGameState.generated.h"
 
 
 class ACYJailPoint;
-// 델리게이트 (UI 업데이트용)
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTeamCountChanged, int32 /*CopCount*/, int32 /*RobberCount*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnAliveRobberCountChanged, int32 /*AliveRobberCount*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChanged, EGamePhase /*NewPhase*/);
 
 /**
  * 

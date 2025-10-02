@@ -11,9 +11,12 @@ enum class ECYTeamRole : uint8
 UENUM(BlueprintType)
 enum class EGamePhase : uint8
 {
+	Lobby			UMETA(DisplayName = "Lobby"),
+	Loading			UMETA(DisplayName = "Loading"),
 	WaitingToStart  UMETA(DisplayName = "Waiting To Start"),
 	Preparing       UMETA(DisplayName = "Preparing"),
 	InProgress      UMETA(DisplayName = "In Progress"),
 	CopsWin         UMETA(DisplayName = "Cops Win"),
-	RobbersWin      UMETA(DisplayName = "Robbers Win")
+	RobbersWin      UMETA(DisplayName = "Robbers Win"),
+	Ending			UMETA(DisplayName = "Ending")
 };
