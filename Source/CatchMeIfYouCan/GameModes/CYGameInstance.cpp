@@ -1,12 +1,12 @@
 #include "GameModes/CYGameInstance.h"
 #include "OnlineSubsystemUtils.h"
-//#include "Interfaces/OnlineIdentityInterface.h"
+//#include "Interfaces/OnlineIdentityInterface.h" (Utils에 포함)
 #include "OnlineSessionSettings.h"
 
 void UCYGameInstance::Init()
 {
 	Super::Init();
-
+	
 	OSS = Online::GetSubsystem(GetWorld());
 	if (!OSS)
 	{
@@ -16,8 +16,13 @@ void UCYGameInstance::Init()
 	Identity = OSS->GetIdentityInterface();
 	if (Identity.IsValid())
 	{
-		// 로컬 환경에서는 생략
-		//Identity->Login(0, FOnlineAccountCredentials());
+		FOnlineAccountCredentials Credentials;
+		Credentials.Type = TEXT("epic");
+		Credentials.Id = TEXT("");   
+		Credentials.Token = TEXT(""); 
+
+		Identity->OnLoginCompleteDelegates->AddUObject(this, &UCYGameInstance::OnLoginComplete);
+		Identity->Login(0, Credentials);
 	}
 	else
 	{
@@ -34,14 +39,15 @@ void UCYGameInstance::Init()
 	Sessions->OnJoinSessionCompleteDelegates.AddUObject(this, &UCYGameInstance::OnJoinSessionComplete);
 
 	SearchSettings = MakeShareable(new FOnlineSessionSearch());
-	SearchSettings->bIsLanQuery = true;           
+	SearchSettings->bIsLanQuery = false;           
 	SearchSettings->MaxSearchResults = 5;
+	SearchSettings->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals);
 	SearchSettings->QuerySettings.Set(FName(TEXT("SEARCHKEYWORDS")), FString("Lobby"), EOnlineComparisonOp::Equals);
 }
 
 void UCYGameInstance::Shutdown()
 {
-	IOnlineSubsystem* LocalOSS = IOnlineSubsystem::Get(TEXT("NULL"));
+	IOnlineSubsystem* LocalOSS = Online::GetSubsystem(GetWorld());
 
 	if (LocalOSS)
 	{
@@ -59,6 +65,41 @@ void UCYGameInstance::Shutdown()
 	Super::Shutdown();
 }
 
+void UCYGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error)
+{
+	if (bWasSuccessful)
+	{
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green,
+				FString::Printf(TEXT("EAS 로그인 성공: %s"), *UserId.ToString()));
+		}
+
+		IOnlineSubsystem* LocalOSS = Online::GetSubsystem(GetWorld());
+		if (!LocalOSS) return;
+
+		IOnlineUserPtr UserInterface = LocalOSS->GetUserInterface();
+		if (!UserInterface.IsValid())
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+					FString::Printf(TEXT("유저인터페이스 가져오기 실패")));
+			}
+		}
+	}
+	else
+	{
+		if (GEngine)
+		{
+			// 프로그램 종료하면서 로그인 하라는 알림창 띄워주면 좋을 듯.
+			// 로그인 창을 다시 띄워준다거나?
+			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red,
+				FString::Printf(TEXT("로그인 실패: %s"), *Error));
+		}
+	}
+}
+
 void UCYGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	if (bWasSuccessful)
@@ -69,7 +110,7 @@ void UCYGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSucces
 
 void UCYGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	IOnlineSubsystem* LocalOSS = IOnlineSubsystem::Get(TEXT("NULL"));
+	IOnlineSubsystem* LocalOSS = Online::GetSubsystem(GetWorld());
 
 	if (LocalOSS)
 	{
@@ -78,16 +119,46 @@ void UCYGameInstance::OnDestroySessionComplete(FName SessionName, bool bWasSucce
 		if (LocalSessions.IsValid() && bWasSuccessful)
 		{
 			FDelegateHandle DelegateHandleToClear = OnDestroySessionCompleteDelegate.GetHandle();
-			Sessions->ClearOnDestroySessionCompleteDelegate_Handle(DelegateHandleToClear);
+			LocalSessions->ClearOnDestroySessionCompleteDelegate_Handle(DelegateHandleToClear);
 		}
 	}
 }
 
 void UCYGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 {
-	if (bWasSuccessful && SearchSettings.IsValid() && SearchSettings->SearchResults.Num() > 0)
+	if (bWasSuccessful)
 	{
-		JoinSession(SearchSettings->SearchResults[0]);
+		if (SearchSettings.IsValid())
+		{
+			if (ButtonType == EButtonType::Host)
+			{
+				if (SearchSettings->SearchResults.Num() > 0)
+				{
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("세션 이미 존재")));
+					}
+				}
+				else
+				{
+					CreateSession();
+				}
+			}
+			else if (ButtonType == EButtonType::Join)
+			{
+				if (SearchSettings->SearchResults.Num() > 0)
+				{
+					JoinSession(SearchSettings->SearchResults[0]);
+				}
+				else
+				{
+					if (GEngine)
+					{
+						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("참여할 세션 없음")));
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -110,14 +181,15 @@ void UCYGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 void UCYGameInstance::CreateSession()
 {
 	if (!Sessions.IsValid()) return;
-
+	
 	CurrentSessionName = "CYSession";
 	
 	FOnlineSessionSettings SessionSettings;
-	SessionSettings.bIsLANMatch = true;            
+	SessionSettings.bIsLANMatch = false;            
 	SessionSettings.NumPublicConnections = 6;
 	SessionSettings.bShouldAdvertise = true;
 	SessionSettings.bAllowJoinInProgress = true;
+	SessionSettings.bUsesPresence = true;
 	SessionSettings.Set(FName("SEARCHKEYWORDS"),
 						FString("Lobby"),
 						EOnlineDataAdvertisementType::ViaOnlineService);
@@ -143,15 +215,12 @@ void UCYGameInstance::JoinSession(const FOnlineSessionSearchResult& SearchResult
 		FString JoinSessionNameStr;
     
 		const FOnlineSessionSettings& Settings = SearchResult.Session.SessionSettings;
-    
+		
 		if (Settings.Get(FName(TEXT("SESSION_JOIN_NAME_KEY")), JoinSessionNameStr))
 		{
 			FName SessionName = FName(*JoinSessionNameStr);
-       
+			
 			Sessions->JoinSession(0, SessionName, SearchResult);
 		}
-		
-		//FName SessionName = FName(*SearchResult.GetSessionIdStr()); 
-		//Sessions->JoinSession(0, SessionName, SearchResult);
 	}
 }

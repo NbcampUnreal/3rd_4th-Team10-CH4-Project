@@ -6,6 +6,12 @@
 #include "Interfaces/OnlineSessionInterface.h"
 #include "CYGameInstance.generated.h"
 
+enum class EButtonType : uint8 
+{
+	Host,     
+	Join
+};
+
 UCLASS()
 class CATCHMEIFYOUCAN_API UCYGameInstance : public UGameInstance
 {
@@ -30,6 +36,10 @@ public:
 
 	TSharedPtr<FOnlineSessionSearch> SearchSettings;
 
+	EButtonType ButtonType;
+
+	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+	
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
 
 	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
