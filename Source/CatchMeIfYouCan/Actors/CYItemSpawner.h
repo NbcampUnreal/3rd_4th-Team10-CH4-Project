@@ -52,4 +52,7 @@ private:
 	TWeakObjectPtr<ACYItemBase> CurrentSpawnedItem;
 
 	bool bFirstSpawnTriggered = false;
+    
+	// Spawner 자체에 현재 Threshold 저장
+	int32 CurrentThreshold = 400;
 };

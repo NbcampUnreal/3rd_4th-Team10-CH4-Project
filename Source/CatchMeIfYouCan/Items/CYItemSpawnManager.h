@@ -32,6 +32,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;
 
 private:
@@ -40,6 +41,6 @@ private:
 	UPROPERTY()
 	TArray<ACYItemSpawner*> RegisteredSpawners;
     
-	int32 CurrentThreshold = -1;
+	int32 CurrentThreshold = 400;
 	static ACYItemSpawnManager* Instance;
 };

@@ -15,8 +15,10 @@ ACYItemSpawnManager::ACYItemSpawnManager()
 
 ACYItemSpawnManager* ACYItemSpawnManager::GetInstance(UWorld* World)
 {
-	if (!Instance && World)
+	if ((!Instance || !IsValid(Instance)) && World)
 	{
+		Instance = nullptr;
+        
 		for (TActorIterator<ACYItemSpawnManager> It(World); It; ++It)
 		{
 			Instance = *It;
@@ -39,6 +41,15 @@ void ACYItemSpawnManager::BeginPlay()
 		Thresholds.Sort([](int32 A, int32 B) { return A > B; });
 		CurrentThreshold = Thresholds[0];
 	}
+}
+
+void ACYItemSpawnManager::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (Instance == this)
+	{
+		Instance = nullptr;
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 void ACYItemSpawnManager::Tick(float DeltaTime)
