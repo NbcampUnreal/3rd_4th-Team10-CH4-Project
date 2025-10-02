@@ -84,7 +84,7 @@ void ACYAIDogController::StopLogic()
 void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
 {
     if (!HasAuthority() || !ControlledDog) return;
-    if (!Actor->ActorHasTag(FName("thief"))) return;
+    if (!Actor->ActorHasTag(FName("robber"))) return;
 
     const bool bIsSensed = Stimulus.WasSuccessfullySensed();
     UAbilitySystemComponent* SummonerASC = nullptr;
@@ -132,7 +132,7 @@ void ACYAIDogController::OnTargetPerceived(AActor* Actor, FAIStimulus Stimulus)
         bool bIsOtherThiefVisible = false;
         for (AActor* PerceivedActor : PerceivedActors)
         {
-            if (PerceivedActor != Actor && PerceivedActor->ActorHasTag(FName("thief")))
+            if (PerceivedActor != Actor && PerceivedActor->ActorHasTag(FName("robber")))
             {
                 bIsOtherThiefVisible = true;
                 BlackboardComp->SetValueAsObject(FName("Target"), PerceivedActor);
