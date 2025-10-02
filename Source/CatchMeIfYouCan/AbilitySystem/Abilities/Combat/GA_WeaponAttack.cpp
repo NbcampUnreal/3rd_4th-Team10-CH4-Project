@@ -37,6 +37,34 @@ UGA_WeaponAttack::UGA_WeaponAttack()
 	ActivationBlockedTags = BlockedTags;
 }
 
+bool UGA_WeaponAttack::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
+	const FGameplayAbilityActorInfo* ActorInfo,
+	const FGameplayTagContainer* SourceTags,
+	const FGameplayTagContainer* TargetTags,
+	FGameplayTagContainer* OptionalRelevantTags) const
+{
+	if (!Super::CanActivateAbility(Handle, ActorInfo, SourceTags, TargetTags, OptionalRelevantTags))
+	{
+		return false;
+	}
+
+	// 무기가 장착되어 있는지 체크
+	AActor* OwnerActor = ActorInfo->AvatarActor.Get();
+	if (!OwnerActor)
+	{
+		return false;
+	}
+
+	UCYWeaponComponent* WeaponComp = OwnerActor->FindComponentByClass<UCYWeaponComponent>();
+	if (!WeaponComp || !WeaponComp->CurrentWeapon)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot activate weapon attack: No weapon equipped"));
+		return false;
+	}
+
+	return true;
+}
+
 void UGA_WeaponAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
     const FGameplayAbilityActorInfo* ActorInfo,
     const FGameplayAbilityActivationInfo ActivationInfo,
@@ -55,52 +83,77 @@ void UGA_WeaponAttack::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
         EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
         return;
     }
-
-	// 어빌리티 정보 캐시 (몽타주 완료 후 사용)
-	CachedHandle = Handle;
-	CachedActorInfo = ActorInfo;
-	CachedActivationInfo = ActivationInfo;
-
-	// 애니메이션 몽타주 재생
+	
+	// 몽타주가 있으면 재생하면서 이벤트 대기
 	if (AttackMontage)
 	{
-		ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
-		if (Character && Character->GetMesh() && Character->GetMesh()->GetAnimInstance())
+		// 몽타주 재생 태스크 생성
+		MontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+			this,
+			TEXT("PlayAttackMontage"),
+			AttackMontage,
+			1.0f
+		);
+
+		if (MontageTask)
 		{
-			UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance();
+			MontageTask->OnCompleted.AddDynamic(this, &UGA_WeaponAttack::OnMontageCompleted);
+			MontageTask->OnCancelled.AddDynamic(this, &UGA_WeaponAttack::OnMontageCancelled);
+			MontageTask->OnInterrupted.AddDynamic(this, &UGA_WeaponAttack::OnMontageCancelled);
+		}
+
+		// 공격 이벤트 대기 태스크 생성
+		AttackEventTask = UAbilityTask_WaitGameplayEvent::WaitGameplayEvent(
+			this,
+			CYGameplayTags::Event_Combat_WeaponAttack,
+			nullptr,
+			false,
+			true
+		);
+
+		if (AttackEventTask)
+		{
+			AttackEventTask->EventReceived.AddDynamic(this, &UGA_WeaponAttack::OnAttackEventReceived);
+		}
+
+		// 두 태스크 모두 활성화
+		if (MontageTask && AttackEventTask)
+		{
+			MontageTask->ReadyForActivation();
+			AttackEventTask->ReadyForActivation();
 			
-			// 몽타주 재생
-			float MontageLength = AnimInstance->Montage_Play(AttackMontage);
-			
-			if (MontageLength > 0.0f)
-			{
-				// 몽타주 완료 이벤트 바인딩
-				FOnMontageEnded EndDelegate;
-				EndDelegate.BindUFunction(this, FName("OnAttackMontageCompleted"));
-				AnimInstance->Montage_SetEndDelegate(EndDelegate, AttackMontage);
-				
-				UE_LOG(LogTemp, Warning, TEXT("🎬 Attack montage started: %f seconds"), MontageLength);
-				return; // 몽타주가 끝날 때까지 대기
-			}
+			UE_LOG(LogTemp, Warning, TEXT("Attack montage and event listener started"));
+			return;
 		}
 	}
 	
-	// 몽타주가 없거나 재생 실패 시 즉시 공격
-	OnAttackMontageCompleted();
+	// 몽타주가 없거나 태스크 생성 실패 시 즉시 공격
+	PerformAttack();
+	ApplyWeaponCooldown(Handle, ActorInfo, ActivationInfo);
+	EndAbility(Handle, ActorInfo, ActivationInfo, true, false);
 }
 
-void UGA_WeaponAttack::OnAttackMontageCompleted()
+void UGA_WeaponAttack::OnMontageCompleted()
 {
-	UE_LOG(LogTemp, Warning, TEXT("🎬 Attack montage completed - performing attack"));
+	UE_LOG(LogTemp, Warning, TEXT("Attack montage completed"));
 	
-	// 실제 공격 로직 실행
-	PerformAttack();
-
 	// 쿨다운 적용
-	ApplyWeaponCooldown(CachedHandle, CachedActorInfo, CachedActivationInfo);
+	ApplyWeaponCooldown(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(), GetCurrentActivationInfo());
+	
+	// 어빌리티 종료
+	EndAbility(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(), GetCurrentActivationInfo(), true, false);
+}
 
-	UE_LOG(LogTemp, Warning, TEXT("Weapon attack completed"));
-	EndAbility(CachedHandle, CachedActorInfo, CachedActivationInfo, true, false);
+void UGA_WeaponAttack::OnMontageCancelled()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Attack montage cancelled"));
+	EndAbility(GetCurrentAbilitySpecHandle(), GetCurrentActorInfo(), GetCurrentActivationInfo(), true, true);
+}
+
+void UGA_WeaponAttack::OnAttackEventReceived(FGameplayEventData Payload)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Attack event received from AnimNotify"));
+	PerformAttack();
 }
 
 void UGA_WeaponAttack::PerformAttack()

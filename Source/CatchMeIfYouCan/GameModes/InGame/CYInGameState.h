@@ -9,6 +9,8 @@
 #include "CYInGameState.generated.h"
 
 
+class ACYJailPoint;
+
 /**
  * 
  */
@@ -59,7 +61,12 @@ public:
 	// 대기 종료 후 게임 시작시 호출
 	void StartMatch_Server(float InMatchDurationSeconds);
 
+	void InitAliveCountsMatchStart();
+
 	float GetSynchronizedServerTimeFromPC() const;
+
+	void SetJailPoint(ACYJailPoint* InJailPoint);
+	ACYJailPoint* GetJailPoint() const { return JailPoint; }
 	
 protected:
 	
@@ -108,4 +115,6 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_MatchEndServerTimeSeconds)
 	float MatchEndServerTimeSeconds = 0.f;
 	
+	UPROPERTY()
+	TObjectPtr<ACYJailPoint> JailPoint;
 };

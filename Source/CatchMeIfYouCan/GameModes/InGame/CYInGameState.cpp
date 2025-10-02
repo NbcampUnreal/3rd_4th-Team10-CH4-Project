@@ -64,7 +64,7 @@ void ACYInGameState::UpdateAliveRobberCount(int32 NewCount)
 	OnAliveRobberCountChanged.Broadcast(AliveRobberCount);
     
 	// 승리 조건 체크
-	if (CurrentGamePhase == EGamePhase::InProgress && AliveRobberCount == 0)
+	if (CurrentGamePhase == EGamePhase::InProgress && AliveRobberCount <= 0)
 	{
 		// 도둑이 다 잡힌 경우 경찰 승리!
 		CurrentGamePhase = EGamePhase::CopsWin;
@@ -135,6 +135,17 @@ void ACYInGameState::StartMatch_Server(float InMatchDurationSeconds)
 	SetGamePhase_Server(EGamePhase::InProgress);
 }
 
+void ACYInGameState::InitAliveCountsMatchStart()
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	
+	AliveRobberCount = RobberCount;
+	OnAliveRobberCountChanged.Broadcast(AliveRobberCount);
+}
+
 float ACYInGameState::GetSynchronizedServerTimeFromPC() const
 {
 	UWorld* World = GetWorld();
@@ -153,6 +164,14 @@ float ACYInGameState::GetSynchronizedServerTimeFromPC() const
 
 	// 아직 클라에서 PC가 생성되지 않은 경우 기본적인 로컬 시간 반환
 	return World->GetTimeSeconds();
+}
+
+void ACYInGameState::SetJailPoint(ACYJailPoint* InJailPoint)
+{
+	if (HasAuthority())
+	{
+		JailPoint = InJailPoint;
+	}
 }
 
 void ACYInGameState::OnRep_TeamCounts()
