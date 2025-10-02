@@ -25,41 +25,36 @@ bool ACYConsumableBase::UseItem(ACYPlayerCharacter* Character)
 
     bool bSuccess = false;
     
-    // Invisibility 포션인 경우
-    if (ACYInvisibilityPotion* InvisPotion = Cast<ACYInvisibilityPotion>(this))
+    for (TSubclassOf<UGameplayEffect> EffectClass : ConsumableEffects)
     {
-        // 태그 직접 추가
-        ASC->AddLooseGameplayTag(CYGameplayTags::State_Invisible);
+        if (!EffectClass) continue;
+
+        FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
+        EffectContext.AddInstigator(Character, Character);
         
-        // 제거하는 타이머
-        FTimerHandle TimerHandle;
-        Character->GetWorldTimerManager().SetTimer(
-            TimerHandle,
-            [ASC]()
-            {
-                ASC->RemoveLooseGameplayTag(CYGameplayTags::State_Invisible);
-                UE_LOG(LogTemp, Warning, TEXT("Invisibility expired"));
-            },
-            4.0f,
-            false
-        );
-        
-        bSuccess = true;
-    }
-    else
-    {
-        // 다른 소비 아이템은 GE 적용
-        for (TSubclassOf<UGameplayEffect> EffectClass : ConsumableEffects)
+        FGameplayEffectSpecHandle EffectSpec = ASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
+        if (EffectSpec.IsValid())
         {
-            if (!EffectClass) continue;
-
-            FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
-            EffectContext.AddSourceObject(this);
-
-            FGameplayEffectSpecHandle EffectSpec = ASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
-            if (EffectSpec.IsValid())
+            // Duration 오버라이드 (0보다 클 때만)
+            if (OverrideDuration > 0.0f)
             {
-                // Heal은 Caller로 힐량 처리
+                EffectSpec.Data->SetDuration(OverrideDuration, true);
+            }
+            
+            // Primary 값 오버라이드
+            if (OverridePrimaryValue > 0.0f)
+            {
+                if (EffectClass->IsChildOf(UGE_Heal::StaticClass()))
+                {
+                    EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), OverridePrimaryValue);
+                }
+                else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
+                {
+                    EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), OverridePrimaryValue);
+                }
+            }
+            else  // 오버라이드 없으면 클래스 기본값 사용
+            {
                 if (EffectClass->IsChildOf(UGE_Heal::StaticClass()))
                 {
                     if (ACYHealPotion* HealPotion = Cast<ACYHealPotion>(this))
@@ -67,28 +62,27 @@ bool ACYConsumableBase::UseItem(ACYPlayerCharacter* Character)
                         EffectSpec.Data->SetSetByCallerMagnitude(FName("HealAmount"), HealPotion->HealAmount);
                     }
                 }
-            	// Caller로 속도 증가량 처리
                 else if (EffectClass->IsChildOf(UGE_SpeedBoost::StaticClass()))
                 {
-                	if (ACYSpeedBoost* SpeedBoost = Cast<ACYSpeedBoost>(this))
-                	{
-                		EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), SpeedBoost->SpeedBoostAmount);
-                	}
+                    if (ACYSpeedBoost* SpeedBoost = Cast<ACYSpeedBoost>(this))
+                    {
+                        EffectSpec.Data->SetSetByCallerMagnitude(FName("SpeedBoostAmount"), SpeedBoost->SpeedBoostAmount);
+                    }
                 }
-
-                ASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-                bSuccess = true;
             }
+
+            ASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+            bSuccess = true;
         }
     }
 
-	if (bSuccess)
-	{
-		OnConsumableUsed(Character);
-		UE_LOG(LogTemp, Warning, TEXT("%s used consumable: %s"), 
-			   *Character->GetName(), *ItemName.ToString());
-	}
-
-
+    if (bSuccess)
+    {
+        OnConsumableUsed(Character);
+        UE_LOG(LogTemp, Warning, TEXT("%s used consumable: %s (Primary:%.1f, Duration:%.1f)"), 
+               *Character->GetName(), *ItemName.ToString(), 
+               OverridePrimaryValue, OverrideDuration);  // 디버그 로그 추가
+    }
+    
     return bSuccess;
 }

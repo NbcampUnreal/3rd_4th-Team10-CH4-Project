@@ -32,6 +32,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	void SetupAbilitySystemComponent();
 
@@ -76,6 +77,8 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Camera")
 	TObjectPtr<UCameraComponent> FollowCamera;
+
+	FDelegateHandle InvisibilityTagDelegateHandle;
 	
 private:
 	UPROPERTY(EditDefaultsOnly, Category = "CY|Input")

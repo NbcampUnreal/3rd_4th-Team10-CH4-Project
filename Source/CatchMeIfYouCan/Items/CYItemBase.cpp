@@ -50,6 +50,8 @@ void ACYItemBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
     
     DOREPLIFETIME(ACYItemBase, bIsPickedUp);
     DOREPLIFETIME(ACYItemBase, ItemCount);
+	DOREPLIFETIME(ACYItemBase, OverridePrimaryValue);
+	DOREPLIFETIME(ACYItemBase, OverrideDuration);
 }
 
 void ACYItemBase::BeginPlay()
@@ -73,6 +75,9 @@ void ACYItemBase::OnPickup(ACYPlayerCharacter* Character)
 	// 모든 아이템을 기본적으로 숨김
 	SetActorHiddenInGame(true);
 	SetActorEnableCollision(false);
+
+	// ItemSpawner가 아이템을 집었는지 확인함
+	OnItemPickedUpDelegate.Broadcast(this);
     
 	UE_LOG(LogTemp, Warning, TEXT("Item picked up: %s"), *ItemName.ToString());
 }

@@ -267,6 +267,9 @@ ACYTrapBase* UGA_PlaceTrap::CreateTrapFromItem(ACYItemBase* TrapItem, const FVec
 		UE_LOG(LogTemp, Error, TEXT("Failed to spawn trap of class: %s"), *TrapClass->GetName());
 		return nullptr;
 	}
+
+	NewTrap->OverridePrimaryValue = SourceTrap->OverridePrimaryValue;
+	NewTrap->OverrideDuration = SourceTrap->OverrideDuration;
     
 	// 플레이어가 설치한 트랩으로 변환 (맵 트랩 -> 플레이어 트랩)
 	NewTrap->PlaceTrap(Location, Cast<ACYPlayerCharacter>(GetAvatarActorFromActorInfo()));
