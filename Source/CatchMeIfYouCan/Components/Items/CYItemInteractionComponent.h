@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "CYItemInteractionComponent.generated.h"
 
+class UWidgetComponent;
 class ACYItemBase;
 class UCYInventoryComponent;
 
@@ -14,6 +15,9 @@ class CATCHMEIFYOUCAN_API UCYItemInteractionComponent : public UActorComponent
 
 public:
 	UCYItemInteractionComponent();
+
+	// 위젯 회전을 위한 Tick
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	// 상호작용 범위
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
@@ -35,7 +39,14 @@ public:
 	void ServerPickupItem(ACYItemBase* Item);
 
 protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Interaction|UI")
+	TSubclassOf<UUserWidget> InteractionWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Interaction|UI")
+	FVector WidgetOffset = FVector(0.f, 0.f, 100.f); 
+
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	// 주기적으로 근처 아이템 검사
@@ -54,4 +65,10 @@ private:
 	// 하이라이트 정보 저장
 	UPROPERTY()
 	ACYItemBase* CurrentHighlightedItem = nullptr;
+
+	UPROPERTY()
+	UWidgetComponent* CurrentInteractionWidget = nullptr;
+
+	void CreateInteractionWidget(ACYItemBase* Item);
+	void RemoveInteractionWidget();
 };

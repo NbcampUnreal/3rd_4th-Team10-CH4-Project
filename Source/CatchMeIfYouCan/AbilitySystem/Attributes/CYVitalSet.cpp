@@ -2,6 +2,7 @@
 #include "GameplayEffectExtension.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
+#include "AbilitySystem/Effects/CYCombatGameplayEffects.h"
 #include "Net/UnrealNetwork.h"
 
 UCYVitalSet::UCYVitalSet()
@@ -55,47 +56,18 @@ void UCYVitalSet::HandleHealthChange()
 	// 사망 처리 (체력이 0 이하)
 	if (GetHealth() <= 0.0f)
 	{
-		// 이미 Stunned 어빌리티가 활성화되어 있으면 중복 방지
 		if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
 		{
-			UE_LOG(LogTemp, Verbose, TEXT("[Server] Already stunned, skipping"));
 			return;
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("[Server] %s has died (Health: %.1f)"), 
-			*Owner->GetName(), GetHealth());
+		UE_LOG(LogTemp, Warning, TEXT("[Server] %s has died"), *Owner->GetName());
 
-		// Loose 태그로 Stunned 상태 표시 (어빌리티가 이 태그를 확인함)
-		FGameplayTagContainer TagsToAdd;
-		TagsToAdd.AddTag(CYGameplayTags::State_Stunned);
-		ASC->AddLooseGameplayTags(TagsToAdd);
-
-		UE_LOG(LogTemp, Warning, TEXT("[Server] Added Stunned tag to %s"), *Owner->GetName());
-
-		// Stunned Ability 활성화 시도
+		// Stunned Ability 활성화
 		if (UCYAbilitySystemComponent* CYASC = Cast<UCYAbilitySystemComponent>(ASC))
 		{
-			bool bActivated = CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
-			UE_LOG(LogTemp, Warning, TEXT("[Server] Stunned ability activation: %s"), 
-				bActivated ? TEXT("SUCCESS") : TEXT("FAILED"));
-
-			// 활성화 실패 시 태그 제거 (정리)
-			if (!bActivated)
-			{
-				FGameplayTagContainer TagsToRemove;
-				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
-				ASC->RemoveLooseGameplayTags(TagsToRemove);
-				UE_LOG(LogTemp, Error, TEXT("[Server] Failed to activate Stunned ability, removed tag"));
-			}
+			CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
 		}
-	}
-	// 체력 회복 시 처리
-	else if (GetHealth() > 0.0f)
-	{
-		// Stunned 어빌리티가 활성화되어 있으면 스킵 (어빌리티가 알아서 처리)
-		// 어빌리티가 종료되면서 태그를 제거할 것
-		UE_LOG(LogTemp, Log, TEXT("[Server] %s Health changed: %.1f/%.1f"), 
-			   *Owner->GetName(), GetHealth(), GetMaxHealth());
 	}
 }
 

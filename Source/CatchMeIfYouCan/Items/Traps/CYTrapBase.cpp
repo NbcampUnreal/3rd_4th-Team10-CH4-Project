@@ -51,6 +51,27 @@ void ACYTrapBase::BeginPlay()
     }
 }
 
+void ACYTrapBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 타이머 정리
+	if (UWorld* World = GetWorld())
+	{
+		FTimerManager& TimerManager = World->GetTimerManager();
+		
+		if (ArmingTimer.IsValid())
+		{
+			TimerManager.ClearTimer(ArmingTimer);
+		}
+		
+		if (LifetimeTimer.IsValid())
+		{
+			TimerManager.ClearTimer(LifetimeTimer);
+		}
+	}
+	
+	Super::EndPlay(EndPlayReason);
+}
+
 bool ACYTrapBase::UseItem(ACYPlayerCharacter* Character)
 {
     if (!Character || !HasAuthority()) return false;
@@ -111,15 +132,18 @@ void ACYTrapBase::PlaceTrap(const FVector& Location, ACYPlayerCharacter* Placer)
 
 void ACYTrapBase::ArmTrap()
 {
-    if (!HasAuthority() || TrapState != ETrapState::PlayerPlaced) return;
+	if (!IsValid(this) || !HasAuthority() || TrapState != ETrapState::PlayerPlaced) 
+	{
+		return;
+	}
     
     bIsArmed = true;
     
     // 트리거 반경으로 변경
-    if (InteractionSphere)
-    {
-        InteractionSphere->SetSphereRadius(TriggerRadius);
-    }
+	if (InteractionSphere && IsValid(InteractionSphere))
+	{
+		InteractionSphere->SetSphereRadius(TriggerRadius);
+	}
     
     UE_LOG(LogTemp, Warning, TEXT("Trap armed: %s"), *ItemName.ToString());
 }
@@ -159,47 +183,44 @@ void ACYTrapBase::OnTrapSphereOverlap(UPrimitiveComponent* OverlappedComponent, 
 
 void ACYTrapBase::OnTrapTriggered(ACYPlayerCharacter* Target)
 {
-    if (!Target || !HasAuthority()) return;
+	if (!Target || !HasAuthority()) return;
     
-    UE_LOG(LogTemp, Warning, TEXT("TRAP TRIGGERED! %s stepped on %s's trap"), 
-           *Target->GetName(), 
-           GetOwner() ? *GetOwner()->GetName() : TEXT("Unknown"));
-    
-    // GAS 효과 적용
-    UAbilitySystemComponent* TargetASC = Target->GetAbilitySystemComponent();
-    if (TargetASC)
-    {
-        for (TSubclassOf<UGameplayEffect> EffectClass : TrapEffects)
-        {
-            if (EffectClass)
-            {
-                FGameplayEffectContextHandle EffectContext = TargetASC->MakeEffectContext();
-                EffectContext.AddSourceObject(this);
+	UAbilitySystemComponent* TargetASC = Target->GetAbilitySystemComponent();
+	if (TargetASC)
+	{
+		for (TSubclassOf<UGameplayEffect> EffectClass : TrapEffects)
+		{
+			if (!EffectClass) continue;
+            
+			FGameplayEffectContextHandle EffectContext = TargetASC->MakeEffectContext();
+			EffectContext.AddInstigator(GetOwner(), Target);
+            
+			FGameplayEffectSpecHandle EffectSpec = TargetASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
+			if (EffectSpec.IsValid())
+			{
+				if (OverrideDuration > 0.0f)
+				{
+					EffectSpec.Data->SetDuration(OverrideDuration, true);
+				}
                 
-                FGameplayEffectSpecHandle EffectSpec = TargetASC->MakeOutgoingSpec(EffectClass, 1, EffectContext);
-            	if (EffectSpec.IsValid())
-            	{
-            		// 데미지 트랩인 경우 데미지 값 설정
-            		if (EffectClass == UGE_DamageTrap::StaticClass())
-            		{
-            			if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
-            			{
-            				EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -DamageTrap->DamageAmount);
-            			}
-            		}
-                    
-            		TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
-            		UE_LOG(LogTemp, Warning, TEXT("Applied trap effect: %s"), *EffectClass->GetName());
-            	}
-            }
-        }
-    }
+				if (EffectClass == UGE_DamageTrap::StaticClass())
+				{
+					if (OverridePrimaryValue > 0.0f)
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -OverridePrimaryValue);
+					}
+					else if (ACYDamageTrap* DamageTrap = Cast<ACYDamageTrap>(this))
+					{
+						EffectSpec.Data->SetSetByCallerMagnitude(FName("TrapDamage"), -DamageTrap->DamageAmount);
+					}
+				}
+                
+				TargetASC->ApplyGameplayEffectSpecToSelf(*EffectSpec.Data.Get());
+			}
+		}
+	}
     
-    // 블루프린트 커스텀 효과
-    ApplyTrapEffect(Target);
-	
-    // 트랩 제거
-    Destroy();
+	Destroy();
 }
 
 void ACYTrapBase::OnRep_TrapState()
@@ -214,10 +235,4 @@ void ACYTrapBase::OnRep_TrapState()
 
 void ACYTrapBase::OnRep_IsArmed()
 {
-    // 활성화 시 시각적 효과
-    if (bIsArmed && GEngine)
-    {
-        GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, 
-            FString::Printf(TEXT("%s ARMED!"), *ItemName.ToString()));
-    }
 }

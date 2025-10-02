@@ -3,6 +3,8 @@
 
 #include "CYDoorBase.h"
 
+#include "AbilitySystem/CYCombatGameplayTags.h"
+#include "Character/CYCharacterBase.h"
 #include "Components/ArrowComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -34,6 +36,25 @@ void ACYDoorBase::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& Ou
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ThisClass, DoorState);
+}
+
+bool ACYDoorBase::CanInteraction(const FCYInteractionQuery& InteractionQuery) const
+{
+	if (!Super::CanInteraction(InteractionQuery))
+	{
+		return false;
+	}
+
+	// 요청 플레이어가 감옥 상태면 문 상호작용 불가
+	if (const ACYCharacterBase* Requester = Cast<ACYCharacterBase>(InteractionQuery.RequestingAvatar.Get()))
+	{
+		if (Requester->HasGameplayTag(CYGameplayTags::State_Jail))
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 FCYInteractionInfo ACYDoorBase::GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const

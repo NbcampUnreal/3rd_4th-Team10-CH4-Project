@@ -25,6 +25,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Stunned")
 	float RecoveryHealth = 1.0f;
 
+	// Stunned 상태 GameplayEffect
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Stunned")
+	TSubclassOf<UGameplayEffect> StunnedStateGEClass;
+
 protected:
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
 		const FGameplayAbilityActorInfo* ActorInfo,

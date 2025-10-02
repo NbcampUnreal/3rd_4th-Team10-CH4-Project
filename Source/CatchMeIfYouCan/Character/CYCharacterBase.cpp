@@ -25,6 +25,45 @@ ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 	InteractCapsule->SetupAttachment(GetRootComponent());
 	InteractCapsule->SetCollisionResponseToAllChannels(ECR_Ignore);
 	InteractCapsule->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Block);
+	
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	
+	HelmetMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("HelmetMesh"));
+	HelmetMesh->SetupAttachment(GetMesh());
+	HelmetMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	HelmetMesh->SetLeaderPoseComponent(GetMesh());  
+	HelmetMesh->bUseBoundsFromLeaderPoseComponent = true;
+	HelmetMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+
+	EyewearMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("EyewearMesh"));
+	EyewearMesh->SetupAttachment(GetMesh());
+	EyewearMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	EyewearMesh->SetLeaderPoseComponent(GetMesh());
+	EyewearMesh->bUseBoundsFromLeaderPoseComponent = true;
+	EyewearMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+
+
+	ChestMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("ChestMesh"));
+	ChestMesh->SetupAttachment(GetMesh());
+	ChestMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ChestMesh->SetLeaderPoseComponent(GetMesh());
+	ChestMesh->bUseBoundsFromLeaderPoseComponent = true;
+	ChestMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+
+	LegsMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("LegsMesh"));
+	LegsMesh->SetupAttachment(GetMesh());
+	LegsMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	LegsMesh->SetLeaderPoseComponent(GetMesh());
+	LegsMesh->bUseBoundsFromLeaderPoseComponent = true;
+	LegsMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+
+	FootwearMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FootwearMesh"));
+	FootwearMesh->SetupAttachment(GetMesh());
+	FootwearMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	FootwearMesh->SetLeaderPoseComponent(GetMesh());
+	FootwearMesh->bUseBoundsFromLeaderPoseComponent = true;
+	FootwearMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 }
 
 UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const

@@ -6,6 +6,7 @@
 #include "AbilitySystemInterface.h"
 #include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/PlayerState.h"
+#include "UI/WidgetController/CYWidgetDelegates.h"
 #include "CYPlayerState.generated.h"
 
 
@@ -25,7 +26,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	UFUNCTION(BlueprintCallable, Category = "CY|PlayerState")
+	UFUNCTION(BlueprintCallable, Category = "CY|PlayerState")  
 	UCYAbilitySystemComponent* GetCYAbilitySystemComponent() const { return AbilitySystemComponent; }
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
 
@@ -44,6 +45,12 @@ public:
 
 	void SetPawnData(UCYPawnData* NewPawnData);
 
+	// Team Role Change BroaCast
+	FOnTeamRoleChanged FOnTeamRoleChanged;
+
+	// For Seamless Travel
+	virtual void CopyProperties(APlayerState* PlayerState) override;
+
 protected:
 	UFUNCTION()
 	void OnRep_TeamRole();
@@ -54,7 +61,6 @@ protected:
 private:
 	void NotifyControllerPawnDataReady();
 	
-private:
 	UPROPERTY(VisibleAnywhere, Category = "CY|PlayerState")
 	TObjectPtr<UCYAbilitySystemComponent> AbilitySystemComponent;
 

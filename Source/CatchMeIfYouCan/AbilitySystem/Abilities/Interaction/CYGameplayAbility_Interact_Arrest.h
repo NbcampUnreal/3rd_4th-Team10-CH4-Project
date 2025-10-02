@@ -38,6 +38,9 @@ private:
 	void DoArrest(ACYCharacterBase* InstigatorCop, ACYCharacterBase* TargetRobber);
 
 private:
+
+	UPROPERTY(EditDefaultsOnly, Category = "CY|Arrest")
+	TSubclassOf<UGameplayEffect> JailStateGameplayEffectClass;
 	
 	/** 체포 가능 최대 거리 */
 	UPROPERTY(EditDefaultsOnly, Category = "CY|Arrest")

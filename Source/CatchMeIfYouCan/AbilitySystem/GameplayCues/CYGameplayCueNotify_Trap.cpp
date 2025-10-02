@@ -13,49 +13,9 @@ bool UCYGameplayCueNotify_Trap::OnExecute_Implementation(AActor* MyTarget, const
 {
 	if (!MyTarget) return false;
 
-	FVector Location;
-	if (Parameters.Location.IsZero())
-	{
-		Location = MyTarget->GetActorLocation();
-	}
-	else
-	{
-		Location = FVector(Parameters.Location);
-	}
-
-	// 파티클 (Cascade)
-	if (TriggerParticle)
-	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-			MyTarget->GetWorld(),
-			TriggerParticle,
-			Location,
-			FRotator::ZeroRotator,
-			FVector(1.0f)
-		);
-	}
-
-	// 파티클 (Niagara)
-	if (TriggerNiagara)
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-			MyTarget->GetWorld(),
-			TriggerNiagara,
-			Location
-		);
-	}
-
-	// 사운드
-	if (TriggerSound)
-	{
-		UGameplayStatics::PlaySoundAtLocation(
-			MyTarget->GetWorld(),
-			TriggerSound,
-			Location
-		);
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Trap effect played at %s"), *Location.ToString());
+	PlayTrapEffects(MyTarget, Parameters);
+	
+	UE_LOG(LogTemp, Log, TEXT("Trap effect played (Instant): %s"), *MyTarget->GetName());
 	return true;
 }
 
@@ -63,48 +23,95 @@ bool UCYGameplayCueNotify_Trap::OnActive_Implementation(AActor* MyTarget, const 
 {
 	if (!MyTarget) return false;
 
-	FVector Location;
-	if (Parameters.Location.IsZero())
+	PlayTrapEffects(MyTarget, Parameters);
+	
+	UE_LOG(LogTemp, Log, TEXT("Trap effect played (Duration Start): %s"), *MyTarget->GetName());
+	return true;
+}
+
+void UCYGameplayCueNotify_Trap::PlayTrapEffects(AActor* MyTarget, const FGameplayCueParameters& Parameters) const
+{
+	if (!MyTarget) return;
+
+	// 소켓이 설정되어 있는지 확인
+	bool bShouldAttach = (AttachSocketName != NAME_None);
+
+	if (bShouldAttach)
 	{
-		Location = MyTarget->GetActorLocation();
+		// 소켓 부착 모드
+		USceneComponent* AttachComponent = MyTarget->GetRootComponent();
+		
+		// 파티클 (Cascade)
+		if (TriggerParticle)
+		{
+			UGameplayStatics::SpawnEmitterAttached(
+				TriggerParticle,
+				AttachComponent,
+				AttachSocketName,
+				FVector::ZeroVector,
+				FRotator::ZeroRotator,
+				EAttachLocation::SnapToTarget,
+				true
+			);
+		}
+
+		// 파티클 (Niagara)
+		if (TriggerNiagara)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAttached(
+				TriggerNiagara,
+				AttachComponent,
+				AttachSocketName,
+				FVector::ZeroVector,
+				FRotator::ZeroRotator,
+				EAttachLocation::SnapToTarget,
+				true
+			);
+		}
 	}
 	else
 	{
-		Location = FVector(Parameters.Location);
+		// 위치 기반 모드
+		FVector Location;
+		if (Parameters.Location.IsZero())
+		{
+			Location = MyTarget->GetActorLocation();
+		}
+		else
+		{
+			Location = FVector(Parameters.Location);
+		}
+
+		// 파티클 (Cascade)
+		if (TriggerParticle)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(
+				MyTarget->GetWorld(),
+				TriggerParticle,
+				Location,
+				FRotator::ZeroRotator,
+				FVector(1.0f)
+			);
+		}
+
+		// 파티클 (Niagara)
+		if (TriggerNiagara)
+		{
+			UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+				MyTarget->GetWorld(),
+				TriggerNiagara,
+				Location
+			);
+		}
 	}
 
-	// 파티클 (Cascade)
-	if (TriggerParticle)
-	{
-		UGameplayStatics::SpawnEmitterAtLocation(
-		   MyTarget->GetWorld(),
-		   TriggerParticle,
-		   Location,
-		   FRotator::ZeroRotator,
-		   FVector(1.0f)
-		);
-	}
-
-	// 파티클 (Niagara)
-	if (TriggerNiagara)
-	{
-		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-		   MyTarget->GetWorld(),
-		   TriggerNiagara,
-		   Location
-		);
-	}
-
-	// 사운드
+	// 사운드는 항상 위치 기반
 	if (TriggerSound)
 	{
 		UGameplayStatics::PlaySoundAtLocation(
-		   MyTarget->GetWorld(),
-		   TriggerSound,
-		   Location
+			MyTarget->GetWorld(),
+			TriggerSound,
+			MyTarget->GetActorLocation()
 		);
 	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Duration Trap effect played at %s (OnActive)"), *Location.ToString());
-	return true;
 }

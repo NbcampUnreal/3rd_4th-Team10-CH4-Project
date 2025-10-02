@@ -56,28 +56,54 @@ bool UCYInventoryComponent::AddItem(ACYItemBase* Item)
 
 bool UCYInventoryComponent::AddWeapon(ACYItemBase* Weapon)
 {
-    int32 EmptySlot = FindEmptyWeaponSlot();
-    if (EmptySlot == -1) 
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No empty weapon slot"));
-        return false;
-    }
+	// 같은 클래스의 무기가 이미 있는지 체크
+	for (ACYItemBase* ExistingWeapon : WeaponSlots)
+	{
+		if (ExistingWeapon && ExistingWeapon->GetClass() == Weapon->GetClass())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Already have this weapon type: %s"), 
+				*Weapon->ItemName.ToString());
+			return false;
+		}
+	}
+	
+	int32 EmptySlot = FindEmptyWeaponSlot();
+	if (EmptySlot == -1) 
+	{
+		UE_LOG(LogTemp, Warning, TEXT("No empty weapon slot"));
+		return false;
+	}
     
-    WeaponSlots[EmptySlot] = Weapon;
-    OnInventoryChanged.Broadcast(EmptySlot + 1, Weapon);
+	WeaponSlots[EmptySlot] = Weapon;
+	OnInventoryChanged.Broadcast(EmptySlot + 1, Weapon);
     
-    // 첫 무기 자동 장착
-    if (EmptySlot == 0)
-    {
-        if (UCYWeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UCYWeaponComponent>())
-        {
-            WeaponComp->EquipWeapon(Cast<ACYWeaponBase>(Weapon));
-        }
-    }
+	// 첫 무기만 자동 장착 (서버에서만)
+	if (EmptySlot == 0 && GetOwner()->HasAuthority())
+	{
+		// 약간 딜레이
+		FTimerHandle AutoEquipTimer;
+		GetWorld()->GetTimerManager().SetTimer(
+			AutoEquipTimer,
+			[this, Weapon]()
+			{
+				if (UCYWeaponComponent* WeaponComp = GetOwner()->FindComponentByClass<UCYWeaponComponent>())
+				{
+					if (ACYWeaponBase* WeaponBase = Cast<ACYWeaponBase>(Weapon))
+					{
+						WeaponComp->EquipWeapon(WeaponBase);
+						UE_LOG(LogTemp, Warning, TEXT("Auto-equipped first weapon: %s"), 
+							*Weapon->ItemName.ToString());
+					}
+				}
+			},
+			0.2f,
+			false
+		);
+	}
     
-    UE_LOG(LogTemp, Warning, TEXT("Added weapon: %s to slot %d"), 
-           *Weapon->ItemName.ToString(), EmptySlot + 1);
-    return true;
+	UE_LOG(LogTemp, Warning, TEXT("Added weapon: %s to slot %d"), 
+		   *Weapon->ItemName.ToString(), EmptySlot + 1);
+	return true;
 }
 
 bool UCYInventoryComponent::AddItemWithStacking(ACYItemBase* Item)
@@ -230,15 +256,14 @@ bool UCYInventoryComponent::HoldItem(int32 SlotIndex)
 
 bool UCYInventoryComponent::UseHeldItem()
 {
-    if (!CurrentHeldItem || !GetOwner()->HasAuthority())
-    {
-        if (!GetOwner()->HasAuthority())
-        {
-        	// 클라이언트에서 서버 RPC 호출
-            ServerUseHeldItem();
-        }
-        return false;
-    }
+	if (!CurrentHeldItem) return false;
+    
+	// 클라이언트인 경우
+	if (!GetOwner()->HasAuthority())
+	{
+		ServerUseHeldItem();
+		return true;
+	}
 
 	// 수량이 0 이하면 사용하지 않음
 	if (CurrentHeldItem->ItemCount <= 0)
@@ -258,9 +283,15 @@ bool UCYInventoryComponent::UseHeldItem()
 		bIsUsingTrap = true;
         
 		// 0.5초 후 플래그 해제 (트랩 설치 완료 시간보다 짧게)
+		TWeakObjectPtr<UCYInventoryComponent> WeakThis(this);
 		GetWorld()->GetTimerManager().SetTimer(
 			TrapUseCooldownTimer,
-			[this]() { bIsUsingTrap = false; },
+			[WeakThis]() { 
+				if (WeakThis.IsValid())
+				{
+					WeakThis->bIsUsingTrap = false;
+				}
+			},
 			0.5f,
 			false
 		);
@@ -483,25 +514,42 @@ int32 UCYInventoryComponent::FindStackableItemSlot(ACYItemBase* Item) const
 
 bool UCYInventoryComponent::TryStackWithExistingItem(ACYItemBase* Item)
 {
-    int32 StackableSlot = FindStackableItemSlot(Item);
-    if (StackableSlot == -1) return false;
+	int32 StackableSlot = FindStackableItemSlot(Item);
+	if (StackableSlot == -1) return false;
 
-    ACYItemBase* ExistingItem = ItemSlots[StackableSlot];
-    int32 AddableCount = FMath::Min(Item->ItemCount, 
-                                    ExistingItem->MaxStackCount - ExistingItem->ItemCount);
+	ACYItemBase* ExistingItem = ItemSlots[StackableSlot];
+	
+	if (!IsValid(ExistingItem))
+	{
+		ItemSlots[StackableSlot] = nullptr;
+		return false;
+	}
     
-    ExistingItem->ItemCount += AddableCount;
-    Item->ItemCount -= AddableCount;
+	// 오버라이드 값 업데이트
+	if (Item->OverridePrimaryValue > 0.0f)
+	{
+		ExistingItem->OverridePrimaryValue = Item->OverridePrimaryValue;
+	}
+	if (Item->OverrideDuration > 0.0f)
+	{
+		ExistingItem->OverrideDuration = Item->OverrideDuration;
+	}
     
-    OnInventoryChanged.Broadcast(StackableSlot + 4, ExistingItem);
+	int32 AddableCount = FMath::Min(Item->ItemCount, 
+									ExistingItem->MaxStackCount - ExistingItem->ItemCount);
     
-    if (Item->ItemCount <= 0)
-    {
-        Item->Destroy();
-        return true;
-    }
+	ExistingItem->ItemCount += AddableCount;
+	Item->ItemCount -= AddableCount;
     
-    return false;
+	OnInventoryChanged.Broadcast(StackableSlot + 4, ExistingItem);
+    
+	if (Item->ItemCount <= 0)
+	{
+		Item->Destroy();
+		return true;
+	}
+    
+	return false;
 }
 
 void UCYInventoryComponent::OnRep_WeaponSlots()

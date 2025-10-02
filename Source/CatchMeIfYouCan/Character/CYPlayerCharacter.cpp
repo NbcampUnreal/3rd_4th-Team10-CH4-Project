@@ -63,11 +63,30 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 	
 	// 서버에서만 어빌리티 세트를 초기화 시도
 	TryInitializeAbilitySetsWithPawnData();
+
+	UE_LOG(LogTemp, Warning, TEXT("PossessedBy called for %s - registering invisibility event"), *GetName());
+	RegisterInvisibilityTagEvent();
 }
 
 void ACYPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+}
+
+void ACYPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 델리게이트 해제
+	if (UAbilitySystemComponent* ASC = GetAbilitySystemComponent())
+	{
+		if (InvisibilityTagDelegateHandle.IsValid())
+		{
+			ASC->RegisterGameplayTagEvent(CYGameplayTags::State_Invisible, EGameplayTagEventType::NewOrRemoved)
+				.Remove(InvisibilityTagDelegateHandle);
+			InvisibilityTagDelegateHandle.Reset();
+		}
+	}
+
+	Super::EndPlay(EndPlayReason);
 }
 
 void ACYPlayerCharacter::SetupAbilitySystemComponent()
@@ -185,6 +204,9 @@ void ACYPlayerCharacter::OnRep_PlayerState()
 	Super::OnRep_PlayerState();
 
 	SetupAbilitySystemComponent();
+
+	UE_LOG(LogTemp, Warning, TEXT("OnRep_PlayerState for %s - registering invisibility event"), *GetName());
+	RegisterInvisibilityTagEvent();
 }
 
 // 아이템 상호작용 입력
@@ -294,3 +316,124 @@ void ACYPlayerCharacter::Input_UseSlot9(const FInputActionValue& InputActionValu
 	if (InventoryComponent) InventoryComponent->HoldItem(9);
 }
 
+void ACYPlayerCharacter::RegisterInvisibilityTagEvent()
+{
+	UAbilitySystemComponent* ASC = GetAbilitySystemComponent();
+	if (!ASC)
+	{
+		return;
+	}
+
+	// 기존 등록 해제
+	if (InvisibilityTagDelegateHandle.IsValid())
+	{
+		ASC->RegisterGameplayTagEvent(CYGameplayTags::State_Invisible, EGameplayTagEventType::NewOrRemoved)
+			.Remove(InvisibilityTagDelegateHandle);
+	}
+
+	// 새로 등록
+	InvisibilityTagDelegateHandle = ASC->RegisterGameplayTagEvent(
+		CYGameplayTags::State_Invisible, 
+		EGameplayTagEventType::NewOrRemoved
+	).AddUObject(this, &ACYPlayerCharacter::OnInvisibilityChanged);
+}
+
+void ACYPlayerCharacter::OnInvisibilityChanged(const FGameplayTag Tag, int32 NewCount)
+{
+	if (!IsValid(this))
+	{
+		return;
+	}
+
+	bool bIsInvisible = (NewCount > 0);
+	MulticastHandleInvisibilityChanged(bIsInvisible);
+}
+
+void ACYPlayerCharacter::MulticastHandleInvisibilityChanged_Implementation(bool bIsInvisible)
+{
+	if (!IsValid(this))
+	{
+		return;
+	}
+
+	UpdateVisibilityForLocalPlayer(bIsInvisible);
+}
+
+void ACYPlayerCharacter::UpdateVisibilityForLocalPlayer(bool bIsInvisible)
+{
+	UWorld* World = GetWorld();
+	if (!World || !World->IsGameWorld())
+	{
+		return;
+	}
+	
+	APlayerController* LocalPC = GetWorld()->GetFirstPlayerController();
+	if (!LocalPC) return;
+    
+	ACYPlayerCharacter* LocalCharacter = Cast<ACYPlayerCharacter>(LocalPC->GetPawn());
+	if (!LocalCharacter) return;
+    
+	// 자기 자신은 항상 보임
+	if (LocalCharacter == this)
+	{
+		SetMeshVisibility(GetMesh(), true);
+		SetMeshVisibility(GetHelmetMesh(), true);
+		SetMeshVisibility(GetEyewearMesh(), true);
+		SetMeshVisibility(GetChestMesh(), true);
+		SetMeshVisibility(GetLegsMesh(), true);
+		SetMeshVisibility(GetFootwearMesh(), true);
+		
+		if (WeaponComponent && WeaponComponent->CurrentWeapon)
+			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, true);
+		if (InventoryComponent && InventoryComponent->CurrentHeldItem)
+			SetMeshVisibility(InventoryComponent->CurrentHeldItem->ItemMesh, true);
+		return;
+	}
+    
+	// 팀 정보 가져오기
+	ACYPlayerState* MyPS = GetPlayerState<ACYPlayerState>();
+	ACYPlayerState* LocalPS = LocalCharacter->GetPlayerState<ACYPlayerState>();
+	if (!MyPS || !LocalPS) return;
+    
+	if (bIsInvisible)
+	{
+		bool bSameTeam = (MyPS->GetTeamRole() == LocalPS->GetTeamRole());
+        
+		// 같은 팀: 보임 / 다른 팀: 안 보임
+		SetMeshVisibility(GetMesh(), bSameTeam);
+		SetMeshVisibility(GetHelmetMesh(), bSameTeam);
+		SetMeshVisibility(GetEyewearMesh(), bSameTeam);
+		SetMeshVisibility(GetChestMesh(), bSameTeam);
+		SetMeshVisibility(GetLegsMesh(), bSameTeam);
+		SetMeshVisibility(GetFootwearMesh(), bSameTeam);
+        
+		if (WeaponComponent && WeaponComponent->CurrentWeapon)
+			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, bSameTeam);
+            
+		if (InventoryComponent && InventoryComponent->CurrentHeldItem)
+			SetMeshVisibility(InventoryComponent->CurrentHeldItem->ItemMesh, bSameTeam);
+	}
+	else
+	{
+		// 투명 해제 - 모두 보임
+		SetMeshVisibility(GetMesh(), true);
+		SetMeshVisibility(GetHelmetMesh(), true);
+		SetMeshVisibility(GetEyewearMesh(), true);
+		SetMeshVisibility(GetChestMesh(), true);
+		SetMeshVisibility(GetLegsMesh(), true);
+		SetMeshVisibility(GetFootwearMesh(), true);
+        
+		if (WeaponComponent && WeaponComponent->CurrentWeapon)
+			SetMeshVisibility(WeaponComponent->CurrentWeapon->ItemMesh, true);
+            
+		if (InventoryComponent && InventoryComponent->CurrentHeldItem)
+			SetMeshVisibility(InventoryComponent->CurrentHeldItem->ItemMesh, true);
+	}
+}
+
+void ACYPlayerCharacter::SetMeshVisibility(UMeshComponent* MeshComponent, bool bVisible)
+{
+	if (!MeshComponent) return;
+    
+	MeshComponent->SetVisibility(bVisible);
+}

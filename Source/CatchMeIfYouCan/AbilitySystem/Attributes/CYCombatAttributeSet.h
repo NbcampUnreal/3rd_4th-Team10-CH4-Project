@@ -16,12 +16,12 @@ class CATCHMEIFYOUCAN_API UCYCombatAttributeSet : public UCYAttributeSet
 public:
 	UCYCombatAttributeSet();
 
-	// 이동속도 속성 (네트워크 리플리케이션 지원)
+	// 이동속도 속성
 	UPROPERTY(BlueprintReadOnly, Category = "Combat", ReplicatedUsing = OnRep_MoveSpeed)
 	FGameplayAttributeData MoveSpeed;
 	ATTRIBUTE_ACCESSORS(UCYCombatAttributeSet, MoveSpeed)
 
-	// 공격력 속성 (네트워크 리플리케이션 지원)
+	// 공격력 속성
 	UPROPERTY(BlueprintReadOnly, Category = "Combat", ReplicatedUsing = OnRep_AttackPower)
 	FGameplayAttributeData AttackPower;
 	ATTRIBUTE_ACCESSORS(UCYCombatAttributeSet, AttackPower)
@@ -38,6 +38,8 @@ protected:
 	virtual void OnRep_MoveSpeed(const FGameplayAttributeData& OldMoveSpeed);
 	UFUNCTION()
 	virtual void OnRep_AttackPower(const FGameplayAttributeData& OldAttackPower);
+	
+	virtual void PostAttributeChange(const FGameplayAttribute& Attribute, float OldValue, float NewValue) override;
 
 private:
 	void HandleMoveSpeedChange();

@@ -40,12 +40,13 @@ bool UGA_Stunned::CanActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	}
 
 	const UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get();
-	if (!ASC || !ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned))
+	if (!ASC)
 	{
 		return false;
 	}
-
-	return true;
+	bool bHasTag = ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned);
+    
+	return !bHasTag;
 }
 
 void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
@@ -76,10 +77,29 @@ void UGA_Stunned::ActivateAbility(const FGameplayAbilitySpecHandle Handle,
 	// 서버: 움직임 정지 + 타이머
 	if (ActorInfo->IsNetAuthority())
 	{
+		// Stunned 상태 GE 적용
+		if (StunnedStateGEClass)
+		{
+			UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo();
+			if (ASC)
+			{
+				FGameplayEffectContextHandle EffectContext = ASC->MakeEffectContext();
+				FGameplayEffectSpecHandle SpecHandle = ASC->MakeOutgoingSpec(StunnedStateGEClass, 1.0f, EffectContext);
+				if (SpecHandle.IsValid())
+				{
+					ASC->ApplyGameplayEffectSpecToSelf(*SpecHandle.Data.Get());
+					UE_LOG(LogTemp, Warning, TEXT("Applied Stunned GE"));
+				}
+			}
+		}
+
+		// 스턴 중에 중력은 작용하고 이동만 막기
 		if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
 		{
 			MovementComp->StopMovementImmediately();
-			MovementComp->DisableMovement();
+			MovementComp->SetMovementMode(MOVE_Walking);
+			MovementComp->MaxWalkSpeed = 0.0f;
+			MovementComp->MaxAcceleration = 0.0f;
 			Character->ForceNetUpdate();
 		}
 
@@ -152,6 +172,19 @@ void UGA_Stunned::RecoverFromStun()
 		return;
 	}
 
+	if (!CachedActorInfo->OwnerActor.IsValid() || 
+		!CachedActorInfo->AvatarActor.IsValid() ||
+		!CachedActorInfo->AbilitySystemComponent.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RecoverFromStun: Cached actors are no longer valid, aborting recovery"));
+		// 어빌리티 종료 시도
+		if (GetWorld() && RecoveryTimerHandle.IsValid())
+		{
+			GetWorld()->GetTimerManager().ClearTimer(RecoveryTimerHandle);
+		}
+		return;
+	}
+
 	UE_LOG(LogTemp, Warning, TEXT("Recovering from stun"));
 
 	// HP 회복
@@ -193,7 +226,7 @@ void UGA_Stunned::EndAbility(const FGameplayAbilitySpecHandle Handle,
 		}
 	}
 
-	// 움직임 복구 + 태그 제거 (서버만)
+	// 움직임 복구 + 이펙트 제거 (서버만)
 	if (ActorInfo->IsNetAuthority())
 	{
 		ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
@@ -201,18 +234,21 @@ void UGA_Stunned::EndAbility(const FGameplayAbilitySpecHandle Handle,
 		{
 			if (UCharacterMovementComponent* MovementComp = Character->GetCharacterMovement())
 			{
-				MovementComp->SetMovementMode(MOVE_Walking);
+				MovementComp->MaxWalkSpeed = 400.0f;
+				MovementComp->MaxAcceleration = 2048.0f;
 				Character->ForceNetUpdate();
 			}
 
+			// Stunned GE 제거 (태그로 쿼리)
 			if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
 			{
-				FGameplayTagContainer TagsToRemove;
-				TagsToRemove.AddTag(CYGameplayTags::State_Stunned);
-				ASC->RemoveLooseGameplayTags(TagsToRemove);
+				FGameplayEffectQuery Query;
+				Query.EffectTagQuery = FGameplayTagQuery::MakeQuery_MatchTag(CYGameplayTags::State_Stunned);
+				ASC->RemoveActiveEffects(Query);
+            
+				UE_LOG(LogTemp, Warning, TEXT("Stunned GE removed by tag"));
 			}
 		}
-		UE_LOG(LogTemp, Warning, TEXT("Movement restored, Stunned tag removed"));
 	}
 
 	// 캐시 정리

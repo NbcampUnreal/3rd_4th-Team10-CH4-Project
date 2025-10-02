@@ -34,10 +34,9 @@ bool UCYWeaponComponent::EquipWeapon(ACYWeaponBase* Weapon)
 	CurrentWeapon = Weapon;
 	AttachWeaponToOwner(Weapon);
     
-	// 무기를 보이게 설정 (픽업 상태에서 장착 상태로)
 	Weapon->SetActorHiddenInGame(false);
     
-	// 충돌 비활성화 (장착된 무기는 월드와 충돌하지 않음)
+	// 충돌 비활성화
 	if (Weapon->ItemMesh)
 	{
 		Weapon->ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -49,6 +48,12 @@ bool UCYWeaponComponent::EquipWeapon(ACYWeaponBase* Weapon)
 
 	UpdateAnimationBlueprint();
     
+	// 네트워크 업데이트 강제
+	if (AActor* OwnerActor = GetOwner())
+	{
+		OwnerActor->ForceNetUpdate();
+	}
+	
 	OnWeaponChanged.Broadcast(nullptr, CurrentWeapon);
     
 	UE_LOG(LogTemp, Warning, TEXT("Weapon equipped: %s"), *Weapon->ItemName.ToString());

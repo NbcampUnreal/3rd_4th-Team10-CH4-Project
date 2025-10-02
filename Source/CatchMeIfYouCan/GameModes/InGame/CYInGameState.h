@@ -5,13 +5,11 @@
 #include "CoreMinimal.h"
 #include "CYTypes/CYInGameTypes.h"
 #include "GameFramework/GameStateBase.h"
+#include "UI/WidgetController/CYWidgetDelegates.h"
 #include "CYInGameState.generated.h"
 
 
-// 델리게이트 (UI 업데이트용)
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnTeamCountChanged, int32 /*CopCount*/, int32 /*RobberCount*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnAliveRobberCountChanged, int32 /*AliveRobberCount*/);
-DECLARE_MULTICAST_DELEGATE_OneParam(FOnGamePhaseChanged, EGamePhase /*NewPhase*/);
+class ACYJailPoint;
 
 /**
  * 
@@ -63,7 +61,12 @@ public:
 	// 대기 종료 후 게임 시작시 호출
 	void StartMatch_Server(float InMatchDurationSeconds);
 
+	void InitAliveCountsMatchStart();
+
 	float GetSynchronizedServerTimeFromPC() const;
+
+	void SetJailPoint(ACYJailPoint* InJailPoint);
+	ACYJailPoint* GetJailPoint() const { return JailPoint; }
 	
 protected:
 	
@@ -112,4 +115,6 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_MatchEndServerTimeSeconds)
 	float MatchEndServerTimeSeconds = 0.f;
 	
+	UPROPERTY()
+	TObjectPtr<ACYJailPoint> JailPoint;
 };
