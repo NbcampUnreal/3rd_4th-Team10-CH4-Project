@@ -7,11 +7,38 @@
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
+#include "Components/WidgetComponent.h"
+#include "Blueprint/UserWidget.h"
 
 UCYItemInteractionComponent::UCYItemInteractionComponent()
 {
-    PrimaryComponentTick.bCanEverTick = false;
+    PrimaryComponentTick.bCanEverTick = true;
     SetIsReplicatedByDefault(true);
+}
+
+void UCYItemInteractionComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+    
+	// 위젯이 있을 때만 카메라 방향으로 회전
+	if (CurrentInteractionWidget && IsValid(CurrentInteractionWidget))
+	{
+		APlayerController* PC = GetWorld()->GetFirstPlayerController();
+		if (PC && PC->PlayerCameraManager)
+		{
+			FVector CameraLocation = PC->PlayerCameraManager->GetCameraLocation();
+			FVector WidgetLocation = CurrentInteractionWidget->GetComponentLocation();
+            
+			// 위젯에서 카메라를 향하는 방향 벡터 계산
+			FVector LookAtDirection = (CameraLocation - WidgetLocation).GetSafeNormal();
+            
+			// 해당 방향으로 회전값 생성
+			FRotator LookAtRotation = LookAtDirection.Rotation();
+            
+			// 위젯을 카메라 방향으로 회전
+			CurrentInteractionWidget->SetWorldRotation(LookAtRotation);
+		}
+	}
 }
 
 void UCYItemInteractionComponent::BeginPlay()
@@ -140,12 +167,14 @@ void UCYItemInteractionComponent::UpdateLocalHighlight()
 	if (CurrentHighlightedItem)
 	{
 		RemoveHighlight(CurrentHighlightedItem);
+		RemoveInteractionWidget(); // UI 제거
 	}
     
 	// 새 하이라이트 적용
 	if (LocalNearbyItem)
 	{
 		ApplyHighlight(LocalNearbyItem);
+		CreateInteractionWidget(LocalNearbyItem); // UI 생성
 	}
     
 	CurrentHighlightedItem = LocalNearbyItem;
@@ -170,4 +199,77 @@ void UCYItemInteractionComponent::RemoveHighlight(ACYItemBase* Item)
 	Item->ItemMesh->SetRenderCustomDepth(false);
     
 	UE_LOG(LogTemp, Log, TEXT("Removed stencil highlight from %s"), *Item->ItemName.ToString());
+}
+
+void UCYItemInteractionComponent::CreateInteractionWidget(ACYItemBase* Item)
+{
+    if (!Item || !InteractionWidgetClass) return;
+    
+    AActor* Owner = GetOwner();
+    if (!Owner) return;
+    
+    // 기존 위젯 제거
+    RemoveInteractionWidget();
+    
+    // 새 위젯 컴포넌트 생성
+    CurrentInteractionWidget = NewObject<UWidgetComponent>(Item);
+    CurrentInteractionWidget->SetWidgetClass(InteractionWidgetClass);
+    CurrentInteractionWidget->SetWidgetSpace(EWidgetSpace::World);
+	CurrentInteractionWidget->SetDrawSize(FVector2D(400.f, 200.f));
+	CurrentInteractionWidget->SetPivot(FVector2D(0.5f, 1.0f)); 
+    CurrentInteractionWidget->SetVisibility(true);
+	CurrentInteractionWidget->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    CurrentInteractionWidget->RegisterComponent();
+    
+    // 아이템에 부착
+    CurrentInteractionWidget->AttachToComponent(
+        Item->GetRootComponent(),
+        FAttachmentTransformRules::KeepRelativeTransform
+    );
+    CurrentInteractionWidget->SetRelativeLocation(WidgetOffset);
+    
+    // 위젯에 아이템 정보 설정
+    if (UUserWidget* Widget = CurrentInteractionWidget->GetWidget())
+    {
+        // 블루프린트에서 "SetItemInfo" 함수 구현 필요
+        UFunction* SetItemInfoFunc = Widget->FindFunction(FName("SetItemInfo"));
+        if (SetItemInfoFunc)
+        {
+            struct FSetItemInfoParams
+            {
+                FText ItemName;
+                FText ItemDescription;
+            };
+            
+            FSetItemInfoParams Params;
+            Params.ItemName = Item->ItemNameKR;
+            Params.ItemDescription = Item->ItemDescriptionKR;
+            
+            Widget->ProcessEvent(SetItemInfoFunc, &Params);
+        }
+    }
+    
+	UE_LOG(LogTemp, Warning, TEXT("Created interaction UI for: %s at location: %s"), 
+		   *Item->ItemName.ToString(), *CurrentInteractionWidget->GetComponentLocation().ToString());
+}
+
+void UCYItemInteractionComponent::RemoveInteractionWidget()
+{
+    if (CurrentInteractionWidget)
+    {
+        CurrentInteractionWidget->DestroyComponent();
+        CurrentInteractionWidget = nullptr;
+    }
+}
+
+void UCYItemInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+    RemoveInteractionWidget();
+    
+    if (UWorld* World = GetWorld())
+    {
+        World->GetTimerManager().ClearTimer(ItemCheckTimer);
+    }
+    
+    Super::EndPlay(EndPlayReason);
 }

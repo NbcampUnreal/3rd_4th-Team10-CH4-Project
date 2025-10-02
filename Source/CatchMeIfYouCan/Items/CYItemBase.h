@@ -32,6 +32,12 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
     FText ItemName;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	FText ItemNameKR;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
+	FText ItemDescriptionKR;
+
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Item")
     EItemType ItemType = EItemType::Base;
 
