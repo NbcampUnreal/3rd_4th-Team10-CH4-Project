@@ -27,4 +27,10 @@ protected:
 	
 	virtual void BeginPlay() override;
 
+	UPROPERTY(EditDefaultsOnly, Category = "UI")
+	TSubclassOf<UUserWidget> WarningWidgetClass;
+    
+	UPROPERTY()
+	UUserWidget* WarningWidget;
+
 };

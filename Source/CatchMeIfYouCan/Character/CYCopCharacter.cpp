@@ -3,6 +3,7 @@
 
 #include "CYCopCharacter.h"
 
+#include "Blueprint/UserWidget.h"
 #include "UI/WidgetController/CYOverlayWidgetController.h"
 
 class ACYPlayerState;
@@ -38,9 +39,32 @@ void ACYCopCharacter::BeginPlay()
 void ACYCopCharacter::Client_ShowRobberDetectedWarning_Implementation(bool bShow, AActor* DetectedThief)
 {
 	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC || !PC->IsLocalController()) return;
 
-	if (PC && PC->IsLocalController())
+	if (bShow)
 	{
-		// TODO: 새로 만들 Cop 전용 HUD 클래스를 가져와서 로직을 구현해야 합니다.
+		if (!WarningWidget && WarningWidgetClass)
+		{
+			WarningWidget = CreateWidget<UUserWidget>(PC, WarningWidgetClass);
+			if (WarningWidget)
+			{
+				WarningWidget->AddToViewport(100);
+			}
+		}
+	}
+	else
+	{
+		if (WarningWidget)
+		{
+			FTimerHandle RemoveTimer;
+			GetWorld()->GetTimerManager().SetTimer(RemoveTimer, [this]()
+			{
+				if (WarningWidget)
+				{
+					WarningWidget->RemoveFromParent();
+					WarningWidget = nullptr;
+				}
+			}, 0.3f, false);
+		}
 	}
 }
