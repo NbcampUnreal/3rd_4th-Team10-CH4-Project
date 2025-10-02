@@ -1,67 +1,49 @@
-﻿#include "CYItemSpawnData.h"
+﻿#include "Items/CYItemSpawnData.h"
 #include "Items/CYItemBase.h"
 
-TSubclassOf<ACYItemBase> UCYItemSpawnData::SelectRandomItem() const
+FItemSpec UCYItemSpawnData::SelectRandomItemForThreshold(int32 Threshold) const
 {
-	if (SpawnableItems.Num() == 0) return nullptr;
-    
-	float TotalWeight = 0.0f;
-	for (const FItemSpawnEntry& Entry : SpawnableItems)
-		TotalWeight += Entry.SpawnWeight;
-    
-	if (TotalWeight <= 0.0f) return nullptr;
-    
-	float RandomValue = FMath::FRandRange(0.0f, TotalWeight);
-	float CurrentWeight = 0.0f;
-    
-	for (const FItemSpawnEntry& Entry : SpawnableItems)
+	for (const FTimeThresholdGroup& Group : TimeThresholds)
 	{
-		CurrentWeight += Entry.SpawnWeight;
-		if (RandomValue <= CurrentWeight)
-			return Entry.ItemClass;
-	}
-    
-	return SpawnableItems.Last().ItemClass;
-}
-
-FItemValueOverride UCYItemSpawnData::GetValuesForItem(TSubclassOf<ACYItemBase> ItemClass, float RemainingTime) const
-{
-	FItemValueOverride DefaultValues;
-	DefaultValues.PrimaryValue = 0.0f;
-	DefaultValues.Duration = 0.0f;
-    
-	for (const FItemSpawnEntry& Entry : SpawnableItems)
-	{
-		if (Entry.ItemClass == ItemClass)
+		if (Group.ThresholdSeconds == Threshold)
 		{
-			const FItemValueOverride* BestMatch = nullptr;
-			int32 BestThreshold = INT_MAX;
-            
-			for (const FItemValueOverride& Override : Entry.TimeBasedValues)
+			if (Group.AvailableItems.Num() == 0)
 			{
-				UE_LOG(LogTemp, Log, TEXT("Checking - RemainingTime:%.1f, Threshold:%d, Condition:%s"), 
-					   RemainingTime, Override.RemainingTimeThreshold,
-					   RemainingTime <= Override.RemainingTimeThreshold ? TEXT("MATCH") : TEXT("SKIP"));
-                
-				if (RemainingTime <= Override.RemainingTimeThreshold && 
-					Override.RemainingTimeThreshold < BestThreshold)
-				{
-					BestThreshold = Override.RemainingTimeThreshold;
-					BestMatch = &Override;
-				}
+				return FItemSpec();
 			}
             
-			if (BestMatch)
+			float TotalWeight = 0.0f;
+			for (const FItemSpec& Spec : Group.AvailableItems)
+				TotalWeight += Spec.SpawnWeight;
+            
+			if (TotalWeight <= 0.0f)
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Selected values - Threshold:%d, Primary:%.1f, Duration:%.1f"), 
-					   BestThreshold, BestMatch->PrimaryValue, BestMatch->Duration);
-				return *BestMatch;
+				return Group.AvailableItems[0];
 			}
             
-			break;
+			float RandomValue = FMath::FRandRange(0.0f, TotalWeight);
+			float CurrentWeight = 0.0f;
+            
+			for (const FItemSpec& Spec : Group.AvailableItems)
+			{
+				CurrentWeight += Spec.SpawnWeight;
+				if (RandomValue <= CurrentWeight)
+					return Spec;
+			}
+            
+			return Group.AvailableItems.Last();
 		}
 	}
     
-	UE_LOG(LogTemp, Warning, TEXT("No override found, using defaults"));
-	return DefaultValues;
+	return FItemSpec();
+}
+
+TArray<int32> UCYItemSpawnData::GetAllThresholds() const
+{
+	TArray<int32> Result;
+	for (const FTimeThresholdGroup& Group : TimeThresholds)
+	{
+		Result.Add(Group.ThresholdSeconds);
+	}
+	return Result;
 }

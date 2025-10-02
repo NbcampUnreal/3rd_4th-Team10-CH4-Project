@@ -3,8 +3,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Items/CYItemSpawnData.h"
-#include "Components/SphereComponent.h"
+#include "CYTypes/CYInGameTypes.h"
 #include "CYItemSpawner.generated.h"
+
+class USphereComponent;
 
 UCLASS()
 class CATCHMEIFYOUCAN_API ACYItemSpawner : public AActor
@@ -13,9 +15,6 @@ class CATCHMEIFYOUCAN_API ACYItemSpawner : public AActor
     
 public:
 	ACYItemSpawner();
-    
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item Spawner")
-	UCYItemSpawnData* SpawnData;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Item Spawner")
@@ -25,21 +24,22 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    
 	UFUNCTION()
 	void OnGamePhaseChanged(EGamePhase NewPhase);
+    
+	UFUNCTION()
+	void OnThresholdChanged(int32 NewThreshold);
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void OnConstruction(const FTransform& Transform) override;
-    
 	void UpdateDebugVisuals();
 #endif
     
 private:
 	void TrySpawnItem();
-	bool HasItemInRadius() const;
-	void SpawnItemAtLocation(TSubclassOf<ACYItemBase> ItemClass, float Multiplier);
-	void ApplyValuesToItem(ACYItemBase* Item, TSubclassOf<ACYItemBase> ItemClass, float RemainingTime);
+	void SpawnItemWithSpec(const FItemSpec& Spec);
     
 	UFUNCTION()
 	void OnSpawnedItemPickedUp(ACYItemBase* Item);
@@ -51,6 +51,5 @@ private:
 	UPROPERTY()
 	TWeakObjectPtr<ACYItemBase> CurrentSpawnedItem;
 
-	// 첫 스폰 트리거 여부
 	bool bFirstSpawnTriggered = false;
 };
