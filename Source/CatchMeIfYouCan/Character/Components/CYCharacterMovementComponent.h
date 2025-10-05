@@ -45,16 +45,16 @@ public:
 
 	/**
 	 * 사다리 등반 시작
-	 * @param Ladder - 타고 있는 사다리 액터 (참조 유지용)
-	 * @param LadderStartWS - 사다리 시작점 (월드 좌표, 하단)
-	 * @param LadderEndWS - 사다리 끝점 (월드 좌표, 상단)
-	 * @param LadderFacingWS - 사다리가 향하는 방향 (캐릭터가 바라볼 방향)
-	 * @param AttachSpot - 초기 부착 위치 (0 ~ RailLength), -1이면 현재 위치에서 자동 계산
+	 * @param InLadder - 타고 있는 사다리 액터 (참조 유지용)
+	 * @param InStart - 사다리 시작점 (월드 좌표, 하단)
+	 * @param InEnd - 사다리 끝점 (월드 좌표, 상단)
+	 * @param InFacing - 사다리가 향하는 방향 (캐릭터가 바라볼 방향)
+	 * @param InAttachSpot - 초기 부착 위치 (0 ~ RailLength), -1이면 현재 위치에서 자동 계산
 	 * 호출 시점: Ability나 RPC에서 사다리 상호작용 시작 시
 	 * 효과: MOVE_Custom(CMOVE_Climbing) 모드로 전환, 중력 비활성화
 	 */
 	UFUNCTION(BlueprintCallable, Category="CY|Movement|Ladder")
-	void BeginClimbLadder(AActor* Ladder, const FVector& LadderStartWS, const FVector& LadderEndWS, const FVector& LadderFacingWS, float AttachSpot = -1.f);
+	void BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InAttachSpot = -1.f);
 
 	/**
 	 * 사다리 등반 종료
@@ -143,6 +143,16 @@ private:
 	bool AtTop() const;
 	bool AtBottom() const;
 
+public:
+	/**
+	 * 사다리 타기 의도 플래그
+	 * - 네트워크 동기화에 사용
+	 * - BeginClimbLadder()에서 true 설정
+	 * - EndClimbLadder()에서 false 설정
+	 */
+	UPROPERTY()
+	uint8 bWantsToClimb : 1;
+	
 private:
 
 	/**
@@ -211,6 +221,14 @@ private:
 	 * 입력을 이 방향에 투영하여 상/하 이동 속도 계산
 	 */
 	FVector RailDirection = FVector::UpVector;
+
+	/**
+	 * 캐싱을 위한 변수들
+	 */
+	float DefaultGravityScale = 0.f;
+	float DefaultBrakingFrictionFactor = 0.f;
+	bool bSavedOrientRotationToMovement = false;
+	bool bSavedUseControllerDesiredRotation = false;
 };
 
 /**

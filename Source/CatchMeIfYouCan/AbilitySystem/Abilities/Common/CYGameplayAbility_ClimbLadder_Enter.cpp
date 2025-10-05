@@ -4,65 +4,97 @@
 #include "CYGameplayAbility_ClimbLadder_Enter.h"
 
 #include "CYLogChannels.h"
+#include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
+#include "Character/CYStatusGameplayTags.h"
 #include "AbilitySystem/Abilities/Tasks/CYAbilityTask_WaitForLadderExit.h"
 #include "Actors/CYLadderBase.h"
 #include "Character/Components/CYCharacterMovementComponent.h"
 #include "GameFramework/Character.h"
-#include "Engine/OverlapResult.h"
 
 UCYGameplayAbility_ClimbLadder_Enter::UCYGameplayAbility_ClimbLadder_Enter()
 {
     InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
     NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
-    ActivationPolicy = ECYAbilityActivationPolicy::OnInputTriggered;
     
-    // TODO: 태그 설정 (필요시 추가)
-    // AbilityTags.AddTag(CYGameplayTags::Ability_Movement_ClimbLadder_Enter);
-    // ActivationOwnedTags.AddTag(CYGameplayTags::Status_Movement_Ladder);
+    // GameplayEvent로만 활성화 (상호작용 또는 자동 그랩)
+    ActivationPolicy = ECYAbilityActivationPolicy::Manual; 
+ 
+    AbilityTags.AddTag(CYGameplayTags::Ability_Action_Climbing);
+    ActivationOwnedTags.AddTag(CYGameplayTags::Status_Movement_Climbing);
+    
+    // TODO : 적절한 블록 태그
+    // ActivationBlockedTags.AddTag(CYGameplayTags::);
+    // ActivationBlockedTags.AddTag(CYGameplayTags::);
+    
+    // TODO: 적절한 취소 태그
+    // CancelAbilitiesWithTag.AddTag(CYGameplayTags::);
+    
+    // GameplayEvent 트리거 설정
+    FAbilityTriggerData TriggerData;
+    TriggerData.TriggerTag = CYGameplayTags::Ability_Action_Climbing;
+    TriggerData.TriggerSource = EGameplayAbilityTriggerSource::GameplayEvent;
+    AbilityTriggers.Add(TriggerData);
 }
 
-void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo,const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
+void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
     Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
 
+    // 캐릭터 검증
     ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
     if (!Character)
     {
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: No valid character"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
 
-    CharacterMovementComponent = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement());
-    if (!CharacterMovementComponent)
+    // MovementComponent 캐싱
+    CachedMovementComponent = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement());
+    if (!CachedMovementComponent)
     {
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: No CYCharacterMovementComponent"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
 
-    // 사다리 탐색 및 파라미터 결정
-    ACYLadderBase* TargetLadder = nullptr;
+    // 이미 사다리 타는 중인지 체크
+    if (CachedMovementComponent->IsClimbingLadder())
+    {
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Already climbing ladder"));
+        CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
+        return;
+    }
+
+    // 사다리 정보 추출
+    ACYLadderBase* TempLadder = nullptr;
     FVector LadderBottom, LadderTop, LadderFacing;
-    float InitialRailParameter = -1.0f;
+    float InitialRailParameter = 0.0f;
     bool bIsClimbingUp = true;
 
-    if (!FindAndValidateLadder(TargetLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter, bIsClimbingUp, TriggerEventData))
+    if (!CanExtractLadderInfo(TriggerEventData, TempLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter, bIsClimbingUp))
     {
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Failed to extract ladder info"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
 
+    CurrentLadder = TempLadder;
+
+    // 어빌리티 커밋 (코스트, 쿨다운)
     if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
     {
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Failed to commit ability"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
 
     // 사다리 등반 시작
-    CharacterMovementComponent->BeginClimbLadder(TargetLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter);
+    CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter);
 
-    // 이탈 감시 태스크 시작
-    constexpr float CheckRate = 0.02f; // 50Hz 체크 주기
-    UCYAbilityTask_WaitForLadderExit* ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, TargetLadder, LadderBottom, LadderTop, LadderFacing, CheckRate);
+    // 이탈 감시 태스크 생성 및 시작
+    constexpr float CheckRate = 0.02f; // 50Hz
+    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate);
     
     if (ExitMonitorTask)
     {
@@ -73,17 +105,77 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("ClimbLadder_Enter: Failed to create exit monitor task"));
+        UE_LOG(LogCY, Error, TEXT("ClimbLadder_Enter: Failed to create exit monitor task"));
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
     }
 }
 
+bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation,FVector& OutTopLocation,FVector& OutFacingDirection, float& OutInitialRailParameter, bool& OutIsClimbingUp) const
+{
+    // 이벤트 데이터 검증
+    if (!TriggerEventData || !TriggerEventData->Target)
+    {
+        UE_LOG(LogCY, Warning, TEXT("ExtractLadderInfo: No event data or target"));
+        return false;
+    }
+
+    // 사다리 캐스팅
+    OutLadder = Cast<ACYLadderBase>(const_cast<AActor*>(TriggerEventData->Target.Get()));
+    if (!OutLadder)
+    {
+        UE_LOG(LogCY, Warning, TEXT("ExtractLadderInfo: Target is not a ladder"));
+        return false;
+    }
+
+    // 캐릭터 확인
+    ACharacter* Character = Cast<ACharacter>(const_cast<AActor*>(TriggerEventData->Instigator.Get()));
+    if (!Character)
+    {
+        UE_LOG(LogCY, Warning, TEXT("ExtractLadderInfo: No valid character"));
+        return false;
+    }
+
+    // 사다리 기본 정보
+    OutBottomLocation = OutLadder->GetBottomWorldLocation();
+    OutTopLocation = OutLadder->GetTopWorldLocation();
+    OutFacingDirection = OutLadder->GetHorizontalFacingDirection();
+
+    // 진입 타입 확인
+    ELadderEntryType EntryType = OutLadder->GetPlayerEntryType(Character);
+    
+    // None이면 자동 그랩으로 간주
+    if (EntryType == ELadderEntryType::None)
+    {
+        UE_LOG(LogCY, Log, TEXT("ExtractLadderInfo: No entry type found, treating as auto-grab (Middle)"));
+        EntryType = ELadderEntryType::Middle;
+    }
+
+    // 등반 방향 결정 (EventMagnitude 우선, 없으면 사다리에서 결정)
+    if (FMath::Abs(TriggerEventData->EventMagnitude) > KINDA_SMALL_NUMBER)
+    {
+        OutIsClimbingUp = TriggerEventData->EventMagnitude > 0;
+    }
+    else
+    {
+        OutIsClimbingUp = OutLadder->DetermineClimbDirection(EntryType, Character);
+    }
+
+    // 초기 레일 위치 계산
+    OutInitialRailParameter = OutLadder->CalculateInitialRailParameter(EntryType, Character, EdgeEntryOffset);
+
+    UE_LOG(LogCY, Verbose, TEXT("ExtractLadderInfo: Success - EntryType=%d, ClimbUp=%d, InitParam=%.1f"),
+           (int32)EntryType, OutIsClimbingUp, OutInitialRailParameter);
+
+    return true;
+}
+
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
 {
-    if (CharacterMovementComponent)
+    UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Exiting from top"));
+    
+    if (CachedMovementComponent)
     {
-        CharacterMovementComponent->EndClimbLadder(/*bStepOffTop=*/true);
-        UE_LOG(LogTemp, Log, TEXT("ClimbLadder_Enter: Exited from top"));
+        CachedMovementComponent->EndClimbLadder(/*bStepOffTop=*/true);
     }
     
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -91,10 +183,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
 
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromBottom()
 {
-    if (CharacterMovementComponent)
+    UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Exiting from bottom"));
+    
+    if (CachedMovementComponent)
     {
-        CharacterMovementComponent->EndClimbLadder(/*bStepOffTop=*/false);
-        UE_LOG(LogTemp, Log, TEXT("ClimbLadder_Enter: Exited from bottom"));
+        CachedMovementComponent->EndClimbLadder(/*bStepOffTop=*/false);
     }
     
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -102,134 +195,35 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromBottom()
 
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderClimbingCancelled()
 {
-    if (CharacterMovementComponent)
+    UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Climbing cancelled (jump)"));
+    
+    if (CachedMovementComponent)
     {
-        CharacterMovementComponent->EndClimbLadder(/*bStepOffTop=*/false);
-        UE_LOG(LogTemp, Log, TEXT("ClimbLadder_Enter: Climbing cancelled"));
+        // 점프 취소는 현재 위치에서 떨어짐
+        CachedMovementComponent->EndClimbLadder(/*bStepOffTop=*/false);
     }
     
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
-bool UCYGameplayAbility_ClimbLadder_Enter::FindAndValidateLadder(ACYLadderBase*& OutLadderActor,FVector& OutBottomLocation,FVector& OutTopLocation,FVector& OutFacingDirection, float& OutInitialRailParameter, bool& OutIsClimbingUp, const FGameplayEventData* EventData) const
+void UCYGameplayAbility_ClimbLadder_Enter::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
-    const AActor* Avatar = GetAvatarActorFromActorInfo();
-    if (!Avatar)
+    // 태스크 정리
+    if (ExitMonitorTask)
     {
-        return false;
+        ExitMonitorTask->EndTask();
+        ExitMonitorTask = nullptr;
     }
 
-    ACYLadderBase* FoundLadder = nullptr;
+    // 사다리 참조 정리
+    CurrentLadder = nullptr;
     
-    // 1단계: 이벤트 데이터에서 타겟 사다리 확인 (상호작용 시스템)
-    if (EventData && EventData->Target)
+    // 안전 체크: 아직 사다리 타는 중이면 종료
+    if (CachedMovementComponent && CachedMovementComponent->IsClimbingLadder())
     {
-        FoundLadder = Cast<ACYLadderBase>(const_cast<AActor*>(EventData->Target.Get()));
+        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Force ending ladder climb in EndAbility"));
+        CachedMovementComponent->EndClimbLadder(false);
     }
 
-    // 2단계: 이벤트에 사다리가 없으면 주변 검색
-    if (!FoundLadder)
-    {
-        FoundLadder = FindNearestLadderInRange(Avatar->GetActorLocation());
-    }
-
-    // 3단계: 사다리를 찾지 못함
-    if (!FoundLadder)
-    {
-        return false;
-    }
-
-    // 4단계: 사다리 사용 가능 여부 검증 (거리, 각도)
-    if (!FoundLadder->CanCharacterUseLadder(Avatar, MaximumEntryDistance, MaximumEntryAngleDegrees))
-    {
-        UE_LOG(LogCY, Warning, TEXT("FindAndValidateLadder: Ladder found but not usable (distance or angle)"));
-        return false;
-    }
-
-    // 5단계: 등반 방향 결정 (캐릭터 입력 기반)
-    const ACharacter* Character = Cast<ACharacter>(Avatar);
-    OutIsClimbingUp = Character ? DetermineClimbingDirection(Character, FoundLadder) : true;
-
-    // 6단계: 사다리 정보 및 초기 위치 설정
-    OutBottomLocation = FoundLadder->GetBottomWorldLocation();
-    OutTopLocation = FoundLadder->GetTopWorldLocation();
-    OutFacingDirection = FoundLadder->GetHorizontalFacingDirection();
-    OutInitialRailParameter = FoundLadder->CalculateEntryRailParameter(OutIsClimbingUp, EdgeEntryOffset);
-
-    OutLadderActor = FoundLadder;
-    return true;
-}
-
-ACYLadderBase* UCYGameplayAbility_ClimbLadder_Enter::FindNearestLadderInRange(const FVector& SearchOrigin) const
-{
-    UWorld* World = GetWorld();
-    if (!World)
-    {
-        return nullptr;
-    }
-
-    // 구체 오버랩으로 주변 액터 검색
-    TArray<FOverlapResult> OverlapResults;
-    FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(FindNearestLadder), false);
-
-    const bool bHasOverlaps = World->OverlapMultiByChannel(
-        OverlapResults,
-        SearchOrigin,
-        FQuat::Identity,
-        LadderDetectionChannel,
-        FCollisionShape::MakeSphere(LadderSearchRadius),
-        QueryParams
-    );
-
-    if (!bHasOverlaps)
-    {
-        return nullptr;
-    }
-
-    // 가장 가까운 사다리 찾기
-    ACYLadderBase* NearestLadder = nullptr;
-    float NearestDistanceSquared = TNumericLimits<float>::Max();
-
-    for (const FOverlapResult& Result : OverlapResults)
-    {
-        ACYLadderBase* Ladder = Cast<ACYLadderBase>(Result.GetActor());
-        if (!Ladder)
-        {
-            continue;
-        }
-
-        const float DistanceSquared = FVector::DistSquared2D(SearchOrigin, Ladder->GetActorLocation());
-        if (DistanceSquared < NearestDistanceSquared)
-        {
-            NearestDistanceSquared = DistanceSquared;
-            NearestLadder = Ladder;
-        }
-    }
-    
-    return NearestLadder;
-}
-
-bool UCYGameplayAbility_ClimbLadder_Enter::DetermineClimbingDirection(const ACharacter* Character, const ACYLadderBase* Ladder) const
-{
-    if (!Character || !Ladder)
-    {
-        return true;
-    }
-    const FVector InputDirection = Character->GetLastMovementInputVector().GetSafeNormal2D();
-    const float   InputMagnitude = Character->GetLastMovementInputVector().Size2D();
-
-    // 입력이 거의 없으면 진입 안 함(임계치 0.2~0.35 사이 권장)
-    constexpr float keyInputThreshold = 0.25f;
-    if (InputMagnitude < keyInputThreshold)
-    {
-        return true;
-    }
-    
-    // 사다리 정면과 입력 방향의 내적: +면 사다리 정면쪽(상향), -면 반대쪽(하향)
-    const FVector LadderFacingDirection = Ladder->GetHorizontalFacingDirection();
-    const FVector CharacterFacingDirectionOnLadder = -LadderFacingDirection;
-    
-    const float Dot = FVector::DotProduct(InputDirection, CharacterFacingDirectionOnLadder);
-
-    return Dot >= 0.0f; // true: 상향, false: 하향
+    Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);
 }

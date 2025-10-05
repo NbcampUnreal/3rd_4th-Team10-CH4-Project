@@ -2,40 +2,115 @@
 
 
 #include "CYLadderBase.h"
+
+#include "AbilitySystemComponent.h"
+#include "CYLogChannels.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "DrawDebugHelpers.h"
+#include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
+#include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Physics/CYCollisionChannels.h"
 
 ACYLadderBase::ACYLadderBase()
 {
     PrimaryActorTick.bCanEverTick = false;
+    bReplicates = true;
 
-    // 루트 컴포넌트 생성
+    // 루트
     RootSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
     SetRootComponent(RootSceneComponent);
 
-    // 하단 위치 마커
+    // 위치 마커 (MovementComponent에서 사용)
     BottomPoint = CreateDefaultSubobject<USceneComponent>(TEXT("BottomPoint"));
     BottomPoint->SetupAttachment(RootSceneComponent);
     
-    // 상단 위치 마커  
     TopPoint = CreateDefaultSubobject<USceneComponent>(TEXT("TopPoint"));
     TopPoint->SetupAttachment(RootSceneComponent);
     
-    // 정면 방향 화살표
+    // 방향
     FacingArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("FacingDirection"));
     FacingArrow->SetupAttachment(RootSceneComponent);
-    FacingArrow->ArrowSize = 1.0f;
     FacingArrow->SetHiddenInGame(true);
+
+    // 진입 박스들
+    TopEntryBox = CreateDefaultSubobject<UBoxComponent>(TEXT("TopEntryBox"));
+    TopEntryBox->SetupAttachment(RootSceneComponent);
+    TopEntryBox->SetCollisionProfileName(TEXT("Interactable"));
     
-    // 상호작용 영역 박스
-    InteractionVolume = CreateDefaultSubobject<UBoxComponent>(TEXT("InteractionVolume"));
-    InteractionVolume->SetupAttachment(RootSceneComponent);
-    InteractionVolume->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    InteractionVolume->SetCollisionObjectType(ECC_WorldStatic);
-    InteractionVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
-    InteractionVolume->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+    MiddleEntryBox = CreateDefaultSubobject<UBoxComponent>(TEXT("MiddleEntryBox"));
+    MiddleEntryBox->SetupAttachment(RootSceneComponent);
+    MiddleEntryBox->SetCollisionProfileName(TEXT("Interactable"));
+    
+    BottomEntryBox = CreateDefaultSubobject<UBoxComponent>(TEXT("BottomEntryBox"));
+    BottomEntryBox->SetupAttachment(RootSceneComponent);
+    BottomEntryBox->SetCollisionProfileName(TEXT("Interactable"));
+
+    LadderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LadderMesh"));
+    LadderMesh->SetupAttachment(RootSceneComponent);
+    LadderMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    LadderMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+    LadderMesh->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Block);
+}
+
+void ACYLadderBase::BeginPlay()
+{
+    Super::BeginPlay();
+
+    // TODO : 추후 블루 프린트나 맵을 참고해서 레벨에 배치된 엑터에 대해 직접 조정
+    SetupEntryBoxes();
+
+    if (TopEntryBox)
+    {
+        TopEntryBox->OnComponentBeginOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxBeginOverlap);
+        TopEntryBox->OnComponentEndOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxEndOverlap);
+    }
+    
+    if (MiddleEntryBox)
+    {
+        MiddleEntryBox->OnComponentBeginOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxBeginOverlap);
+        MiddleEntryBox->OnComponentEndOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxEndOverlap);
+    }
+    
+    if (BottomEntryBox)
+    {
+        BottomEntryBox->OnComponentBeginOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxBeginOverlap);
+        BottomEntryBox->OnComponentEndOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxEndOverlap);
+    }
+}
+
+void ACYLadderBase::SetupEntryBoxes()
+{
+    const float Height = GetTotalHeight();
+    const FVector Bottom = GetBottomWorldLocation();
+    const FVector Top = GetTopWorldLocation();
+    const FVector Center = (Bottom + Top) * 0.5f;
+    
+    const float EdgeBoxHeight = Height * EdgeBoxHeightRatio;
+    const float MiddleBoxHeight = Height - (EdgeBoxHeight * 2);
+    
+    // 상단 박스
+    if (TopEntryBox)
+    {
+        TopEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, EdgeBoxHeight * 0.5f));
+        TopEntryBox->SetWorldLocation(Top - FVector(0, 0, EdgeBoxHeight * 0.5f));
+    }
+    
+    // 중간 박스
+    if (MiddleEntryBox && MiddleBoxHeight > 0)
+    {
+        MiddleEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, MiddleBoxHeight * 0.5f));
+        MiddleEntryBox->SetWorldLocation(Center);
+    }
+    
+    // 하단 박스
+    if (BottomEntryBox)
+    {
+        BottomEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, EdgeBoxHeight * 0.5f));
+        BottomEntryBox->SetWorldLocation(Bottom + FVector(0, 0, EdgeBoxHeight * 0.5f));
+    }
 }
 
 FVector ACYLadderBase::GetBottomWorldLocation() const
@@ -50,113 +125,296 @@ FVector ACYLadderBase::GetTopWorldLocation() const
 
 FVector ACYLadderBase::GetHorizontalFacingDirection() const
 {
-    // Arrow 컴포넌트의 전방 벡터 가져오기
-    FVector FacingVector = FacingArrow ? FacingArrow->GetForwardVector() : GetActorForwardVector();
+    if (!FacingArrow) return FVector::ForwardVector;
     
-    // 수평 평면에 투영하여 정규화
-    return GetHorizontalNormalizedVector(FacingVector);
+    FVector Facing = FacingArrow->GetForwardVector();
+    Facing.Z = 0;
+    return Facing.GetSafeNormal();
 }
 
 FVector ACYLadderBase::GetClimbingDirection() const
 {
-    // 하단에서 상단으로의 정규화된 방향 벡터
-    const FVector DirectionVector = GetTopWorldLocation() - GetBottomWorldLocation();
-    return DirectionVector.GetSafeNormal();
+    return (GetTopWorldLocation() - GetBottomWorldLocation()).GetSafeNormal();
 }
 
 float ACYLadderBase::GetTotalHeight() const
 {
-    // 사다리의 총 높이 (cm)
     return FVector::Distance(GetBottomWorldLocation(), GetTopWorldLocation());
 }
 
-float ACYLadderBase::ConvertWorldLocationToRailParameter(const FVector& WorldLocation) const
+ELadderEntryType ACYLadderBase::GetPlayerEntryType(const AActor* Player) const
 {
-    const FVector BottomLocation = GetBottomWorldLocation();
-    const FVector ClimbDirection = GetClimbingDirection();
-    const float TotalHeight = GetTotalHeight();
-    
-    // 예외 처리: 높이가 0인 경우
-    if (TotalHeight <= KINDA_SMALL_NUMBER)
+    if (const ELadderEntryType* EntryType = PlayerEntryTypeMap.Find(Player))
     {
-        return 0.0f;
+        return *EntryType;
     }
-
-    // 월드 좌표를 레일에 투영
-    const FVector LocationRelativeToBottom = WorldLocation - BottomLocation;
-    const float ProjectedDistance = FVector::DotProduct(LocationRelativeToBottom, ClimbDirection);
-    
-    // 0 ~ TotalHeight 범위로 클램프
-    return FMath::Clamp(ProjectedDistance, 0.0f, TotalHeight);
+    return ELadderEntryType::None;
 }
 
-FTransform ACYLadderBase::CalculateCharacterTransformAtParameter(float RailParameter, float CharacterOffsetFromLadder) const
-{
-    const FVector BottomLocation = GetBottomWorldLocation();
-    const FVector ClimbDirection = GetClimbingDirection();
-    const FVector FacingDirection = GetHorizontalFacingDirection();
-    
-    // 레일 상의 위치 계산
-    const float ClampedParameter = FMath::Clamp(RailParameter, 0.0f, GetTotalHeight());
-    const FVector RailPosition = BottomLocation + ClimbDirection * ClampedParameter;
-    
-    // 사다리로부터 캐릭터를 떨어뜨림 (정면 반대 방향)
-    const FVector CharacterPosition = RailPosition - FacingDirection * CharacterOffsetFromLadder;
-    
-    // 캐릭터 회전: X축은 정면, Z축은 등반 방향
-    const FQuat CharacterRotation = FRotationMatrix::MakeFromXZ(FacingDirection, ClimbDirection).ToQuat();
-    
-    return FTransform(CharacterRotation, CharacterPosition);
-}
-
-float ACYLadderBase::CalculateEntryRailParameter(bool bIsClimbingUp, float EdgeOffset) const
+float ACYLadderBase::CalculateInitialRailParameter(ELadderEntryType EntryType, 
+                                                   const ACharacter* Character,
+                                                   float EdgeOffset) const
 {
     const float Height = GetTotalHeight();
     
-    if (Height <= KINDA_SMALL_NUMBER)
+    switch (EntryType)
     {
-        return 0.0f;
-    }
-    
-    // 상향 등반: 하단에서 시작
-    // 하향 등반: 상단에서 시작
-    if (bIsClimbingUp)
-    {
-        return FMath::Clamp(EdgeOffset, 0.0f, Height);
-    }
-    else
-    {
-        return FMath::Clamp(Height - EdgeOffset, 0.0f, Height);
+        case ELadderEntryType::Top:
+            return Height - EdgeOffset;
+            
+        case ELadderEntryType::Bottom:
+            return EdgeOffset;
+            
+        case ELadderEntryType::Middle:
+        {
+            if (Character)
+            {
+                const FVector CharPos = Character->GetActorLocation();
+                const FVector Bottom = GetBottomWorldLocation();
+                const FVector ClimbDir = GetClimbingDirection();
+                
+                const FVector RelativePos = CharPos - Bottom;
+                float ProjectedHeight = FVector::DotProduct(RelativePos, ClimbDir);
+                
+                return FMath::Clamp(ProjectedHeight, EdgeOffset, Height - EdgeOffset);
+            }
+            return Height * 0.5f;
+        }
+            
+        default:
+            return 0.0f;
     }
 }
 
-bool ACYLadderBase::CanCharacterUseLadder(const AActor* Character, float MaxHorizontalDistance, float MaxAngleDegrees) const
+bool ACYLadderBase::DetermineClimbDirection(ELadderEntryType EntryType, const ACharacter* Character) const
+{
+    switch (EntryType)
+    {
+        case ELadderEntryType::Top:
+            return false; // 항상 하향
+            
+        case ELadderEntryType::Bottom:
+            return true;  // 항상 상향
+            
+        case ELadderEntryType::Middle:
+            return DetermineClimbDirectionForAutoGrab(Character);
+            
+        default:
+            return true;
+    }
+}
+
+bool ACYLadderBase::DetermineClimbDirectionForAutoGrab(const ACharacter* Character) const
 {
     if (!Character)
+        return true;
+
+    // 1. 수직 속도 기반
+    const float VerticalVelocity = Character->GetVelocity().Z;
+    if (FMath::Abs(VerticalVelocity) > 50.0f)
+    {
+        return VerticalVelocity > 0;
+    }
+    
+    // 2. 입력 방향 기반
+    const FVector InputDir = Character->GetLastMovementInputVector().GetSafeNormal2D();
+    if (InputDir.SizeSquared() > 0.1f)
+    {
+        const FVector CharFacingOnLadder = -GetHorizontalFacingDirection();
+        const float Dot = FVector::DotProduct(InputDir, CharFacingOnLadder);
+        return Dot >= 0.0f;
+    }
+    
+    // 3. 캐릭터 높이 기반
+    const float CharHeight = Character->GetActorLocation().Z;
+    const float LadderCenter = (GetBottomWorldLocation().Z + GetTopWorldLocation().Z) * 0.5f;
+    return CharHeight < LadderCenter;
+}
+
+bool ACYLadderBase::CanAutoGrabFromMiddle(const ACharacter* Character) const
+{
+    if (!Character || !bEnableAutoGrab)
+    {
+        return false;
+    }
+    const UCharacterMovementComponent* Movement = Character->GetCharacterMovement();
+    if (!Movement)
     {
         return false;
     }
     
-    // 1. 수평 거리 체크
-    const float HorizontalDistance = FVector::Dist2D(Character->GetActorLocation(), GetActorLocation());
-    if (HorizontalDistance > MaxHorizontalDistance)
+    // 1. 공중에 있어야 함
+    if (!Movement->IsFalling())
     {
         return false;
     }
     
-    // 2. 각도 체크 (캐릭터가 사다리를 바라보고 있는지)
-    const FVector CharacterForward = GetHorizontalNormalizedVector(Character->GetActorForwardVector());
-    const FVector LadderFacing = GetHorizontalFacingDirection();
+    // 2. TODO : 점프 말고 낙하시에도 가능하도록 고려
+    if (Movement->Velocity.Z > MinFallingSpeedForAutoGrab)
+    {
+        return false;
+    }
     
-    const float DotProduct = FVector::DotProduct(CharacterForward, LadderFacing);
-    const float AngleDegrees = UKismetMathLibrary::DegAcos(DotProduct);
+    // 3. 사다리를 바라보고 있어야 함
+    const FVector CharForward = Character->GetActorForwardVector();
+    const FVector ToLadder = (GetActorLocation() - Character->GetActorLocation()).GetSafeNormal2D();
+    const float Angle = FMath::RadiansToDegrees(FMath::Acos(FVector::DotProduct(CharForward, ToLadder)));
+    if (Angle > MaxAutoGrabAngle)
+    {
+        return false;
+    }
     
-    return AngleDegrees <= MaxAngleDegrees;
+    // 4. 충분히 가까워야 함
+    const float Distance = FVector::Dist2D(Character->GetActorLocation(), GetActorLocation());
+    if (Distance > EntryBoxRadius * AutoGrabDistanceRatio)
+    {
+        return false;
+    }
+    
+    return true;
+}
+
+void ACYLadderBase::TryAutoGrabLadder(ACharacter* Character)
+{
+    if (!Character || !CanAutoGrabFromMiddle(Character))
+    {
+        UpdatePlayerEntryType(Character);
+        return;
+    }
+
+    if (UAbilitySystemComponent* ASC = Character->GetComponentByClass<UAbilitySystemComponent>())
+    {
+        FGameplayEventData EventData;
+        EventData.Instigator = Character;
+        EventData.Target = this;  // 사다리 액터 전달
+        
+        // 어빌리티에서 직접 조회하도록 단순화
+        ASC->HandleGameplayEvent(CYGameplayTags::Ability_Action_Climbing, &EventData);
+        
+        UE_LOG(LogCY, Warning, TEXT("Auto-grabbed ladder!"));
+    }
+}
+
+void ACYLadderBase::OnEntryBoxBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+    ACharacter* Character = Cast<ACharacter>(OtherActor);
+    if (!Character)
+    {
+        return;
+    }
+    // 중간 박스 특별 처리
+    if (OverlappedComponent == MiddleEntryBox)
+    {
+        if (bEnableAutoGrab)
+        {
+            TryAutoGrabLadder(Character);
+        }
+        else
+        {
+            UpdatePlayerEntryType(Character);
+        }
+    }
+    else
+    {
+        // 상/하단 박스: 일반 상호작용
+        UpdatePlayerEntryType(Character);
+    }
+}
+
+void ACYLadderBase::OnEntryBoxEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+    if (ACharacter* Character = Cast<ACharacter>(OtherActor))
+    {
+        // 모든 박스를 벗어났는지 체크
+        if (!TopEntryBox->IsOverlappingActor(Character) &&
+            !MiddleEntryBox->IsOverlappingActor(Character) &&
+            !BottomEntryBox->IsOverlappingActor(Character))
+        {
+            PlayerEntryTypeMap.Remove(Character);
+        }
+        else
+        {
+            UpdatePlayerEntryType(Character);
+        }
+    }
+}
+
+void ACYLadderBase::UpdatePlayerEntryType(AActor* Player)
+{
+    if (!Player)
+    {
+        return;
+    }
+    
+    // 우선순위: Top > Bottom > Middle
+    if (TopEntryBox && TopEntryBox->IsOverlappingActor(Player))
+    {
+        PlayerEntryTypeMap.Add(Player, ELadderEntryType::Top);
+    }
+    else if (BottomEntryBox && BottomEntryBox->IsOverlappingActor(Player))
+    {
+        PlayerEntryTypeMap.Add(Player, ELadderEntryType::Bottom);
+    }
+    else if (MiddleEntryBox && MiddleEntryBox->IsOverlappingActor(Player))
+    {
+        PlayerEntryTypeMap.Add(Player, ELadderEntryType::Middle);
+    }
+}
+
+FCYInteractionInfo ACYLadderBase::GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const
+{
+    const ELadderEntryType EntryType = GetPlayerEntryType(InteractionQuery.RequestingAvatar.Get());
+    
+    // 중간 박스 + 자동 그랩 = 상호작용 정보 없음
+    if (EntryType == ELadderEntryType::Middle && bEnableAutoGrab)
+    {
+        return FCYInteractionInfo();
+    }
+    
+    switch (EntryType)
+    {
+        case ELadderEntryType::Top:
+            return ClimbDownInteractionInfo;
+        case ELadderEntryType::Bottom:
+            return ClimbUpInteractionInfo;
+        case ELadderEntryType::Middle:
+            return ClimbMiddleInteractionInfo;
+        default:
+            return FCYInteractionInfo();
+    }
+}
+
+void ACYLadderBase::GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const
+{
+    if (LadderMesh && LadderMesh->GetStaticMesh())
+    {
+        OutMeshComponents.Add(LadderMesh);
+    }
+}
+
+bool ACYLadderBase::CanInteraction(const FCYInteractionQuery& InteractionQuery) const
+{
+    if (!Super::CanInteraction(InteractionQuery))
+    {
+        return false;
+    }
+    
+    const ELadderEntryType EntryType = GetPlayerEntryType(InteractionQuery.RequestingAvatar.Get());
+    
+    // 중간 박스는 자동 그랩 활성화시 상호작용 불가
+    if (EntryType == ELadderEntryType::Middle && bEnableAutoGrab)
+    {
+        return false;
+    }
+    
+    return EntryType != ELadderEntryType::None;
 }
 
 void ACYLadderBase::OnConstruction(const FTransform& Transform)
 {
     Super::OnConstruction(Transform);
+
+    SetupEntryBoxes();
     
     if (!bShowDebugVisualization || !GetWorld())
     {
@@ -165,28 +423,38 @@ void ACYLadderBase::OnConstruction(const FTransform& Transform)
     
     const FVector Bottom = GetBottomWorldLocation();
     const FVector Top = GetTopWorldLocation();
-    const FVector Facing = GetHorizontalFacingDirection();
+    const float Height = GetTotalHeight();
+    const float EdgeHeight = Height * EdgeBoxHeightRatio;
     
-    // 사다리 레일 라인 (청록색)
-    DrawDebugLine(GetWorld(), Bottom, Top, FColor::Cyan, false, DebugLineDuration, 0, 2.0f);
+    // 사다리 레일
+    DrawDebugLine(GetWorld(), Bottom, Top, FColor::Cyan, false, -1, 0, 2.0f);
     
-    // 정면 방향 화살표 (녹색)
-    const FVector ArrowStart = GetActorLocation();
-    const FVector ArrowEnd = ArrowStart + Facing * 100.0f;
-    DrawDebugDirectionalArrow(GetWorld(), ArrowStart, ArrowEnd, 20.0f, FColor::Green, false, DebugLineDuration, 0, 2.0f);
+    // 상단 박스 (빨강)
+    DrawDebugBox(GetWorld(), 
+                Top - FVector(0, 0, EdgeHeight * 0.5f),
+                FVector(EntryBoxRadius, EntryBoxRadius, EdgeHeight * 0.5f),
+                FColor::Red, false, -1, 0, 2.0f);
     
-    // 상/하단 포인트 표시 (노란색)
-    DrawDebugSphere(GetWorld(), Bottom, 10.0f, 8, FColor::Yellow, false, DebugLineDuration);
-    DrawDebugSphere(GetWorld(), Top, 10.0f, 8, FColor::Yellow, false, DebugLineDuration);
+    // 하단 박스 (초록)
+    DrawDebugBox(GetWorld(),
+                Bottom + FVector(0, 0, EdgeHeight * 0.5f),
+                FVector(EntryBoxRadius, EntryBoxRadius, EdgeHeight * 0.5f),
+                FColor::Green, false, -1, 0, 2.0f);
+    
+    // 중간 박스 (자동 그랩시 주황, 아니면 노랑)
+    const float MiddleHeight = Height - (EdgeHeight * 2);
+    if (MiddleHeight > 0)
+    {
+        FColor MiddleColor = bEnableAutoGrab ? FColor::Orange : FColor::Yellow;
+        DrawDebugBox(GetWorld(),
+                    (Bottom + Top) * 0.5f,
+                    FVector(EntryBoxRadius, EntryBoxRadius, MiddleHeight * 0.5f),
+                    MiddleColor, false, -1, 0, 2.0f);
+    }
 }
 
-FVector ACYLadderBase::GetHorizontalNormalizedVector(const FVector& Vector) const
-{
-    // 수직 성분 제거
-    const FVector VerticalComponent = FVector::DotProduct(Vector, FVector::UpVector) * FVector::UpVector;
-    const FVector HorizontalVector = Vector - VerticalComponent;
-    
-    // 정규화 (0벡터 방지)
-    const FVector NormalizedVector = HorizontalVector.GetSafeNormal();
-    return NormalizedVector.IsNearlyZero() ? FVector::ForwardVector : NormalizedVector;
-}
+
+
+
+
+

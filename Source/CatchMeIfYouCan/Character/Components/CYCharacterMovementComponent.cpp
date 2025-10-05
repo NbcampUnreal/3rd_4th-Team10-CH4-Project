@@ -28,8 +28,15 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 
 	if (bNowLadder)
 	{
+		DefaultGravityScale = GravityScale;
+		DefaultBrakingFrictionFactor = BrakingFrictionFactor;
+		bSavedOrientRotationToMovement = bOrientRotationToMovement;
+		bSavedUseControllerDesiredRotation = bUseControllerDesiredRotation;
+		
 		GravityScale = 0.f;
 		BrakingFrictionFactor = 0.f;
+		bOrientRotationToMovement = false;
+		bUseControllerDesiredRotation = false;
 
 		// 속도 초기화 (이전 이동 속도 제거)
 		Velocity = FVector::ZeroVector;
@@ -41,11 +48,10 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	else
 	{
 		// TODO : 함수로 default값 캐싱해놔서 값 복원
-		// 중력 복원 (일반 이동 시 중력 적용)
-		GravityScale = 1.f;
-
-		// 마찰 복원 (일반 이동 시 마찰 적용)
-		BrakingFrictionFactor = 1.f;
+		GravityScale = DefaultGravityScale;
+		BrakingFrictionFactor = DefaultBrakingFrictionFactor;
+		bOrientRotationToMovement = bSavedOrientRotationToMovement;
+		bUseControllerDesiredRotation = bSavedUseControllerDesiredRotation;
 
 		LadderActor.Reset();
 		RailLength = 0.f;
@@ -53,18 +59,20 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	}
 }
 
-void UCYCharacterMovementComponent::BeginClimbLadder(AActor* Ladder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float AttachSpot)
+void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InAttachSpot)
 {
-	if (!IsValid(Ladder) || !UpdatedComponent)
+	if (!IsValid(InLadder) || !UpdatedComponent)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("BeginClimbLadder: Invalid Ladder or UpdatedComponent"));
 		return;
 	}
 
-	LadderActor = Ladder;      
+	LadderActor = InLadder;      
 	LadderStart = InStart;    
 	LadderEnd   = InEnd;  
 
+	bWantsToClimb = true;
+	
 	// 레일 방향/길이 계산
 	// RailDirection: 사다리 레일의 정규화된 방향 벡터 (입력 투영에 사용)
 	RailDirection = (LadderEnd - LadderStart).GetSafeNormal();
@@ -109,10 +117,10 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* Ladder, const FVect
 	}
 
 	// 초기 부착 위치 설정
-	if (AttachSpot >= 0.f)
+	if (InAttachSpot >= 0.f)
 	{
 		// AttachSpot이 지정되면 해당 값 사용 (0 ~ RailLength 범위로 클램프)
-		LadderAttachSpot = FMath::Clamp(AttachSpot, 0.f, RailLength);
+		LadderAttachSpot = FMath::Clamp(InAttachSpot, 0.f, RailLength);
 	}
 	else
 	{
@@ -127,6 +135,7 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* Ladder, const FVect
 
 void UCYCharacterMovementComponent::EndClimbLadder(bool bStepOffTop)
 {
+	bWantsToClimb = false;
 	
 	// 현재는 간단히 이동 모드만 전환
 	// TODO : 상단 탈출 시 추가 처리 가능 (예: 약간의 전방 임펄스)
@@ -146,7 +155,7 @@ void UCYCharacterMovementComponent::EndClimbLadder(bool bStepOffTop)
 
 bool UCYCharacterMovementComponent::IsClimbingLadder() const
 {
-	return MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing);
+	return MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing) && bWantsToClimb;
 }
 
 void UCYCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterations)
@@ -165,8 +174,12 @@ void UCYCharacterMovementComponent::PhysCustom(float DeltaTime, int32 Iterations
 void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations)
 {
 	// 유효성 검사
-	if (DeltaTime < MIN_TICK_TIME || !UpdatedComponent || !LadderActor.IsValid())
+	if (DeltaTime < MIN_TICK_TIME || !UpdatedComponent || !LadderActor.IsValid() || !bWantsToClimb)
 	{
+		if (bWantsToClimb && !LadderActor.IsValid())
+		{
+			EndClimbLadder(false);
+		}
 		return;
 	}
 	
@@ -333,10 +346,10 @@ void FSavedMove_CY::SetMoveFor(ACharacter* Character, float InDeltaTime, FVector
 	Super::SetMoveFor(Character, InDeltaTime, NewAccel, ClientData);
 
 	// 커스텀 MovementComponent 캐스팅
-	if (const auto* CY = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement()))
+	if (const auto* CYMovementComponent = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement()))
 	{
 		// 현재 사다리 타는 중인지 저장
-		bWantsToClimb = CY->IsClimbingLadder();
+		bWantsToClimb = CYMovementComponent->bWantsToClimb;
 	}
 }
 
