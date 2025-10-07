@@ -21,10 +21,8 @@ UCYGameplayAbility_ClimbLadder_Enter::UCYGameplayAbility_ClimbLadder_Enter()
  
     AbilityTags.AddTag(CYGameplayTags::Ability_Action_Climbing);
     ActivationOwnedTags.AddTag(CYGameplayTags::Status_Movement_Climbing);
-    
-    // TODO : 적절한 블록 태그
-    // ActivationBlockedTags.AddTag(CYGameplayTags::);
-    // ActivationBlockedTags.AddTag(CYGameplayTags::);
+
+    ActivationBlockedTags.AddTag(CYGameplayTags::Status_Movement_Climbing);
     
     // TODO: 적절한 취소 태그
     // CancelAbilitiesWithTag.AddTag(CYGameplayTags::);
@@ -44,7 +42,6 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
     if (!Character)
     {
-        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: No valid character"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
@@ -53,7 +50,6 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     CachedMovementComponent = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement());
     if (!CachedMovementComponent)
     {
-        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: No CYCharacterMovementComponent"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
@@ -61,7 +57,6 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     // 이미 사다리 타는 중인지 체크
     if (CachedMovementComponent->IsClimbingLadder())
     {
-        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Already climbing ladder"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
@@ -84,7 +79,6 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     // 어빌리티 커밋 (코스트, 쿨다운)
     if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
     {
-        UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Failed to commit ability"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
@@ -157,15 +151,12 @@ bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayE
     }
     else
     {
-        OutIsClimbingUp = OutLadder->DetermineClimbDirection(EntryType, Character);
+        OutLadder->DetermineClimbDirection(EntryType, Character, OutIsClimbingUp);
     }
 
     // 초기 레일 위치 계산
     OutInitialRailParameter = OutLadder->CalculateInitialRailParameter(EntryType, Character, EdgeEntryOffset);
-
-    UE_LOG(LogCY, Verbose, TEXT("ExtractLadderInfo: Success - EntryType=%d, ClimbUp=%d, InitParam=%.1f"),
-           (int32)EntryType, OutIsClimbingUp, OutInitialRailParameter);
-
+    
     return true;
 }
 

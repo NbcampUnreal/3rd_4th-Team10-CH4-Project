@@ -13,17 +13,12 @@ UCYGameplayAbility_Interact_Ladder::UCYGameplayAbility_Interact_Ladder()
 {
     // 사다리 진입 이벤트 태그 설정
     LadderEnterEventTag = CYGameplayTags::Ability_Action_Climbing;
-
-    InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerActor;
-    NetExecutionPolicy = EGameplayAbilityNetExecutionPolicy::LocalPredicted;
 }
 
-void UCYGameplayAbility_Interact_Ladder::ActivateAbility(
-    const FGameplayAbilitySpecHandle Handle,
-    const FGameplayAbilityActorInfo* ActorInfo,
-    const FGameplayAbilityActivationInfo ActivationInfo,
-    const FGameplayEventData* TriggerEventData)
+void UCYGameplayAbility_Interact_Ladder::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
+    Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
+    
     // 사다리 검증
     if (!TriggerEventData || !TriggerEventData->Target)
     {
@@ -53,13 +48,6 @@ void UCYGameplayAbility_Interact_Ladder::ActivateAbility(
         return;
     }
 
-    // 어빌리티 커밋
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
-    {
-        CancelAbility(Handle, ActorInfo, ActivationInfo, true);
-        return;
-    }
-
     // 사다리 진입 어빌리티로 이벤트 전달
     if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
     {
@@ -67,9 +55,10 @@ void UCYGameplayAbility_Interact_Ladder::ActivateAbility(
         FGameplayEventData LadderEventData = *TriggerEventData;
         LadderEventData.EventTag = LadderEnterEventTag;
         
-        // 추가 정보를 EventMagnitude로 전달 (옵션)
+        // 추가 정보를 EventMagnitude로 전달 
         // 1.0 = 상향, -1.0 = 하향
-        bool bClimbUp = Ladder->DetermineClimbDirection(EntryType, Character);
+        bool bClimbUp = false;
+        Ladder->DetermineClimbDirection(EntryType, Character, bClimbUp);
         LadderEventData.EventMagnitude = bClimbUp ? 1.0f : -1.0f;
         
         // ClimbLadder_Enter 어빌리티 트리거

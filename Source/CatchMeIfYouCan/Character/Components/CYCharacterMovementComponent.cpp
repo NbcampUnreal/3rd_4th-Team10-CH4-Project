@@ -22,37 +22,55 @@ float UCYCharacterMovementComponent::GetMaxSpeed() const
 void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
 {
 	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
+	
+	const bool bNowClimbing = (MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing));
+	const bool bWasClimbing = (PreviousMovementMode == MOVE_Custom && PreviousCustomMode == static_cast<uint8>(CMOVE_Climbing));
 
-	// 현재 사다리 타는 중인지 체크
-	const bool bNowLadder = (MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing));
-
-	if (bNowLadder)
+	if (bNowClimbing)
 	{
+		// 캐시 (사다리 "진입"시에만)
 		DefaultGravityScale = GravityScale;
 		DefaultBrakingFrictionFactor = BrakingFrictionFactor;
 		bSavedOrientRotationToMovement = bOrientRotationToMovement;
-		bSavedUseControllerDesiredRotation = bUseControllerDesiredRotation;
-		
+
+		// 컨트롤러 회전 사용 여부는 Character 쪽 플래그를 저장/비활성화
+		if (CharacterOwner)
+		{
+			// NOTE: 변수명은 기존 것을 재사용하지만 실제로는 bUseControllerRotationYaw를 캐시합니다.
+			bSavedUseControllerDesiredRotation = CharacterOwner->bUseControllerRotationYaw;
+			CharacterOwner->bUseControllerRotationYaw = false;
+		}
+
 		GravityScale = 0.f;
 		BrakingFrictionFactor = 0.f;
 		bOrientRotationToMovement = false;
-		bUseControllerDesiredRotation = false;
-
-		// 속도 초기화 (이전 이동 속도 제거)
 		Velocity = FVector::ZeroVector;
+		
+		// 스냅 가드: 로컬(Autonomous) 또는 서버(Authority)에서만 + 데이터 유효할 때만
+		const bool bCanSnap =
+			(CharacterOwner && (CharacterOwner->IsLocallyControlled() || CharacterOwner->HasAuthority())) &&
+			LadderActor.IsValid() &&
+			RailLength > KINDA_SMALL_NUMBER;
 
-		// 사다리 타기 진입 즉시 캐릭터를 사다리 레일에 스냅하고 방향 정렬
-		// TODO : 해당 함수 내에서 부드럽게 보간하도록 수정
-		SnapToRailAndFace();
+		if (bCanSnap)
+		{
+			SnapToRailAndFace();
+		}
 	}
-	else
+	else if (bWasClimbing)
 	{
-		// TODO : 함수로 default값 캐싱해놔서 값 복원
+		// 캐시 복원 (사다리 "이탈"시에만)
 		GravityScale = DefaultGravityScale;
 		BrakingFrictionFactor = DefaultBrakingFrictionFactor;
 		bOrientRotationToMovement = bSavedOrientRotationToMovement;
-		bUseControllerDesiredRotation = bSavedUseControllerDesiredRotation;
 
+		if (CharacterOwner)
+		{
+			CharacterOwner->bUseControllerRotationYaw = bSavedUseControllerDesiredRotation;
+		}
+
+		// 안전장치
+		bWantsToClimb = false;
 		LadderActor.Reset();
 		RailLength = 0.f;
 		RailDirection = FVector::UpVector;
@@ -108,12 +126,12 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 		FacingOnPlane *= -1.f;
 	}
 	
-	LadderFacing = -FacingOnPlane;
+	CharToLadderFacing = -FacingOnPlane;
 
 	// 안전성 체크: LadderFacing이 0벡터면 기본값 사용
-	if (LadderFacing.IsNearlyZero())
+	if (CharToLadderFacing.IsNearlyZero())
 	{
-		LadderFacing = FVector::ForwardVector;
+		CharToLadderFacing = FVector::ForwardVector;
 	}
 
 	// 초기 부착 위치 설정
@@ -149,8 +167,6 @@ void UCYCharacterMovementComponent::EndClimbLadder(bool bStepOffTop)
 		// 바닥이 없으면 낙하 모드로 전환
 		SetMovementMode(MOVE_Falling);
 	}
-
-	// OnMovementModeChanged()가 호출되어 중력/마찰 복원 및 사다리 캐시 정리
 }
 
 bool UCYCharacterMovementComponent::IsClimbingLadder() const
@@ -187,8 +203,8 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
 	// 이 함수는 입력을 소비하므로 한 번만 호출해야 함
 	FVector Pending = ConsumeInputVector();
 	
-	// 앞/뒤 의도를 LadderFacing(수평) 방향으로 투영해서 스칼라로 얻는다.
-	const float ForwardIntent = FVector::DotProduct(Pending.GetClampedToMaxSize(1.f), LadderFacing);
+	// 앞/뒤 의도를 CharToLadderFacing(수평) 방향으로 투영해서 스칼라로 얻는다.
+	const float ForwardIntent = FVector::DotProduct(Pending.GetClampedToMaxSize(1.f), CharToLadderFacing);
 
 	// (보정) 컨트롤러가 사다리와 거의 평행인 극단 상황에서 입력이 아주 작아질 수 있으니 한 번 더 클램프
 	const float InputAxis = FMath::Clamp(ForwardIntent, -1.f, 1.f);
@@ -203,11 +219,11 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
 	// RailPos: 레일 상의 정확한 위치 (Start + Dir * s)
 	const FVector RailPos = LadderStart + RailDirection * LadderAttachSpot;
 
-	// 사다리 메시와 겹치지 않도록 LadderFacing 방향으로 LadderStandOff만큼 위치를 이동
-	const FVector DesiredPos = RailPos - LadderFacing * LadderStandOff;
+	// 사다리 메시와 겹치지 않도록 CharToLadderFacing 방향으로 LadderStandOff만큼 위치를 이동
+	const FVector DesiredPos = RailPos - CharToLadderFacing * LadderStandOff;
 
 	// 캐릭터가 사다리를 바라봐야 하는 회전값을 계산
-	const FQuat DesiredRot = FRotationMatrix::MakeFromXZ(LadderFacing, RailDirection).ToQuat();
+	const FQuat DesiredRot = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
 
 	// 현재 위치에서 목표 위치까지의 변위를 계산
 	const FVector Delta = (DesiredPos - UpdatedComponent->GetComponentLocation());
@@ -236,10 +252,10 @@ void UCYCharacterMovementComponent::SnapToRailAndFace()
 	const FVector RailPos = LadderStart + RailDirection * LadderAttachSpot;
 
 	// 캐릭터 위치 (사다리에서 약간 떨어뜨림)
-	const FVector DesiredPos = RailPos - LadderFacing * LadderStandOff;
+	const FVector DesiredPos = RailPos - CharToLadderFacing * LadderStandOff;
 
 	// 캐릭터 회전 (사다리를 바라봄)
-	const FQuat DesiredRot = FRotationMatrix::MakeFromXZ(LadderFacing, RailDirection).ToQuat();
+	const FQuat DesiredRot = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
 
 	// 즉시 텔레포트 (물리 충돌 무시)
 	UpdatedComponent->SetWorldLocationAndRotation(DesiredPos, DesiredRot, false, nullptr, ETeleportType::TeleportPhysics);
@@ -262,34 +278,12 @@ float UCYCharacterMovementComponent::ProjectAttachSpot(const FVector& WorldPos) 
 	return FMath::Clamp(Spot, 0.f, RailLength);
 }
 
-void UCYCharacterMovementComponent::ConstrainToRail()
-{
-	// 필요시 lateral 흔들림 보정 로직 추가 가능 (현재는 Snap에서 해결)
-}
-
-bool UCYCharacterMovementComponent::AtTop() const
-{
-	// KINDA_SMALL_NUMBER: 부동소수점 오차 허용 (약 0.0001)
-	return LadderAttachSpot >= (RailLength - KINDA_SMALL_NUMBER);
-}
-
-bool UCYCharacterMovementComponent::AtBottom() const
-{
-	return LadderAttachSpot <= KINDA_SMALL_NUMBER;
-}
-
 void UCYCharacterMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 
 	// FLAG_Custom_0 비트 체크 (사다리 타기 의도)
-	const bool bClimb = (Flags & FSavedMove_Character::FLAG_Custom_0) != 0;
-
-	// 일반적으로 여기서 강제 모드 전환을 하지는 않음
-	// 이유: BeginClimbLadder/EndClimbLadder는 Ability/RPC로 처리하므로
-	// 서버 권한으로 모드 전환이 이미 처리됨
-	// 이 플래그는 클라이언트 예측 검증용으로만 사용
-	// (필요 시 예측 불일치 감지 로직 추가 가능)
+	bWantsToClimb = (Flags & FSavedMove_Character::FLAG_Custom_0) != 0;
 }
 
 FNetworkPredictionData_Client* UCYCharacterMovementComponent::GetPredictionData_Client() const

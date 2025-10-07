@@ -133,16 +133,6 @@ private:
 	 */
 	float ProjectAttachSpot(const FVector& WorldPos) const;
 
-	/**
-	 * 사다리 레일에서 좌우/전후 흔들림 보정 (선택적 훅)
-	 * 현재는 SnapToRailAndFace()에서 처리하므로 비어있음
-	 * 필요 시 추가 보정 로직 구현 가능
-	 */
-	void ConstrainToRail();
-	
-	bool AtTop() const;
-	bool AtBottom() const;
-
 public:
 	/**
 	 * 사다리 타기 의도 플래그
@@ -178,7 +168,7 @@ private:
 	 * 사다리가 향하는 방향 (월드 수평 방향)
 	 * 캐릭터가 사다리를 바라보는 방향
 	 */
-	FVector LadderFacing = FVector::ForwardVector;
+	FVector CharToLadderFacing = FVector::ForwardVector;
 
 	/**
 	 * 사다리 레일 상의 현재 위치 파라미터

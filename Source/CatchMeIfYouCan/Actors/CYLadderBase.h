@@ -65,7 +65,7 @@ public:
      * 진입 방향 결정 (상향/하향)
      */
     UFUNCTION(BlueprintPure, Category="CY|Ladder|Interaction")
-    bool DetermineClimbDirection(ELadderEntryType EntryType, const ACharacter* Character) const;
+    void DetermineClimbDirection(const ELadderEntryType EntryType, const ACharacter* Character, bool& OutIsClimbingUp) const;
 
     /**
      * 중간 영역에서 자동 그랩 가능 여부 체크
@@ -82,6 +82,7 @@ protected:
     virtual void BeginPlay() override;
     virtual void OnConstruction(const FTransform& Transform) override;
 
+    // TODO : 추후 블루 프린트나 맵을 참고해서 레벨에 배치된 엑터에 대해 직접 조정
     void SetupEntryBoxes();
 
     UFUNCTION()
@@ -98,7 +99,7 @@ private:
     void TryAutoGrabLadder(ACharacter* Character);
     
     /** 자동 그랩시 등반 방향 결정 */
-    bool DetermineClimbDirectionForAutoGrab(const ACharacter* Character) const;
+    void DetermineClimbDirectionForAutoGrab(const ACharacter* Character, bool& OutIsClimbingUp) const;
 
 protected:
 
@@ -145,9 +146,9 @@ protected:
     UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab")
     bool bEnableAutoGrab = true;
 
-    /** 자동 그랩을 위한 최소 낙하 속도 */
-    UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab", meta=(ClampMin="-2000", ClampMax="0"))
-    float MinFallingSpeedForAutoGrab = -100.0f;
+    /** 자동 그랩을 위한 최소 수직 속도 */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab", meta=(ClampMin="0", ClampMax="2000"))
+    float MinVerticalSpeedForAutoGrab = 50.0f;
 
     /** 자동 그랩시 최대 각도 */
     UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab", meta=(ClampMin="0", ClampMax="180"))
