@@ -21,7 +21,15 @@ public class CatchMeIfYouCan : ModuleRules
 			"UMG",
 			"AnimGraphRuntime",
 			"Niagara",
-			"NiagaraCore" 
+			"NiagaraCore",
+			
+			// Online Services
+			"CoreOnline",
+			"OnlineBase", 
+			"OnlineServicesInterface",
+			"OnlineServicesCommon",
+			"OnlineServicesCommonEngineUtils",
+			"OnlineServicesEOS"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });
