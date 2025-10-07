@@ -29,15 +29,6 @@ void ACYLoginGameMode::BeginPlay()
 		}
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("Current NetMode: %s"), *NetModeString));
 	}
-	
-	if (LoginLevelWidgetClass)
-	{
-		LoginLevelWidgetInstance = CreateWidget<UUserWidget>(GetWorld(), LoginLevelWidgetClass);
-		if (LoginLevelWidgetInstance)
-		{
-			LoginLevelWidgetInstance->AddToViewport();
-		}
-	}
 
 	APlayerController* PC = GetWorld()->GetFirstPlayerController();
 	if (PC)
@@ -68,5 +59,17 @@ void ACYLoginGameMode::JoinButtonClick()
 	{
 		CYGameInstance->ButtonType = EButtonType::Join;
 		CYGameInstance->FindSessions();
+	}
+}
+
+void ACYLoginGameMode::ShowLoginLevel()
+{
+	if (LoginLevelWidgetClass)
+	{
+		LoginLevelWidgetInstance = CreateWidget<UUserWidget>(GetWorld(), LoginLevelWidgetClass);
+		if (LoginLevelWidgetInstance)
+		{
+			LoginLevelWidgetInstance->AddToViewport();
+		}
 	}
 }

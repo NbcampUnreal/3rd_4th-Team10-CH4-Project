@@ -19,9 +19,14 @@ public class CatchMeIfYouCan : ModuleRules
 			"GameplayTags", 
 			"GameplayTasks", 
 			"UMG",
-			"OnlineSubsystem",      
-			"OnlineSubsystemUtils",
-			"OnlineSubsystemEOS"
+			
+			// Online Services
+			"CoreOnline", 
+			"OnlineBase", 
+			"OnlineServicesInterface",
+			"OnlineServicesCommon",
+			"OnlineServicesCommonEngineUtils",
+			"OnlineServicesEOS"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });

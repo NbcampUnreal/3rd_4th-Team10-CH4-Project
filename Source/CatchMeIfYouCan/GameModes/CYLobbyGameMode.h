@@ -13,10 +13,5 @@ protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
 private:
-	void QueryPlayerNickname(APlayerController* NewPlayer);
 	
-	void OnQueryUserInfoComplete(int32 LocalUserNum,
-								bool bWasSuccessful,
-								const TArray<TSharedRef<const FUniqueNetId>>& UserIds,
-								const FString& ErrorStr);
 };

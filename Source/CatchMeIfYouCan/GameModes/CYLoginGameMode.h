@@ -28,4 +28,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void JoinButtonClick();
+
+	void ShowLoginLevel();
 };

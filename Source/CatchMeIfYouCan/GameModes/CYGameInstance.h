@@ -2,13 +2,16 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
-#include "OnlineSubsystem.h"
-#include "Interfaces/OnlineSessionInterface.h"
+#include "Online/OnlineServices.h"
+#include "Online/ExternalUI.h"
+#include "Online/UserInfo.h"
+#include "Online/Sessions.h"
 #include "CYGameInstance.generated.h"
 
-enum class EButtonType : uint8 
+UENUM(BlueprintType)
+enum class EButtonType : uint8
 {
-	Host,     
+	Host,
 	Join
 };
 
@@ -18,39 +21,44 @@ class CATCHMEIFYOUCAN_API UCYGameInstance : public UGameInstance
 	GENERATED_BODY()
 
 private:
-	FName CurrentSessionName;
-	
-	FOnDestroySessionCompleteDelegate OnDestroySessionCompleteDelegate;
-	
+	UE::Online::IOnlineServicesPtr OnlineServices;
+	UE::Online::IExternalUIPtr ExternalUIInterface;
+	UE::Online::IUserInfoPtr UserInfoInterface; 
+	UE::Online::ISessionsPtr SessionsInterface;
+
+	UE::Online::FAccountId LocalAccountId;
+	FString SessionName = TEXT("CYSession");
+	UE::Online::FOnlineSessionId JoinedSessionId;
+
+public:
+	EButtonType ButtonType;
+
 protected:
 	virtual void Init() override;
 	
 	virtual void Shutdown() override;
+
+private:
+	void InitializeOnlineServices();
 	
+	void LoginToEAS();
+
+	void HandleLoginToEASComplete(const UE::Online::TOnlineResult<UE::Online::FExternalUIShowLoginUI>& Result);
+
 public:
-	IOnlineSubsystem* OSS;
-
-	IOnlineIdentityPtr Identity;
-
-	IOnlineSessionPtr Sessions;
-
-	TSharedPtr<FOnlineSessionSearch> SearchSettings;
-
-	EButtonType ButtonType;
-
-	void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+	void QueryUserInfo();
 	
-	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
-
-	void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
-	
-	void OnFindSessionsComplete(bool bWasSuccessful);
-
-	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
+	void HandleQueryUserInfoComplete(const UE::Online::TOnlineResult<UE::Online::FQueryUserInfo>& Result);
 	
 	void CreateSession();
 
+	void HandleCreateSessionComplete(const UE::Online::TOnlineResult<UE::Online::FCreateSession>& Result);
+
 	void FindSessions();
 
-	void JoinSession(const FOnlineSessionSearchResult& SearchResult);
+	void HandleFindSessionsComplete(const UE::Online::TOnlineResult<UE::Online::FFindSessions>& Result);
+
+	void JoinSession(const UE::Online::FOnlineSessionId& SessionIdToJoin);
+
+	void HandleJoinSessionComplete(const UE::Online::TOnlineResult<UE::Online::FJoinSession>& Result);
 };
