@@ -176,7 +176,7 @@ void UCYGameInstance::HandleCreateSessionComplete(const UE::Online::TOnlineResul
         return;
     }
     
-    GetWorld()->ServerTravel("/Game/Maps/LobbyLevel?listen", true);
+    GetWorld()->ServerTravel("/Game/Maps/Lobby?listen", true);
 }
 
 void UCYGameInstance::FindSessions()
