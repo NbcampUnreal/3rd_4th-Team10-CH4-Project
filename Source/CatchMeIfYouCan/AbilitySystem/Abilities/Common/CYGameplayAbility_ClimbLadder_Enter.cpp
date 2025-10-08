@@ -37,7 +37,7 @@ UCYGameplayAbility_ClimbLadder_Enter::UCYGameplayAbility_ClimbLadder_Enter()
 void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
     Super::ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
-
+    
     // 캐릭터 검증
     ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
     if (!Character)
@@ -60,7 +60,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
-
+    
     // 사다리 정보 추출
     ACYLadderBase* TempLadder = nullptr;
     FVector LadderBottom, LadderTop, LadderFacing;

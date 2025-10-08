@@ -196,7 +196,7 @@ bool UCYGameplayAbility_Interact_Active::TriggerInteraction()
 		if (FGameplayAbilitySpec* AbilitySpec = AbilitySystem->FindAbilitySpecFromClass(InteractionInfo.AbilityToGrant))
 		{
 			bCanActivate = AbilitySpec->Ability->CanActivateAbility(AbilitySpec->Handle, AbilitySystem->AbilityActorInfo.Get());
-
+			
 			// 게임플레이 이벤트를 통해 실제 상호작용 어빌리티 트리거
 			bTriggerSuccessful = AbilitySystem->TriggerAbilityFromGameplayEvent(
 				AbilitySpec->Handle,

@@ -4,7 +4,6 @@
 #include "CYGameplayAbility_Interact_Ladder.h"
 
 #include "AbilitySystemComponent.h"
-#include "CYLogChannels.h"
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
 #include "Actors/CYLadderBase.h"
 #include "GameFramework/Character.h"
@@ -62,17 +61,7 @@ void UCYGameplayAbility_Interact_Ladder::ActivateAbility(const FGameplayAbilityS
         LadderEventData.EventMagnitude = bClimbUp ? 1.0f : -1.0f;
         
         // ClimbLadder_Enter 어빌리티 트리거
-        int32 TriggeredCount = ASC->HandleGameplayEvent(LadderEventData.EventTag, &LadderEventData);
-        
-        if (TriggeredCount > 0)
-        {
-            UE_LOG(LogCY, Log, TEXT("Interact_Ladder: Successfully triggered ladder entry (Type: %s)"),
-                   EntryType == ELadderEntryType::Top ? TEXT("Top") : TEXT("Bottom"));
-        }
-        else
-        {
-            UE_LOG(LogCY, Warning, TEXT("Interact_Ladder: Failed to trigger ladder entry ability"));
-        }
+        SendGameplayEvent(LadderEnterEventTag, LadderEventData);
     }
 
     // 상호작용 즉시 완료

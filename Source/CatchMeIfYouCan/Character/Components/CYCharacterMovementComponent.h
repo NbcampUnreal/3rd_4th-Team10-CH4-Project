@@ -77,6 +77,9 @@ public:
 	 */
 	virtual float GetMaxSpeed() const override;
 
+	float GetLadderAttachSpot() const { return LadderAttachSpot; }
+	void SetLadderAttachSpot(const float InAttachSpot) { LadderAttachSpot = InAttachSpot; }
+
 protected:
 	/**
 	 * 이동 모드 변경 시 호출되는 콜백
@@ -248,6 +251,8 @@ public:
 	 * FLAG_Custom_0 비트로 네트워크 전송
 	 */
 	uint8 bWantsToClimb : 1;
+
+	float SavedLadderAttachSpot = 0.f;
 
 	/**
 	 * SavedMove 초기화

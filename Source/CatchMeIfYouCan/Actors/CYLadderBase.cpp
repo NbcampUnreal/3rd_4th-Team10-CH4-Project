@@ -3,7 +3,6 @@
 
 #include "CYLadderBase.h"
 
-#include "AbilitySystemComponent.h"
 #include "CYLogChannels.h"
 #include "DrawDebugHelpers.h"
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
@@ -58,6 +57,10 @@ ACYLadderBase::ACYLadderBase()
     
     LadderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LadderMesh"));
     LadderMesh->SetupAttachment(RootSceneComponent);
+    LadderMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    LadderMesh->SetCollisionObjectType(ECC_WorldStatic);
+    LadderMesh->SetCollisionResponseToAllChannels(ECR_Block);
+    LadderMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 }
 
 void ACYLadderBase::BeginPlay()
