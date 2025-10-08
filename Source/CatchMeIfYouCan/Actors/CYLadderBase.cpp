@@ -8,6 +8,7 @@
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Physics/CYCollisionChannels.h"
@@ -60,7 +61,7 @@ ACYLadderBase::ACYLadderBase()
     LadderMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     LadderMesh->SetCollisionObjectType(ECC_WorldStatic);
     LadderMesh->SetCollisionResponseToAllChannels(ECR_Block);
-    LadderMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+    //LadderMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 }
 
 void ACYLadderBase::BeginPlay()
@@ -83,38 +84,6 @@ void ACYLadderBase::BeginPlay()
     {
         BottomEntryBox->OnComponentBeginOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxBeginOverlap);
         BottomEntryBox->OnComponentEndOverlap.AddDynamic(this, &ACYLadderBase::OnEntryBoxEndOverlap);
-    }
-}
-
-void ACYLadderBase::SetupEntryBoxes()
-{
-    const float Height = GetTotalHeight();
-    const FVector Bottom = GetBottomWorldLocation();
-    const FVector Top = GetTopWorldLocation();
-    const FVector Center = (Bottom + Top) * 0.5f;
-    
-    const float EdgeBoxHeight = Height * EdgeBoxHeightRatio;
-    const float MiddleBoxHeight = Height - (EdgeBoxHeight * 2);
-    
-    // 상단 박스
-    if (TopEntryBox)
-    {
-        TopEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, EdgeBoxHeight * 0.5f));
-        TopEntryBox->SetWorldLocation(Top - FVector(0, 0, EdgeBoxHeight * 0.5f));
-    }
-    
-    // 중간 박스
-    if (MiddleEntryBox && MiddleBoxHeight > 0)
-    {
-        MiddleEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, MiddleBoxHeight * 0.5f));
-        MiddleEntryBox->SetWorldLocation(Center);
-    }
-    
-    // 하단 박스
-    if (BottomEntryBox)
-    {
-        BottomEntryBox->SetBoxExtent(FVector(EntryBoxRadius, EntryBoxRadius, EdgeBoxHeight * 0.5f));
-        BottomEntryBox->SetWorldLocation(Bottom + FVector(0, 0, EdgeBoxHeight * 0.5f));
     }
 }
 
@@ -159,36 +128,53 @@ ELadderEntryType ACYLadderBase::GetPlayerEntryType(const AActor* Player) const
     return ELadderEntryType::None;
 }
 
-float ACYLadderBase::CalculateInitialRailParameter(ELadderEntryType EntryType, const ACharacter* Character, float EdgeOffset) const
+float ACYLadderBase::CalculateInitialRailParameter(ELadderEntryType EntryType, const ACharacter* Character) const
 {
+    if (!Character)
+    {
+        return 0.f;
+    }
+    
+    const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+    const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
     const float Height = GetTotalHeight();
     
     switch (EntryType)
     {
-        case ELadderEntryType::Top:
-            return Height - EdgeOffset;
+    case ELadderEntryType::Top:
+        // 상단 진입: 위에서 (캡슐높이 + 탑 마진)만큼 아래
+        return FMath::Clamp(
+            Height - (CapsuleHalfHeight + TopEntrySafetyMargin),
+            CapsuleHalfHeight,
+            Height - CapsuleHalfHeight
+        );
             
-        case ELadderEntryType::Bottom:
-            return EdgeOffset;
+    case ELadderEntryType::Bottom:
+        // 하단 진입: 아래에서 (캡슐높이 + 바텀 마진)만큼 위
+        return FMath::Clamp(
+            CapsuleHalfHeight + BottomEntrySafetyMargin,
+            CapsuleHalfHeight,
+            Height - CapsuleHalfHeight
+        );
             
-        case ELadderEntryType::Middle:
+    case ELadderEntryType::Middle:
         {
-            if (Character)
-            {
-                const FVector CharPos = Character->GetActorLocation();
-                const FVector Bottom = GetBottomWorldLocation();
-                const FVector ClimbDir = GetClimbingDirection();
-                
-                const FVector RelativePos = CharPos - Bottom;
-                float ProjectedHeight = FVector::DotProduct(RelativePos, ClimbDir);
-                
-                return FMath::Clamp(ProjectedHeight, EdgeOffset, Height - EdgeOffset);
-            }
-            return Height * 0.5f;
+            // 중간 진입: 현재 위치 투영 (기존 로직)
+            const FVector CharPos = Character->GetActorLocation();
+            const FVector Bottom = GetBottomWorldLocation();
+            const FVector ClimbDir = GetClimbingDirection();
+            const FVector RelativePos = CharPos - Bottom;
+            float ProjectedHeight = FVector::DotProduct(RelativePos, ClimbDir);
+            
+            return FMath::Clamp(
+                ProjectedHeight, 
+                CapsuleHalfHeight, 
+                Height - CapsuleHalfHeight
+            );
         }
             
-        default:
-            return 0.0f;
+    default:
+        return CapsuleHalfHeight;
     }
 }
 
@@ -420,49 +406,6 @@ bool ACYLadderBase::CanInteraction(const FCYInteractionQuery& InteractionQuery) 
     }
     
     return EntryType != ELadderEntryType::None;
-}
-
-void ACYLadderBase::OnConstruction(const FTransform& Transform)
-{
-    Super::OnConstruction(Transform);
-
-    // SetupEntryBoxes();
-    //
-    // if (!bShowDebugVisualization || !GetWorld())
-    // {
-    //     return;
-    // }
-    //
-    // const FVector Bottom = GetBottomWorldLocation();
-    // const FVector Top = GetTopWorldLocation();
-    // const float Height = GetTotalHeight();
-    // const float EdgeHeight = Height * EdgeBoxHeightRatio;
-    //
-    // // 사다리 레일
-    // DrawDebugLine(GetWorld(), Bottom, Top, FColor::Cyan, false, -1, 0, 2.0f);
-    //
-    // // 상단 박스 (빨강)
-    // DrawDebugBox(GetWorld(), 
-    //             Top - FVector(0, 0, EdgeHeight * 0.5f),
-    //             FVector(EntryBoxRadius, EntryBoxRadius, EdgeHeight * 0.5f),
-    //             FColor::Red, false, -1, 0, 2.0f);
-    //
-    // // 하단 박스 (초록)
-    // DrawDebugBox(GetWorld(),
-    //             Bottom + FVector(0, 0, EdgeHeight * 0.5f),
-    //             FVector(EntryBoxRadius, EntryBoxRadius, EdgeHeight * 0.5f),
-    //             FColor::Green, false, -1, 0, 2.0f);
-    //
-    // // 중간 박스 (자동 그랩시 주황, 아니면 노랑)
-    // const float MiddleHeight = Height - (EdgeHeight * 2);
-    // if (MiddleHeight > 0)
-    // {
-    //     FColor MiddleColor = bEnableAutoGrab ? FColor::Orange : FColor::Yellow;
-    //     DrawDebugBox(GetWorld(),
-    //                 (Bottom + Top) * 0.5f,
-    //                 FVector(EntryBoxRadius, EntryBoxRadius, MiddleHeight * 0.5f),
-    //                 MiddleColor, false, -1, 0, 2.0f);
-    // }
 }
 
 

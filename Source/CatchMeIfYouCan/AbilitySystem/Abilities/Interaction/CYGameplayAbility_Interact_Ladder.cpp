@@ -47,20 +47,17 @@ void UCYGameplayAbility_Interact_Ladder::ActivateAbility(const FGameplayAbilityS
         return;
     }
 
+    // 등반 방향 결정
+    bool bClimbUp = false;
+    Ladder->DetermineClimbDirection(EntryType, Character, bClimbUp);
+
     // 사다리 진입 어빌리티로 이벤트 전달
     if (UAbilitySystemComponent* ASC = ActorInfo->AbilitySystemComponent.Get())
     {
-        // 이벤트 데이터 복사 및 수정
         FGameplayEventData LadderEventData = *TriggerEventData;
         LadderEventData.EventTag = LadderEnterEventTag;
-        
-        // 추가 정보를 EventMagnitude로 전달 
-        // 1.0 = 상향, -1.0 = 하향
-        bool bClimbUp = false;
-        Ladder->DetermineClimbDirection(EntryType, Character, bClimbUp);
         LadderEventData.EventMagnitude = bClimbUp ? 1.0f : -1.0f;
-        
-        // ClimbLadder_Enter 어빌리티 트리거
+  
         SendGameplayEvent(LadderEnterEventTag, LadderEventData);
     }
 

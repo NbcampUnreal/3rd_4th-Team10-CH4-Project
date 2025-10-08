@@ -1,6 +1,7 @@
 #include "CYCharacterMovementComponent.h"
 
 #include "CYLogChannels.h"
+#include "Actors/CYLadderBase.h"
 #include "GameFramework/Character.h"
 
 UCYCharacterMovementComponent::UCYCharacterMovementComponent()
@@ -46,17 +47,6 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 		BrakingFrictionFactor = 0.f;
 		bOrientRotationToMovement = false;
 		Velocity = FVector::ZeroVector;
-		
-		// 스냅 가드: 로컬(Autonomous) 또는 서버(Authority)에서만 + 데이터 유효할 때만
-		const bool bCanSnap =
-			(CharacterOwner && (CharacterOwner->IsLocallyControlled() || CharacterOwner->HasAuthority())) &&
-			LadderActor.IsValid() &&
-			RailLength > KINDA_SMALL_NUMBER;
-
-		if (bCanSnap)
-		{
-			SnapToRailAndFace();
-		}
 	}
 	else if (bWasClimbing)
 	{
@@ -78,7 +68,7 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	}
 }
 
-void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InAttachSpot)
+void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InLadderStandOff, float InAttachSpot,  bool bUseInterpolation)
 {
 	if (!IsValid(InLadder) || !UpdatedComponent)
 	{
@@ -88,7 +78,8 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 
 	LadderActor = InLadder;      
 	LadderStart = InStart;    
-	LadderEnd   = InEnd;  
+	LadderEnd   = InEnd;
+	LadderStandOff = InLadderStandOff;
 
 	bWantsToClimb = true;
 	
@@ -118,15 +109,6 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 		FacingOnPlane = AnyPerp.GetSafeNormal();
 	}
 
-	// 면 위 임의의 기준점(보통 사다리 시작점)에서 캐릭터 방향 벡터
-	const FVector ToCharacter = (UpdatedComponent->GetComponentLocation() - LadderStart);
-
-	// 법선이 캐릭터 반대로면 뒤집기
-	if (FVector::DotProduct(FacingOnPlane, ToCharacter) < 0.f)
-	{
-		FacingOnPlane *= -1.f;
-	}
-	
 	CharToLadderFacing = -FacingOnPlane;
 
 	// 안전성 체크: LadderFacing이 0벡터면 기본값 사용
@@ -134,29 +116,45 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 	{
 		CharToLadderFacing = FVector::ForwardVector;
 	}
+	
+	LadderAttachSpot = FMath::Clamp(InAttachSpot, 0.f, RailLength);
 
-	// 초기 부착 위치 설정
-	if (InAttachSpot >= 0.f)
+	SetBase(nullptr);         
+	bJustTeleported = true;
+
+	const FVector RailPos = LadderStart + RailDirection * LadderAttachSpot;
+	const FVector TargetPosition = RailPos - CharToLadderFacing * LadderStandOff;
+	const FQuat TargetRotation = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
+
+	if (bUseInterpolation)
 	{
-		// AttachSpot이 지정되면 해당 값 사용 (0 ~ RailLength 범위로 클램프)
-		LadderAttachSpot = FMath::Clamp(InAttachSpot, 0.f, RailLength);
+		bIsInterpolatingToLadder = true;
+		InterpStartLocation = UpdatedComponent->GetComponentLocation();
+		InterpStartRotation = UpdatedComponent->GetComponentQuat();
+		InterpTargetLocation = TargetPosition;
+		InterpTargetRotation = TargetRotation;
+		InterpElapsedTime = 0.f;
 	}
 	else
 	{
-		// AttachSpot이 음수면 현재 캐릭터 위치를 레일에 투영하여 계산
-		// 사다리 중간에서 진입할 수 있도록 지원
-		LadderAttachSpot = ProjectAttachSpot(UpdatedComponent->GetComponentLocation());
+		bIsInterpolatingToLadder = false;
+		UpdatedComponent->SetWorldLocationAndRotation(
+			TargetPosition, 
+			TargetRotation, 
+			false, nullptr, 
+			ETeleportType::TeleportPhysics
+		);
 	}
 
-	SetBase(nullptr);         // 움직이는 바닥 기준 분리(있다면)
-	bJustTeleported = true;
-	// OnMovementModeChanged()가 호출되어 중력 비활성화, 레일 스냅 등 처리
 	SetMovementMode(MOVE_Custom, CMOVE_Climbing);
 }
 
 void UCYCharacterMovementComponent::EndClimbLadder(bool bStepOffTop)
 {
 	bWantsToClimb = false;
+
+	bIsInterpolatingToLadder = false;
+	InterpElapsedTime = 0.f;
 	
 	// 현재는 간단히 이동 모드만 전환
 	// TODO : 상단 탈출 시 추가 처리 가능 (예: 약간의 전방 임펄스)
@@ -196,15 +194,14 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
     {
         return;
     }
-	
-	const FString RoleStr = CharacterOwner->HasAuthority() ? TEXT("Server") : 
-		(CharacterOwner->IsLocallyControlled() ? TEXT("Client") : TEXT("Simulated"));
-    
-	UE_LOG(LogTemp, Warning, 
-		TEXT("[%s] LadderAttachSpot: %.2f, Location.Z: %.2f"),
-		 *RoleStr, LadderAttachSpot, 
-		UpdatedComponent->GetComponentLocation().Z);
-	
+
+	// 보간 중이면 보간만 처리
+	if (bIsInterpolatingToLadder)
+	{
+		UpdateLadderEntryInterpolation(DeltaTime);
+		Velocity = FVector::ZeroVector;  // 보간 중에는 속도 0
+		return;
+	}
 
 	FRotator ControlRot = FRotator::ZeroRotator;
 	if (CharacterOwner && CharacterOwner->Controller)
@@ -270,47 +267,50 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
         const FVector RailPos   = LadderStart + RailDirection * LadderAttachSpot;
         const FVector DesiredPos= RailPos - CharToLadderFacing * LadderStandOff;
         const FVector Lateral   = DesiredPos - NewLocation;
- 
+    
         // 스윕 없이 살짝 붙여주기: 충돌로 튀는 것 방지, 서버/클라 위치 일치
         MoveUpdatedComponent(Lateral, DesiredRot, /*bSweep*/false);
     }
 }
 
-void UCYCharacterMovementComponent::SnapToRailAndFace()
+void UCYCharacterMovementComponent::UpdateLadderEntryInterpolation(float DeltaTime)
 {
-	if (!UpdatedComponent)
+	if (!bIsInterpolatingToLadder)
 	{
 		return;
 	}
-	
-	// 레일 상의 위치 계산
-	const FVector RailPos = LadderStart + RailDirection * LadderAttachSpot;
-	
-	// 캐릭터 위치 (사다리에서 약간 떨어뜨림)
-	const FVector DesiredPos = RailPos - CharToLadderFacing * LadderStandOff;
-	
-	// 캐릭터 회전 (사다리를 바라봄)
-	const FQuat DesiredRot = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
-	
-	// 즉시 텔레포트 (물리 충돌 무시)
-	UpdatedComponent->SetWorldLocationAndRotation(DesiredPos, DesiredRot, false, nullptr, ETeleportType::TeleportPhysics);
-}
+    
+	InterpElapsedTime += DeltaTime;
+    
+	// 보간 비율 계산 (0.0 ~ 1.0)
+	float Alpha = FMath::Clamp(InterpElapsedTime / LadderEntryInterpDuration, 0.f, 1.f);
+    
+	// Ease In-Out 곡선 적용
+	Alpha = FMath::InterpEaseInOut(0.f, 1.f, Alpha, LadderEntryInterpEase);
+    
+	// 위치 보간
+	const FVector CurrentLocation = FMath::Lerp(InterpStartLocation, InterpTargetLocation, Alpha);
+    
+	// 회전 보간 (Slerp)
+	const FQuat CurrentRotation = FQuat::Slerp(InterpStartRotation, InterpTargetRotation, Alpha);
 
-float UCYCharacterMovementComponent::ProjectAttachSpot(const FVector& WorldPos) const
-{
-	if (RailLength <= KINDA_SMALL_NUMBER || RailDirection.IsNearlyZero())
+	const FVector Delta = CurrentLocation - UpdatedComponent->GetComponentLocation();
+
+	FHitResult Hit;
+	SafeMoveUpdatedComponent(Delta, CurrentRotation, /*bSweep=*/true, Hit);
+	if (Hit.IsValidBlockingHit())
 	{
-		return 0.f;
+		SlideAlongSurface(Delta, 1.f - Hit.Time, Hit.Normal, Hit, /*bHandleImpact=*/true);
 	}
 
-	// WorldPos를 레일 시작점 기준으로 이동
-	const FVector FromStart = WorldPos - LadderStart;
+	// 네트워크/스무딩 쪽 보정 끄기
+	bJustTeleported = true;
 
-	// 레일 방향으로의 스칼라 투영 길이
-	const float Spot = FVector::DotProduct(FromStart, RailDirection); 
-
-	// 선분 [0, RailLength]로 클램프하여 실제 부착 지점 반환
-	return FMath::Clamp(Spot, 0.f, RailLength);
+	if (Alpha >= 1.f)
+	{
+		bIsInterpolatingToLadder = false;
+		InterpElapsedTime = 0.f;
+	}
 }
 
 void UCYCharacterMovementComponent::UpdateFromCompressedFlags(uint8 Flags)

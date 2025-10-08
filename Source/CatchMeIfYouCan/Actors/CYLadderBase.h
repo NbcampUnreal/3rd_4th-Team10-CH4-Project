@@ -59,7 +59,7 @@ public:
      * 진입 타입과 캐릭터 위치에 따른 초기 레일 위치 계산
      */
     UFUNCTION(BlueprintPure, Category="CY|Ladder|Interaction")
-    float CalculateInitialRailParameter(ELadderEntryType EntryType, const ACharacter* Character, float EdgeOffset = 25.0f) const;
+    float CalculateInitialRailParameter(ELadderEntryType EntryType, const ACharacter* Character) const;
 
     /**
      * 진입 방향 결정 (상향/하향)
@@ -70,8 +70,10 @@ public:
     /**
      * 중간 영역에서 자동 그랩 가능 여부 체크
      */
-    UFUNCTION(BlueprintPure, Category="CY|Ladder|AutoGrab")
+    UFUNCTION(BlueprintPure, Category="CY|Ladder|Interaction")
     bool CanAutoGrabFromMiddle(const ACharacter* Character) const;
+
+    float GetLadderStandOffDistance() const { return LadderStandOffDistance; }
     
     virtual FCYInteractionInfo GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const override;
     virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
@@ -80,10 +82,6 @@ public:
 protected:
     
     virtual void BeginPlay() override;
-    virtual void OnConstruction(const FTransform& Transform) override;
-
-    // TODO : 추후 블루 프린트나 맵을 참고해서 레벨에 배치된 엑터에 대해 직접 조정
-    void SetupEntryBoxes();
 
     UFUNCTION()
     void OnEntryBoxBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -157,6 +155,18 @@ protected:
     /** 자동 그랩시 최대 거리 비율 */
     UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab", meta=(ClampMin="0.3", ClampMax="1.0"))
     float AutoGrabDistanceRatio = 0.7f;
+
+    /** 사다리별 전방 오프셋 (캡슐과 메시 충돌 방지) */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="10.0", ClampMax="100.0"))
+    float LadderStandOffDistance = 40.0f;
+    
+    /** 상단 진입 시 안전 마진 (땅에서 떨어진 거리) */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="5.0", ClampMax="50.0"))
+    float TopEntrySafetyMargin = 10.0f;
+    
+    /** 하단 진입 시 안전 마진 (땅바닥 충돌 방지) */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="5.0", ClampMax="50.0"))
+    float BottomEntrySafetyMargin = 15.0f;
 
     /** 상호작용 정보 */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Interaction")

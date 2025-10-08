@@ -49,18 +49,16 @@ public:
 	 * @param InStart - 사다리 시작점 (월드 좌표, 하단)
 	 * @param InEnd - 사다리 끝점 (월드 좌표, 상단)
 	 * @param InFacing - 사다리가 향하는 방향 (캐릭터가 바라볼 방향)
+	 * @param InLadderStandOff - 사다리에서 떨어뜨리는 거리 (캐릭터가 사다리에서 떨어진 거리)
 	 * @param InAttachSpot - 초기 부착 위치 (0 ~ RailLength), -1이면 현재 위치에서 자동 계산
-	 * 호출 시점: Ability나 RPC에서 사다리 상호작용 시작 시
-	 * 효과: MOVE_Custom(CMOVE_Climbing) 모드로 전환, 중력 비활성화
+	 * @param bUseInterpolation - false면 즉시 스냅
 	 */
 	UFUNCTION(BlueprintCallable, Category="CY|Movement|Ladder")
-	void BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InAttachSpot = -1.f);
+	void BeginClimbLadder(AActor* InLadder, const FVector& InStart, const FVector& InEnd, const FVector& InFacing, float InLadderStandOff, float InAttachSpot, bool bUseInterpolation = true);
 
 	/**
 	 * 사다리 등반 종료
 	 * @param bStepOffTop - true면 상단 탈출, false면 하단 탈출
-	 * 호출 시점: 사다리 상/하단 도달 시 또는 강제 종료 시
-	 * 효과: Walking 또는 Falling 모드로 복귀, 중력 복원
 	 */
 	UFUNCTION(BlueprintCallable, Category="CY|Movement|Ladder")
 	void EndClimbLadder(bool bStepOffTop);
@@ -71,14 +69,12 @@ public:
 	UFUNCTION(BlueprintPure, Category="CY|Movement|Ladder")
 	bool IsClimbingLadder() const;
 
-	/**
-	 * 사다리 타는 중이면 MaxClimbSpeed 반환
-	 * 그 외에는 부모 클래스의 기본 동작 사용
-	 */
 	virtual float GetMaxSpeed() const override;
 
 	float GetLadderAttachSpot() const { return LadderAttachSpot; }
 	void SetLadderAttachSpot(const float InAttachSpot) { LadderAttachSpot = InAttachSpot; }
+
+	
 
 protected:
 	/**
@@ -108,33 +104,12 @@ protected:
 private:
 	/**
 	 * 사다리 물리 처리 (매 프레임 호출)
-	 *
-	 * 동작 순서:
-	 * 1. 입력 벡터를 RailDir에 투영하여 상/하 이동 속도 계산
-	 * 2. LadderAttachSpoy 파라미터 업데이트 (적분)
-	 * 3. 목표 위치/회전 계산 (레일 위치 - LadderFacing * StandOff)
-	 * 4. MoveUpdatedComponent로 이동
-	 * 5. Velocity 업데이트
 	 * @param DeltaTime - 프레임 시간
 	 * @param Iterations - 물리 반복 횟수
 	 */
 	void PhysLadder(float DeltaTime, int32 Iterations);
 
-	/**
-	 * 캐릭터를 사다리 레일에 스냅하고 방향 정렬
-	 * 사다리 진입 시 즉시 호출되어 캐릭터를 정확한 위치/회전으로 이동
-	 * ETeleportType::TeleportPhysics 사용하여 물리 충돌 무시
-	 */
-	void SnapToRailAndFace();
-
-	/**
-	 * 월드 위치(캐릭터 위치)를 사다리 레일 상의 파라미터 s로 투영
-	 * @param WorldPos - 투영할 월드 좌표
-	 * @return 사다리 레일 상의 거리 (0 ~ RailLength)
-	 * 계산 방법: 내적을 이용한 선형 투영
-	 * S = Dot(WorldPos - LadderStart, RailDir)
-	 */
-	float ProjectAttachSpot(const FVector& WorldPos) const;
+	void UpdateLadderEntryInterpolation(float DeltaTime);
 
 public:
 	/**
@@ -148,23 +123,11 @@ public:
 	
 private:
 
-	/**
-	 * 현재 타고 있는 사다리 액터 
-	 * - Transient: 저장/로드 시 직렬화 제외
-	 */
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AActor> LadderActor;
-
-	/**
-	 * 사다리 시작점 (월드 좌표, 하단)
-	 * BeginClimbLadder()에서 설정
-	 */
+	
 	FVector LadderStart = FVector::ZeroVector;
-
-	/**
-	 * 사다리 끝점 (월드 좌표, 상단)
-	 * BeginClimbLadder()에서 설정
-	 */
+	
 	FVector LadderEnd = FVector::ZeroVector;
 
 	/**
@@ -177,44 +140,50 @@ private:
 	 * 사다리 레일 상의 현재 위치 파라미터
 	 * 범위: 0 (하단) ~ RailLength (상단)
 	 * PhysLadder()에서 매 프레임 업데이트
-	 * 계산: LadderAttachSpot += SpeedAlongRail * DeltaTime
 	 */
 	float LadderAttachSpot = 0.f;
 
 	/**
-	 * 사다리 타기 최대 속도 (cm/s)
-	 * 입력 방향에 따라 상/하 이동 속도 결정
+	 * 사다리 평면에서 캐릭터를 떨어뜨리는 거리 
 	 */
-	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
-	float MaxClimbSpeed = 180.f;
+	float LadderStandOff = 0.f;
 
-	/**
-	 * 사다리 평면에서 캐릭터를 떨어뜨리는 거리 (cm)
-	 * 캐릭터가 사다리 메시와 겹치지 않도록 약간 앞으로 배치
-	 */
-	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
-	float LadderStandOff = 30.f;
-
-	/**
-	 * 스냅 강도 (현재 미사용)
-	 * TODO : 부드러운 스냅 보간에 사용 가능
-	 */
-	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
-	float SnapStrength = 20.f;
-	
 	/**
 	 * 사다리 레일 길이 (cm)
 	 * BeginClimbLadder()에서 설정
 	 */
 	float RailLength = 0.f;
-
+	
 	/**
 	 * 사다리 레일 방향 
-	 * BeginClimbLadder()에서 설정
-	 * 입력을 이 방향에 투영하여 상/하 이동 속도 계산
 	 */
 	FVector RailDirection = FVector::UpVector;
 
+	/** 사다리 진입 보간 중인지 여부 */
+	bool bIsInterpolatingToLadder = false;
+
+	FVector InterpStartLocation = FVector::ZeroVector;
+
+	FQuat InterpStartRotation = FQuat::Identity;
+
+	FVector InterpTargetLocation = FVector::ZeroVector;
+ 
+	FQuat InterpTargetRotation = FQuat::Identity;
+    
+	/** 보간 경과 시간 */
+	float InterpElapsedTime = 0.f;
+
+	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
+	float MaxClimbSpeed = 180.f;
+	
+	/** 보간 지속 시간 */
+	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
+	float LadderEntryInterpDuration = 0.3f;
+    
+	/** 보간 곡선 (Ease In Out) */
+	UPROPERTY(EditAnywhere, Category="CY|Movement|Ladder")
+	float LadderEntryInterpEase = 2.0f;
+	
 	/**
 	 * 캐싱을 위한 변수들
 	 */

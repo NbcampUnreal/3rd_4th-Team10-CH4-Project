@@ -64,10 +64,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     // 사다리 정보 추출
     ACYLadderBase* TempLadder = nullptr;
     FVector LadderBottom, LadderTop, LadderFacing;
+    float LadderStandOff = 0.0f;
     float InitialRailParameter = 0.0f;
     bool bIsClimbingUp = true;
 
-    if (!CanExtractLadderInfo(TriggerEventData, TempLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter, bIsClimbingUp))
+    if (!CanExtractLadderInfo(TriggerEventData, TempLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff, InitialRailParameter, bIsClimbingUp))
     {
         UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Failed to extract ladder info"));
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
@@ -84,7 +85,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     }
 
     // 사다리 등반 시작
-    CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, InitialRailParameter);
+    CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  true);
 
     // 이탈 감시 태스크 생성 및 시작
     constexpr float CheckRate = 0.02f; // 50Hz
@@ -104,7 +105,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     }
 }
 
-bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation,FVector& OutTopLocation,FVector& OutFacingDirection, float& OutInitialRailParameter, bool& OutIsClimbingUp) const
+bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation,FVector& OutTopLocation,FVector& OutFacingDirection, float& OutLadderStandOff, float& OutInitialRailParameter, bool& OutIsClimbingUp) const
 {
     // 이벤트 데이터 검증
     if (!TriggerEventData || !TriggerEventData->Target)
@@ -133,6 +134,7 @@ bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayE
     OutBottomLocation = OutLadder->GetBottomWorldLocation();
     OutTopLocation = OutLadder->GetTopWorldLocation();
     OutFacingDirection = OutLadder->GetHorizontalFacingDirection();
+    OutLadderStandOff = OutLadder->GetLadderStandOffDistance();
 
     // 진입 타입 확인
     ELadderEntryType EntryType = OutLadder->GetPlayerEntryType(Character);
@@ -155,7 +157,7 @@ bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayE
     }
 
     // 초기 레일 위치 계산
-    OutInitialRailParameter = OutLadder->CalculateInitialRailParameter(EntryType, Character, EdgeEntryOffset);
+    OutInitialRailParameter = OutLadder->CalculateInitialRailParameter(EntryType, Character);
     
     return true;
 }

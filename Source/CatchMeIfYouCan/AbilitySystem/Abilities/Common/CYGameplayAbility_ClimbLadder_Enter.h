@@ -45,7 +45,7 @@ private:
     /**
      * 이벤트 데이터에서 사다리 정보 추출 및 검증
      */
-    bool CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation, FVector& OutTopLocation, FVector& OutFacingDirection, float& OutInitialRailParameter, bool& OutIsClimbingUp) const;
+    bool CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation, FVector& OutTopLocation, FVector& OutFacingDirection, float& OutLadderStandOff, float& OutInitialRailParameter, bool& OutIsClimbingUp) const;
 
     /** 가장자리 진입 오프셋 */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder")
