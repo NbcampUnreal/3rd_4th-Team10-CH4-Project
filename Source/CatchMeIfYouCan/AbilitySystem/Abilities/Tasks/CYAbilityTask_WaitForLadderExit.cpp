@@ -1,7 +1,6 @@
 #include "CYAbilityTask_WaitForLadderExit.h"
 
 #include "AbilitySystemComponent.h"
-#include "CYLogChannels.h"
 #include "Character/CYStatusGameplayTags.h"
 #include "Character/Components/CYCharacterMovementComponent.h"
 #include "GameFramework/Character.h"
@@ -124,6 +123,21 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
 
 void UCYAbilityTask_WaitForLadderExit::OnJumpTagChanged(const FGameplayTag Tag, int32 NewCount)
 {
+    // TODO 몽타주 활성화 시 점프 로직 무시를 추후 개선된 방식으로 변경 예정
+    ACharacter* Character = Cast<ACharacter>(Ability->GetCurrentActorInfo()->AvatarActor.Get());
+    if (!Character)
+    {
+        return;
+    }
+    if (UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance())
+    {
+        if (AnimInstance->IsAnyMontagePlaying())
+        {
+
+            return;
+        }
+    }
+    
     if (NewCount > 0)
     {
         OnCancelled.Broadcast();
@@ -154,6 +168,15 @@ float UCYAbilityTask_WaitForLadderExit::AnalyzeClimbingIntent(const ACharacter* 
     if (!MovementComp)
     {
         return 0.0f;
+    }
+
+    if (UAnimInstance* AnimInstance = Character->GetMesh()->GetAnimInstance())
+    {
+        if (AnimInstance->IsAnyMontagePlaying())
+        {
+            // 몽타주 재생 중 = 입력 무시
+            return 0.0f;
+        }
     }
 
     const FVector InputDirection = MovementComp->GetCurrentAcceleration();

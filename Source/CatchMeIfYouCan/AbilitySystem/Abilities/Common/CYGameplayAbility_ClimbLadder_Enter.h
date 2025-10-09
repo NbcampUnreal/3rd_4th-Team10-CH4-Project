@@ -62,6 +62,16 @@ private:
     void SetupExitMotionWarpingTarget();
 
     void SetupEntryMotionWarpingTarget(const FVector& TargetLocation, const FQuat& TargetRotation);
+
+    /** 진입 몽타주 완료 콜백 */
+    UFUNCTION()
+    void OnEntryMontageCompleted();
+    
+    /** 진입 몽타주 취소/중단 콜백 */
+    UFUNCTION()
+    void OnEntryMontageCancelled();
+
+    void StartLadderExitMonitoring();
     
 protected:
 

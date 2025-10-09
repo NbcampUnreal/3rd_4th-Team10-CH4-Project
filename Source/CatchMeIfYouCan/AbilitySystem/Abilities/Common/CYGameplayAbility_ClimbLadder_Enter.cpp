@@ -103,33 +103,17 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
         if (UAbilityTask_PlayMontageAndWait* EntryTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
                this, TEXT("LadderEntry"), EntryMontage, 1.0f, NAME_None, true))
         {
+            EntryTask->OnCompleted.AddDynamic(this, &ThisClass::OnEntryMontageCompleted);
+            EntryTask->OnBlendOut.AddDynamic(this, &ThisClass::OnEntryMontageCompleted);
+            EntryTask->OnInterrupted.AddDynamic(this, &ThisClass::OnEntryMontageCancelled);
+            EntryTask->OnCancelled.AddDynamic(this, &ThisClass::OnEntryMontageCancelled);
             EntryTask->ReadyForActivation();
         }
     }
-    
-    const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
-    const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
-
-    // 하단: 캡슐 반높이 + 안전 마진
-    const float BottomThreshold = CurrentLadder->GetBottomSafetyMargin() + CapsuleHalfHeight;
-
-    // 상단: 고정값 또는 캡슐 기반
-    const float TopThreshold = CurrentLadder->GetTopSafetyMargin();
-    // 이탈 감시 태스크 생성 및 시작
-    constexpr float CheckRate = 0.02f; // 50Hz
-    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate, BottomThreshold, TopThreshold);
-    
-    if (ExitMonitorTask)
-    {
-        ExitMonitorTask->OnExitTop.AddDynamic(this, &ThisClass::HandleLadderExitFromTop);
-        ExitMonitorTask->OnExitBottom.AddDynamic(this, &ThisClass::HandleLadderExitFromBottom);
-        ExitMonitorTask->OnCancelled.AddDynamic(this, &ThisClass::HandleLadderClimbingCancelled);
-        ExitMonitorTask->ReadyForActivation();
-    }
     else
     {
-        UE_LOG(LogCY, Error, TEXT("ClimbLadder_Enter: Failed to create exit monitor task"));
-        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        // 태스크 생성 실패 시 즉시 감시 시작
+        StartLadderExitMonitoring();
     }
 }
 
@@ -348,6 +332,63 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupEntryMotionWarpingTarget(const F
         DrawDebugDirectionalArrow(GetWorld(), TargetLocation, 
             TargetLocation + TargetRotation.GetForwardVector() * 100.f, 
             5.0f, FColor::Red, false, Duration, 0, 3.0f);
+    }
+}
+
+void UCYGameplayAbility_ClimbLadder_Enter::OnEntryMontageCompleted()
+{
+    if (!CachedMovementComponent || !CurrentLadder)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+    StartLadderExitMonitoring();
+}
+
+void UCYGameplayAbility_ClimbLadder_Enter::OnEntryMontageCancelled()
+{
+    EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
+}
+
+void UCYGameplayAbility_ClimbLadder_Enter::StartLadderExitMonitoring()
+{
+    if (!CachedMovementComponent || !CurrentLadder)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+    
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+
+    if (!Character)
+    {
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+        return;
+    }
+    
+    const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+    const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
+    const float BottomThreshold = CurrentLadder->GetBottomSafetyMargin() + CapsuleHalfHeight;
+    const float TopThreshold = CurrentLadder->GetTopSafetyMargin();
+    const FVector LadderBottom = CurrentLadder->GetBottomWorldLocation();
+    const FVector LadderTop = CurrentLadder->GetTopWorldLocation();
+    const FVector LadderFacing = CurrentLadder->GetHorizontalFacingDirection();
+    
+    // 이탈 감시 태스크 생성 및 시작
+    constexpr float CheckRate = 0.02f; // 50Hz
+    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate, BottomThreshold, TopThreshold);
+    
+    if (ExitMonitorTask)
+    {
+        ExitMonitorTask->OnExitTop.AddDynamic(this, &ThisClass::HandleLadderExitFromTop);
+        ExitMonitorTask->OnExitBottom.AddDynamic(this, &ThisClass::HandleLadderExitFromBottom);
+        ExitMonitorTask->OnCancelled.AddDynamic(this, &ThisClass::HandleLadderClimbingCancelled);
+        ExitMonitorTask->ReadyForActivation();
+    }
+    else
+    {
+        UE_LOG(LogCY, Error, TEXT("ClimbLadder_Enter: Failed to create exit monitor task"));
+        EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
     }
 }
 
