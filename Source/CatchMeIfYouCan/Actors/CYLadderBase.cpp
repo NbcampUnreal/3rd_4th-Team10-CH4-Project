@@ -41,14 +41,14 @@ ACYLadderBase::ACYLadderBase()
     TopEntryBox->SetCollisionResponseToAllChannels(ECR_Ignore);
     TopEntryBox->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Block);
     TopEntryBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-    
+
     MiddleEntryBox = CreateDefaultSubobject<UBoxComponent>(TEXT("MiddleEntryBox"));
     MiddleEntryBox->SetupAttachment(RootSceneComponent);
     MiddleEntryBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
     MiddleEntryBox->SetCollisionResponseToAllChannels(ECR_Ignore);
     MiddleEntryBox->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Block);
     MiddleEntryBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-    
+
     BottomEntryBox = CreateDefaultSubobject<UBoxComponent>(TEXT("BottomEntryBox"));
     BottomEntryBox->SetupAttachment(RootSceneComponent);
     BottomEntryBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
@@ -58,10 +58,17 @@ ACYLadderBase::ACYLadderBase()
     
     LadderMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LadderMesh"));
     LadderMesh->SetupAttachment(RootSceneComponent);
-    LadderMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-    LadderMesh->SetCollisionObjectType(ECC_WorldStatic);
-    LadderMesh->SetCollisionResponseToAllChannels(ECR_Block);
-    //LadderMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+    LadderMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+    LadderCollisionBox = CreateDefaultSubobject<UBoxComponent>(TEXT("EntryClearanceBox"));
+    LadderCollisionBox->SetupAttachment(RootSceneComponent);
+    LadderCollisionBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    LadderCollisionBox->SetCollisionResponseToAllChannels(ECR_Block);
+    LadderCollisionBox->SetCollisionResponseToChannel(CY_TraceChannel_Interaction, ECR_Ignore);
+    LadderCollisionBox->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+    LadderCollisionBox->SetBoxExtent(FVector(100.f, 100.f, 150.f));
+    LadderCollisionBox->SetRelativeLocation(FVector(0.f, 0.f, 200.f));
+    LadderCollisionBox->ShapeColor = FColor::Cyan; 
 }
 
 void ACYLadderBase::BeginPlay()

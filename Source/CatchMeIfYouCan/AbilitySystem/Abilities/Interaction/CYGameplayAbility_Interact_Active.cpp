@@ -2,6 +2,7 @@
 
 #include "AbilitySystemComponent.h"
 #include "CYGameplayAbility_Interact.h"
+#include "CYLogChannels.h"
 #include "Abilities/Tasks/AbilityTask_NetworkSyncPoint.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "Abilities/Tasks/AbilityTask_WaitInputRelease.h"

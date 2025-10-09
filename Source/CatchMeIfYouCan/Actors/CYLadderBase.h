@@ -132,13 +132,12 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
     TObjectPtr<UStaticMeshComponent> LadderMesh;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components")
+    TObjectPtr<UBoxComponent> LadderCollisionBox;
+
     /** 진입 박스 크기 */
     UPROPERTY(EditAnywhere, Category="CY|Ladder", meta=(ClampMin="50.0", ClampMax="300.0"))
     float EntryBoxRadius = 150.0f;
-
-    /** 상/하단 박스 높이 비율 */
-    UPROPERTY(EditAnywhere, Category="CY|Ladder", meta=(ClampMin="0.1", ClampMax="0.4"))
-    float EdgeBoxHeightRatio = 0.25f;
 
     /** 자동 그랩 활성화 여부 */
     UPROPERTY(EditAnywhere, Category="CY|Ladder|AutoGrab")
@@ -182,6 +181,4 @@ protected:
     UPROPERTY()
     TMap<TWeakObjectPtr<AActor>, ELadderEntryType> PlayerEntryTypeMap;
 
-    UPROPERTY(EditAnywhere, Category="Debug")
-    bool bShowDebugVisualization = true;
 };

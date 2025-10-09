@@ -47,6 +47,30 @@ private:
      */
     bool CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation, FVector& OutTopLocation, FVector& OutFacingDirection, float& OutLadderStandOff, float& OutInitialRailParameter, bool& OutIsClimbingUp) const;
 
+    /** 상단 탈출 몽타주 완료 콜백 */
+    UFUNCTION()
+    void OnTopExitMontageCompleted();
+    
+    /** 상단 탈출 몽타주 취소/중단 콜백 */
+    UFUNCTION()
+    void OnTopExitMontageCancelled();
+
+protected:
+    
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
+    TObjectPtr<UAnimMontage> TopExitMontage;
+
+    /** 상단 탈출 몽타주의 시작 섹션 이름 */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
+    FName TopExitMontageStartSection = NAME_None;
+
+    /** 상단 탈출 몽타주 재생 속도 */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation", meta=(ClampMin="0.1", ClampMax="3.0"))
+    float TopExitMontagePlayRate = 1.0f;
+
+    bool bIsPlayingExitMontage = false;
+    
+private:
     /** 하단 이탈 안전 마진 */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="100.0"))
     float BottomExitSafetyMargin = 10.0f;  // BottomEntrySafetyMargin과 동일

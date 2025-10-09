@@ -194,57 +194,61 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
         return;
     }
 
-	// 보간 중이면 보간만 처리
-	if (bIsInterpolatingToLadder)
+	RestorePreAdditiveRootMotionVelocity();
+
+	if( !HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity() )
 	{
-		UpdateLadderEntryInterpolation(DeltaTime);
-		Velocity = FVector::ZeroVector;  // 보간 중에는 속도 0
-		return;
+		// 보간 중이면 보간만 처리
+		if (bIsInterpolatingToLadder)
+		{
+			UpdateLadderEntryInterpolation(DeltaTime);
+			Velocity = FVector::ZeroVector;  // 보간 중에는 속도 0
+			return;
+		}
+
+		FRotator ControlRot = FRotator::ZeroRotator;
+		if (CharacterOwner && CharacterOwner->Controller)
+		{
+			const FRotator Ctrl = CharacterOwner->Controller->GetControlRotation();
+			ControlRot = FRotator(0.f, Ctrl .Yaw, 0.f);
+		}
+	
+		const FVector ControllerForward = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X);
+	
+		// 1) 입력 → +1/0/-1 
+		float InputAxis = FVector::DotProduct(Acceleration.GetSafeNormal2D(), ControllerForward); // 크기 무시, 부호만
+		constexpr float DeadZone = 0.2f;
+	
+		if (InputAxis > DeadZone)
+		{
+			InputAxis = 1.f;
+		}
+		else if (InputAxis < -DeadZone)
+		{
+			InputAxis = -1.f;
+		}
+		else
+		{
+			InputAxis = 0.f;
+		}
+ 
+		// 2) 목표 속도(축 방향) 구성
+		Velocity = RailDirection * (InputAxis * MaxClimbSpeed);
 	}
 
-	FRotator ControlRot = FRotator::ZeroRotator;
-	if (CharacterOwner && CharacterOwner->Controller)
-	{
-		const FRotator Ctrl = CharacterOwner->Controller->GetControlRotation();
-		ControlRot = FRotator(0.f, Ctrl .Yaw, 0.f);
-	}
-	
-	const FVector ControllerForward = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X);
-	
-    // 1) 입력 → +1/0/-1 
-	float InputAxis = FVector::DotProduct(Acceleration.GetSafeNormal2D(), ControllerForward); // 크기 무시, 부호만
-	constexpr float DeadZone = 0.2f;
-	
-	if (InputAxis > DeadZone)
-	{
-		InputAxis = 1.f;
-	}
-	else if (InputAxis < -DeadZone)
-	{
-		InputAxis = -1.f;
-	}
-	else
-	{
-		InputAxis = 0.f;
-	}
- 
-    // 2) 목표 속도(축 방향) 구성
-    const FVector TargetVelocity = RailDirection * (InputAxis * MaxClimbSpeed);
- 
-    // (원한다면 RootMotion/OverrideVelocity 고려)
-    // RestorePreAdditiveRootMotionVelocity(); ApplyRootMotionToVelocity(DeltaTime);
+	ApplyRootMotionToVelocity(DeltaTime);
 
 	Iterations++;
 	bJustTeleported = false;
  
     // 3) 먼저 "축 방향 이동"만 스윕으로 수행 (충돌 고려)
-    const FVector MoveAlongRail = TargetVelocity * DeltaTime;
+    const FVector MoveAlongRail = Velocity * DeltaTime;
  
     const FVector OldLocation = UpdatedComponent->GetComponentLocation();
     const FQuat   DesiredRot  = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
- 
     FHitResult Hit;
     SafeMoveUpdatedComponent(MoveAlongRail, DesiredRot, /*bSweep*/true, Hit);
+	
     if (Hit.IsValidBlockingHit())
     {
         // 레일 표면 따라 미끄러지도록 (레일 방향 외 장애물 최소화)
@@ -258,8 +262,11 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
     // 실제 이동량의 레일 투영분만 누적 → 적분 드리프트 제거
     const float   ActualMoveS  = FVector::DotProduct(ActualDelta, RailDirection);
     LadderAttachSpot = FMath::Clamp(LadderAttachSpot + ActualMoveS, 0.f, RailLength);
- 
-    Velocity = (DeltaTime >= KINDA_SMALL_NUMBER) ? (ActualDelta / DeltaTime) : FVector::ZeroVector;
+
+	if (!bJustTeleported && !HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity())
+	{
+		Velocity = (DeltaTime >= KINDA_SMALL_NUMBER) ? (ActualDelta / DeltaTime) : FVector::ZeroVector;
+	}
 	
 }
 

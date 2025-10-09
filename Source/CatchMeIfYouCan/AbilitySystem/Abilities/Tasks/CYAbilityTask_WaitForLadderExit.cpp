@@ -108,7 +108,7 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
     const float ClimbingIntent = AnalyzeClimbingIntent(Character);
     const bool bWantsToClimbUp = ClimbingIntent > INPUT_INTENT_THRESHOLD;
     const bool bWantsToClimbDown = ClimbingIntent < -INPUT_INTENT_THRESHOLD;
-
+    
     // 이탈 조건 판단
     if (bIsNearTop && bWantsToClimbUp)
     {
@@ -150,7 +150,13 @@ float UCYAbilityTask_WaitForLadderExit::AnalyzeClimbingIntent(const ACharacter* 
         return 0.0f;
     }
 
-    const FVector InputDirection = Character->GetLastMovementInputVector();
+    UCYCharacterMovementComponent* MovementComp = Cast<UCYCharacterMovementComponent>(Character->GetCharacterMovement());
+    if (!MovementComp)
+    {
+        return 0.0f;
+    }
+
+    const FVector InputDirection = MovementComp->GetCurrentAcceleration();
     const float InputMagnitude = InputDirection.Size();
     
     if (InputMagnitude < INPUT_INTENT_THRESHOLD)
