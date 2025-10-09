@@ -4,6 +4,8 @@
 #include "CYGameplayAbility_ClimbLadder_Enter.h"
 
 #include "CYLogChannels.h"
+#include "MotionWarpingComponent.h"
+#include "RootMotionModifier.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
 #include "Character/CYStatusGameplayTags.h"
@@ -94,10 +96,10 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
 
     // 하단: 캡슐 반높이 + 안전 마진
-    const float BottomThreshold = CapsuleHalfHeight + BottomExitSafetyMargin;
+    const float BottomThreshold = CurrentLadder->GetBottomSafetyMargin();
 
     // 상단: 고정값 또는 캡슐 기반
-    const float TopThreshold = TopExitSafetyMargin;
+    const float TopThreshold = CurrentLadder->GetTopSafetyMargin();;
 
     // 이탈 감시 태스크 생성 및 시작
     constexpr float CheckRate = 0.02f; // 50Hz
@@ -201,6 +203,8 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
         return;
     }
 
+    SetupMotionWarpingTarget();
+
     if (UAbilityTask_PlayMontageAndWait* ExitMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("LadderTopExit"), TopExitMontage,TopExitMontagePlayRate ,TopExitMontageStartSection ,true,1.0f,0.0f,true))
     {
         ExitMontageTask->OnCompleted.AddDynamic(this, &ThisClass::OnTopExitMontageCompleted);
@@ -214,6 +218,69 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
     }
     
+}
+
+void UCYGameplayAbility_ClimbLadder_Enter::SetupMotionWarpingTarget()
+{
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    if (!Character)
+    {
+        return;
+    }
+
+    if (!CurrentLadder)
+    {
+        return;
+    }
+
+    UMotionWarpingComponent* MW = Character->FindComponentByClass<UMotionWarpingComponent>();
+    if (!MW)
+    {
+        UE_LOG(LogCY, Warning, TEXT("SetupMotionWarpingTarget: No MotionWarpingComponent"));
+        return;
+    }
+
+    // 1) 목표 착지 지점 계산
+    const FVector LadderTop = CurrentLadder->GetTopWorldLocation();
+    const FVector StepDir   = -CurrentLadder->GetHorizontalFacingDirection();  // 사다리 → 플랫폼 방향
+    const float   StepAhead = ForwardExitOffset;  // 한 발 앞으로 (설정 가능)
+    const float   TraceUp   = 60.f;   // 위에서 시작 (여유)
+    const float   TraceDown = 200.f;  // 아래로 탐지 길이
+
+    const FVector TraceStart = LadderTop + StepDir * StepAhead + FVector(0, 0, TraceUp);
+    const FVector TraceEnd   = TraceStart - FVector(0, 0, TraceDown);
+
+    // 2) 바닥 탐지
+    FHitResult Hit;
+    FCollisionQueryParams Q(TEXT("LadderTopExitTrace"), false, Character);
+    Q.AddIgnoredActor(CurrentLadder.Get());  // 사다리 무시
+    
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(
+        Hit, TraceStart, TraceEnd, ECC_WorldStatic, Q
+    );
+    FVector LandingPos = (bHit ? Hit.ImpactPoint : LadderTop);
+    const FQuat LandingRot = FRotationMatrix::MakeFromX(StepDir).ToQuat();
+
+    // 4) 모션워핑 타겟 등록
+    FMotionWarpingTarget WarpTarget;
+    WarpTarget.Name = LadderExitWarpTargetName; 
+    WarpTarget.Location = LandingPos - FVector(0, 0, 20.f);
+    WarpTarget.Rotation = LandingRot.Rotator();
+    
+    MW->AddOrUpdateWarpTarget(WarpTarget);
+
+    if (bShowDebugWarpTarget)
+    {
+        constexpr float Duration = 100.f;
+        // 사다리 상단 (파랑)
+        DrawDebugSphere(GetWorld(), LadderTop, 50.0f, 12, FColor::Blue, false, Duration, 0, 3.0f);
+        
+        // Trace 시작점 (노랑)
+        DrawDebugSphere(GetWorld(), TraceStart, 30.0f, 12, FColor::Yellow, false, Duration, 0, 2.0f);
+        
+        // 최종 착지 위치 (녹색)
+        DrawDebugSphere(GetWorld(), LandingPos, 60.0f, 12, FColor::Green, false, Duration, 0, 4.0f);
+    }
 }
 
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromBottom()

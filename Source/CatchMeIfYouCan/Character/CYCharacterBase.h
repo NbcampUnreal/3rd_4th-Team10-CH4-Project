@@ -17,6 +17,8 @@ class UCYItemInteractionComponent;
 class UCYWeaponComponent;
 class UCYCombatAttributeSet;
 
+class UMotionWarpingComponent;
+
 UCLASS(Abstract)
 class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilitySystemInterface, public ICYInteractable
 {
@@ -71,6 +73,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
 	USkeletalMeshComponent* GetFootwearMesh() const { return FootwearMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Animation")
+	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
 	
 protected:
 	virtual void BeginPlay() override;
@@ -88,7 +93,8 @@ protected:
 	UCapsuleComponent* InteractCapsule;
 
 	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
-	float InteractCapsuleRadiusOffset = 0.f;    
+	float InteractCapsuleRadiusOffset = 0.f;
+	
 	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
 	float InteractCapsuleHalfHeightOffset = 0.f; 
 	
@@ -120,5 +126,9 @@ private:
 
 	// 신발
 	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
-	USkeletalMeshComponent* FootwearMesh; 
+	USkeletalMeshComponent* FootwearMesh;
+
+	// Motion Warping 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "CY|Animation")
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 };

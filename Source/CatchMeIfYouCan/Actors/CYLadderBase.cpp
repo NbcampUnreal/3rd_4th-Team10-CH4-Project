@@ -149,17 +149,13 @@ float ACYLadderBase::CalculateInitialRailParameter(ELadderEntryType EntryType, c
     switch (EntryType)
     {
     case ELadderEntryType::Top:
-        // 상단 진입: 위에서 (캡슐높이 + 탑 마진)만큼 아래
-        return FMath::Clamp(
-            Height - (CapsuleHalfHeight + TopEntrySafetyMargin),
-            CapsuleHalfHeight,
-            Height - CapsuleHalfHeight
-        );
+        // 상단 진입: 
+        return Height -TopSafetyMargin  - 5.0f;
             
     case ELadderEntryType::Bottom:
         // 하단 진입: 아래에서 (캡슐높이 + 바텀 마진)만큼 위
         return FMath::Clamp(
-            CapsuleHalfHeight + BottomEntrySafetyMargin,
+            CapsuleHalfHeight + BottomSafetyMargin,
             CapsuleHalfHeight,
             Height - CapsuleHalfHeight
         );

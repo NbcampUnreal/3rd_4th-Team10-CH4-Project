@@ -55,6 +55,9 @@ private:
     UFUNCTION()
     void OnTopExitMontageCancelled();
 
+    /** 모션 워핑 타겟 설정 */
+    void SetupMotionWarpingTarget();
+
 protected:
     
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
@@ -71,13 +74,12 @@ protected:
     bool bIsPlayingExitMontage = false;
     
 private:
-    /** 하단 이탈 안전 마진 */
-    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="100.0"))
-    float BottomExitSafetyMargin = 10.0f;  // BottomEntrySafetyMargin과 동일
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping")
+    FName LadderExitWarpTargetName = FName("LadderExit");
 
-    /** 상단 이탈 안전 마진 */
-    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="100.0"))
-    float TopExitSafetyMargin = 10.0f;
+    /** 사다리에서 전방으로 이동할 거리 (cm) */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping", meta=(ClampMin="0.0", ClampMax="300.0"))
+    float ForwardExitOffset = 40.0f;
 
     /** 캐싱된 MovementComponent */
     UPROPERTY(Transient)
@@ -90,4 +92,7 @@ private:
     /** 이탈 모니터링 태스크 */
     UPROPERTY(Transient)
     TObjectPtr<UCYAbilityTask_WaitForLadderExit> ExitMonitorTask;
+
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Debug")
+    bool bShowDebugWarpTarget = true;
 };

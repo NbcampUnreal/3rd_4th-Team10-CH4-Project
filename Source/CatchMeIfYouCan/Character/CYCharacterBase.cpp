@@ -11,10 +11,14 @@
 #include "Components/Items/CYItemInteractionComponent.h"
 #include "Components/Items/CYWeaponComponent.h"
 #include "Physics/CYCollisionChannels.h"
+#include "MotionWarpingComponent.h"
+
 
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = false;
+
+	MotionWarpingComponent = CreateDefaultSubobject<UMotionWarpingComponent>(TEXT("MotionWarpingComponent"));
 
 	// Item 컴포넌트들 생성
 	InventoryComponent = CreateDefaultSubobject<UCYInventoryComponent>(TEXT("InventoryComponent"));

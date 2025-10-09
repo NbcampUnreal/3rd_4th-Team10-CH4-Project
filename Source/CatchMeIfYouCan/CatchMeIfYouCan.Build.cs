@@ -21,7 +21,8 @@ public class CatchMeIfYouCan : ModuleRules
 			"UMG",
 			"AnimGraphRuntime",
 			"Niagara",
-			"NiagaraCore" 
+			"NiagaraCore",
+			"MotionWarping"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });

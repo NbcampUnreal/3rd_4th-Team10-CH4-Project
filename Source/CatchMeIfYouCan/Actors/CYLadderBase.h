@@ -79,6 +79,10 @@ public:
     virtual void GetMeshComponents(TArray<UMeshComponent*>& OutMeshComponents) const override;
     virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
 
+    float GetTopSafetyMargin() const { return TopSafetyMargin; }
+    float GetBottomSafetyMargin() const { return BottomSafetyMargin; }
+
+
 protected:
     
     virtual void BeginPlay() override;
@@ -158,14 +162,15 @@ protected:
     /** 사다리별 전방 오프셋 (캡슐과 메시 충돌 방지) */
     UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="10.0", ClampMax="100.0"))
     float LadderStandOffDistance = 40.0f;
+
+    /** 상단 안전 마진 (진입/이탈 공통) */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder", meta=(ClampMin="0.0", ClampMax="100.0"))
+    float TopSafetyMargin = 10.0f;
+
+    /** 하단 안전 마진 (진입/이탈 공통) */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder", meta=(ClampMin="0.0", ClampMax="100.0"))
+    float BottomSafetyMargin = 15.0f;
     
-    /** 상단 진입 시 안전 마진 (땅에서 떨어진 거리) */
-    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="5.0", ClampMax="50.0"))
-    float TopEntrySafetyMargin = 10.0f;
-    
-    /** 하단 진입 시 안전 마진 (땅바닥 충돌 방지) */
-    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry", meta=(ClampMin="5.0", ClampMax="50.0"))
-    float BottomEntrySafetyMargin = 15.0f;
 
     /** 상호작용 정보 */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Interaction")
@@ -176,7 +181,7 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Interaction")
     FCYInteractionInfo ClimbMiddleInteractionInfo;
-
+    
     /** 플레이어별 진입 타입 */
     UPROPERTY()
     TMap<TWeakObjectPtr<AActor>, ELadderEntryType> PlayerEntryTypeMap;
