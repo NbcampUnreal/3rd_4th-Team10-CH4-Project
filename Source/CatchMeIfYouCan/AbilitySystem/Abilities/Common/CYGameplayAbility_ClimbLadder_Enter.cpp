@@ -81,30 +81,44 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
 
     CurrentLadder = TempLadder;
 
-    // 어빌리티 커밋 (코스트, 쿨다운)
-    if (!CommitAbility(Handle, ActorInfo, ActivationInfo))
+    if (!CurrentLadder || !CommitAbility(Handle, ActorInfo, ActivationInfo))
     {
         CancelAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true);
         return;
     }
-
+    
+    FVector TargetLocation;
+    FRotator TargetRotation;
+    CurrentLadder->CalculateEntryTransform(InitialRailParameter, LadderStandOff, TargetLocation, TargetRotation);
+    ELadderEntryType CurrentEntryType = CurrentLadder->GetPlayerEntryType(Character);
+    bool bUseInterpolation = CurrentEntryType == ELadderEntryType::Middle || CurrentEntryType == ELadderEntryType::None;
+    
     // 사다리 등반 시작
-    CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  true);
-
+    CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  bUseInterpolation);
+    
+    SetupEntryMotionWarpingTarget(TargetLocation, FQuat(TargetRotation));
+    UAnimMontage* EntryMontage = GetEntryMontageForType(CurrentEntryType);
+    if (EntryMontage)
+    {
+        if (UAbilityTask_PlayMontageAndWait* EntryTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
+               this, TEXT("LadderEntry"), EntryMontage, 1.0f, NAME_None, true))
+        {
+            EntryTask->ReadyForActivation();
+        }
+    }
     
     const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
     const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
 
     // 하단: 캡슐 반높이 + 안전 마진
-    const float BottomThreshold = CurrentLadder->GetBottomSafetyMargin();
+    const float BottomThreshold = CurrentLadder->GetBottomSafetyMargin() + CapsuleHalfHeight;
 
     // 상단: 고정값 또는 캡슐 기반
-    const float TopThreshold = CurrentLadder->GetTopSafetyMargin();;
-
+    const float TopThreshold = CurrentLadder->GetTopSafetyMargin();
     // 이탈 감시 태스크 생성 및 시작
     constexpr float CheckRate = 0.02f; // 50Hz
     ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate, BottomThreshold, TopThreshold);
-
+    
     if (ExitMonitorTask)
     {
         ExitMonitorTask->OnExitTop.AddDynamic(this, &ThisClass::HandleLadderExitFromTop);
@@ -176,6 +190,20 @@ bool UCYGameplayAbility_ClimbLadder_Enter::CanExtractLadderInfo(const FGameplayE
     return true;
 }
 
+UAnimMontage* UCYGameplayAbility_ClimbLadder_Enter::GetEntryMontageForType(ELadderEntryType EntryType) const
+{
+    switch (EntryType)
+    {
+    case ELadderEntryType::Top:
+        return TopEntryMontage;
+            
+    case ELadderEntryType::Bottom:
+        return BottomEntryMontage;
+    default:
+        return nullptr;
+    }
+}
+
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
 {
     UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Exiting from top"));
@@ -203,7 +231,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
         return;
     }
 
-    SetupMotionWarpingTarget();
+    SetupExitMotionWarpingTarget();
 
     if (UAbilityTask_PlayMontageAndWait* ExitMontageTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(this, TEXT("LadderTopExit"), TopExitMontage,TopExitMontagePlayRate ,TopExitMontageStartSection ,true,1.0f,0.0f,true))
     {
@@ -220,7 +248,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
     
 }
 
-void UCYGameplayAbility_ClimbLadder_Enter::SetupMotionWarpingTarget()
+void UCYGameplayAbility_ClimbLadder_Enter::SetupExitMotionWarpingTarget()
 {
     ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
     if (!Character)
@@ -264,7 +292,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupMotionWarpingTarget()
     // 4) 모션워핑 타겟 등록
     FMotionWarpingTarget WarpTarget;
     WarpTarget.Name = LadderExitWarpTargetName; 
-    WarpTarget.Location = LandingPos - FVector(0, 0, 20.f);
+    WarpTarget.Location = LandingPos;
     WarpTarget.Rotation = LandingRot.Rotator();
     
     MW->AddOrUpdateWarpTarget(WarpTarget);
@@ -280,6 +308,46 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupMotionWarpingTarget()
         
         // 최종 착지 위치 (녹색)
         DrawDebugSphere(GetWorld(), LandingPos, 60.0f, 12, FColor::Green, false, Duration, 0, 4.0f);
+    }
+}
+
+void UCYGameplayAbility_ClimbLadder_Enter::SetupEntryMotionWarpingTarget(const FVector& TargetLocation, const FQuat& TargetRotation)
+{
+    ACharacter* Character = Cast<ACharacter>(GetAvatarActorFromActorInfo());
+    if (!Character)
+    {
+        return;
+    }
+
+    UMotionWarpingComponent* MW = Character->FindComponentByClass<UMotionWarpingComponent>();
+    if (!MW)
+    {
+        UE_LOG(LogCY, Warning, TEXT("SetupEntryMotionWarpingTarget: No MotionWarpingComponent"));
+        return;
+    }
+
+    const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+    const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
+    
+    // Mesh Root는 발 위치이므로 캡슐 중심에서 반높이만큼 아래
+    FVector AdjustedLocation = TargetLocation;
+    AdjustedLocation.Z -= CapsuleHalfHeight;
+
+    // Motion Warping 타겟 등록
+    FMotionWarpingTarget WarpTarget;
+    WarpTarget.Name = LadderEntryWarpTargetName;
+    WarpTarget.Location = AdjustedLocation;
+    WarpTarget.Rotation = TargetRotation.Rotator();
+    
+    MW->AddOrUpdateWarpTarget(WarpTarget);
+
+    if (bShowDebugWarpTarget)
+    {
+        constexpr float Duration = 5.0f;
+        DrawDebugSphere(GetWorld(), TargetLocation, 60.0f, 12, FColor::Cyan, false, Duration, 0, 4.0f);
+        DrawDebugDirectionalArrow(GetWorld(), TargetLocation, 
+            TargetLocation + TargetRotation.GetForwardVector() * 100.f, 
+            5.0f, FColor::Red, false, Duration, 0, 3.0f);
     }
 }
 

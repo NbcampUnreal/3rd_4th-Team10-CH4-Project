@@ -89,26 +89,15 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 	// RailLength: 사다리 레일의 총 길이 (cm)
 	RailLength = (LadderEnd - LadderStart).Size();
 
-	FVector RawFacing = InFacing;
-	if (!RawFacing.Normalize())
+	ACYLadderBase* Ladder = Cast<ACYLadderBase>(InLadder);
+	FVector TargetPosition;
+	FRotator TargetRotation;
+	
+	if (Ladder)
 	{
-		RawFacing = FVector::ForwardVector; 
+		Ladder->CalculateEntryTransform(InAttachSpot,InLadderStandOff,TargetPosition,TargetRotation);
+		CharToLadderFacing = Ladder->CalculateCharacterToLadderFacing();
 	}
-
-	// 레일축에 직교한 사다리 평면 전방으로 정리
-	// Facing을 RailDirection에 정사영하여 제거 → 완전 직교
-	FVector FacingOnPlane = RawFacing - FVector::DotProduct(RawFacing, RailDirection) * RailDirection;
-	if (!FacingOnPlane.Normalize())
-	{
-		// RawFacing이 RailDirection과 거의 평행한 극단 상황 → 임의의 직교축 생성
-		const FVector AnyPerp = FVector::CrossProduct(
-			RailDirection,
-			(FMath::Abs(RailDirection.Z) < 0.99f ? FVector::UpVector : FVector::RightVector)
-		);
-		FacingOnPlane = AnyPerp.GetSafeNormal();
-	}
-
-	CharToLadderFacing = -FacingOnPlane;
 
 	// 안전성 체크: LadderFacing이 0벡터면 기본값 사용
 	if (CharToLadderFacing.IsNearlyZero())
@@ -121,28 +110,14 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 	SetBase(nullptr);         
 	bJustTeleported = true;
 
-	const FVector RailPos = LadderStart + RailDirection * LadderAttachSpot;
-	const FVector TargetPosition = RailPos - CharToLadderFacing * LadderStandOff;
-	const FQuat TargetRotation = FRotationMatrix::MakeFromXZ(CharToLadderFacing, RailDirection).ToQuat();
-
 	if (bUseInterpolation)
 	{
 		bIsInterpolatingToLadder = true;
 		InterpStartLocation = UpdatedComponent->GetComponentLocation();
 		InterpStartRotation = UpdatedComponent->GetComponentQuat();
 		InterpTargetLocation = TargetPosition;
-		InterpTargetRotation = TargetRotation;
+		InterpTargetRotation = TargetRotation.Quaternion();
 		InterpElapsedTime = 0.f;
-	}
-	else
-	{
-		bIsInterpolatingToLadder = false;
-		UpdatedComponent->SetWorldLocationAndRotation(
-			TargetPosition, 
-			TargetRotation, 
-			false, nullptr, 
-			ETeleportType::TeleportPhysics
-		);
 	}
 
 	SetMovementMode(MOVE_Custom, CMOVE_Climbing);

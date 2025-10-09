@@ -7,6 +7,7 @@
 #include "CYGameplayAbility_ClimbLadder_Enter.generated.h"
 
 
+enum class ELadderEntryType : uint8;
 class ACYLadderBase;
 class UCYCharacterMovementComponent;
 class UCYAbilityTask_WaitForLadderExit;
@@ -47,6 +48,9 @@ private:
      */
     bool CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation, FVector& OutTopLocation, FVector& OutFacingDirection, float& OutLadderStandOff, float& OutInitialRailParameter, bool& OutIsClimbingUp) const;
 
+    /** 진입 타입에 따른 진입 몽타주 반환 */
+    UAnimMontage* GetEntryMontageForType(ELadderEntryType EntryType) const;
+    
     /** 상단 탈출 몽타주 완료 콜백 */
     UFUNCTION()
     void OnTopExitMontageCompleted();
@@ -55,10 +59,17 @@ private:
     UFUNCTION()
     void OnTopExitMontageCancelled();
 
-    /** 모션 워핑 타겟 설정 */
-    void SetupMotionWarpingTarget();
+    void SetupExitMotionWarpingTarget();
 
+    void SetupEntryMotionWarpingTarget(const FVector& TargetLocation, const FQuat& TargetRotation);
+    
 protected:
+
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
+    TObjectPtr<UAnimMontage> TopEntryMontage;
+
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
+    TObjectPtr<UAnimMontage> BottomEntryMontage;
     
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Animation")
     TObjectPtr<UAnimMontage> TopExitMontage;
@@ -76,6 +87,9 @@ protected:
 private:
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping")
     FName LadderExitWarpTargetName = FName("LadderExit");
+
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping")
+    FName LadderEntryWarpTargetName = FName("LadderEntry");
 
     /** 사다리에서 전방으로 이동할 거리 (cm) */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping", meta=(ClampMin="0.0", ClampMax="300.0"))

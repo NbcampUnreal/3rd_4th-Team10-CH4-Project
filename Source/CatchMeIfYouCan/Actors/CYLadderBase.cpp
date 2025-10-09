@@ -232,6 +232,32 @@ void ACYLadderBase::DetermineClimbDirectionForAutoGrab(const ACharacter* Charact
     OutIsClimbingUp = CharHeight < LadderCenter;
 }
 
+FVector ACYLadderBase::CalculateCharacterToLadderFacing() const
+{
+    const FVector RailDirection = GetClimbingDirection();
+    FVector RawFacing = GetHorizontalFacingDirection();
+    
+    if (!RawFacing.Normalize())
+    {
+        RawFacing = FVector::ForwardVector;
+    }
+    
+    // 레일축에 직교하도록 투영
+    FVector FacingOnPlane = RawFacing - FVector::DotProduct(RawFacing, RailDirection) * RailDirection;
+    
+    if (!FacingOnPlane.Normalize())
+    {
+        // 평행한 경우 임의의 직교축 생성
+        const FVector AnyPerp = FVector::CrossProduct(
+            RailDirection,
+            (FMath::Abs(RailDirection.Z) < 0.99f ? FVector::UpVector : FVector::RightVector)
+        );
+        FacingOnPlane = AnyPerp.GetSafeNormal();
+    }
+    
+    return -FacingOnPlane; 
+}
+
 bool ACYLadderBase::CanAutoGrabFromMiddle(const ACharacter* Character) const
 {
     if (!Character || !bEnableAutoGrab)
@@ -273,6 +299,21 @@ bool ACYLadderBase::CanAutoGrabFromMiddle(const ACharacter* Character) const
     }
     
     return true;
+}
+
+void ACYLadderBase::CalculateEntryTransform(float RailParameter, float StandOffDistance, FVector& OutLocation, FRotator& OutRotation) const
+{
+    const FVector RailDir = GetClimbingDirection();
+    const FVector CharToLadderDir = CalculateCharacterToLadderFacing();
+    
+    // 레일 상 위치 계산
+    const FVector RailPos = GetBottomWorldLocation() + RailDir * RailParameter;
+    
+    // 사다리로부터 StandOff 거리만큼 떨어진 위치
+    OutLocation = RailPos - CharToLadderDir * StandOffDistance;
+    
+    // 사다리를 바라보는 회전
+    OutRotation = FRotationMatrix::MakeFromXZ(CharToLadderDir, RailDir).Rotator();
 }
 
 void ACYLadderBase::TryAutoGrabLadder(ACharacter* Character)

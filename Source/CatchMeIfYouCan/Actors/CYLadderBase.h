@@ -73,6 +73,12 @@ public:
     UFUNCTION(BlueprintPure, Category="CY|Ladder|Interaction")
     bool CanAutoGrabFromMiddle(const ACharacter* Character) const;
 
+    /**
+     * 사다리 진입 위치 및 회전 계산
+     */
+    UFUNCTION(BlueprintPure, Category="CY|Ladder")
+    void CalculateEntryTransform(float RailParameter, float StandOffDistance, FVector& OutLocation, FRotator& OutRotation) const;
+
     float GetLadderStandOffDistance() const { return LadderStandOffDistance; }
     
     virtual FCYInteractionInfo GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const override;
@@ -82,6 +88,8 @@ public:
     float GetTopSafetyMargin() const { return TopSafetyMargin; }
     float GetBottomSafetyMargin() const { return BottomSafetyMargin; }
 
+    /** 캐릭터가 사다리를 바라보는 방향 계산 */
+    FVector CalculateCharacterToLadderFacing() const;
 
 protected:
     
