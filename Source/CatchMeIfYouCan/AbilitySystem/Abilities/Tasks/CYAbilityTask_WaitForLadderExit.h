@@ -36,10 +36,11 @@ public:
      * @param LadderTopLocation - 사다리 상단 위치
      * @param LadderFacingDirection - 사다리 정면 방향
      * @param UpdateFrequency - 체크 주기 (초, 기본 0.02 = 50Hz)
-     * @param EdgeDetectionTolerance - 상/하단 감지 허용 거리 (cm, 기본 18.0)
+     * @param BottomEdgeThreshold - 하단 이탈 임계값 (cm)
+     * @param TopEdgeThreshold - 상단 이탈 임계값 (cm)
      */
     UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta=(HidePin="OwningAbility", DefaultToSelf="OwningAbility", BlueprintInternalUseOnly="true", DisplayName="Wait For Ladder Exit"))
-    static UCYAbilityTask_WaitForLadderExit* CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation,FVector LadderFacingDirection,float UpdateFrequency = 0.02f, float EdgeDetectionTolerance = 18.0f);
+    static UCYAbilityTask_WaitForLadderExit* CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation,FVector LadderFacingDirection,float UpdateFrequency = 0.02f, float BottomEdgeThreshold = 18.0f, float TopEdgeThreshold = 18.0f);
 
 protected:
  
@@ -53,6 +54,9 @@ private:
 
     /** 주기적으로 호출되는 메인 체크 함수 */
     void PerformExitConditionCheck();
+
+    /** 점프 태그 이벤트 콜백 */
+    void OnJumpTagChanged(const FGameplayTag Tag, int32 NewCount);
     
     /**
      * 캐릭터의 현재 레일 위치 계산
@@ -120,12 +124,18 @@ private:
     /** 체크 주기 (초) */
     float CheckUpdateFrequency = 0.02f;
     
-    /** 상/하단 감지 허용 거리 (cm) */
-    float EdgeProximityThreshold = 18.0f;
+    /**  하단 이탈 임계값 */
+    float BottomEdgeProximityThreshold = 18.0f;
+    
+    /** 상단 이탈 임계값 */
+    float TopEdgeProximityThreshold = 18.0f;
     
     /** 입력 의도 판단 임계값 (내적값) */
     constexpr static float INPUT_INTENT_THRESHOLD = 0.2f;
 
     /** 주기적 체크 타이머 핸들 */
     FTimerHandle PeriodicCheckTimer;
+
+    /** 점프 태그 델리게이트 핸들 */
+    FDelegateHandle JumpTagDelegateHandle;
 };

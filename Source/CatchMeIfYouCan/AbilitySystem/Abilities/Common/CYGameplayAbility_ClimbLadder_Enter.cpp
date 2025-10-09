@@ -9,6 +9,7 @@
 #include "AbilitySystem/Abilities/Tasks/CYAbilityTask_WaitForLadderExit.h"
 #include "Actors/CYLadderBase.h"
 #include "Character/Components/CYCharacterMovementComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/Character.h"
 
 UCYGameplayAbility_ClimbLadder_Enter::UCYGameplayAbility_ClimbLadder_Enter()
@@ -87,9 +88,18 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     // 사다리 등반 시작
     CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  true);
 
+    const UCapsuleComponent* Capsule = Character->GetCapsuleComponent();
+    const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
+
+    // 하단: 캡슐 반높이 + 안전 마진
+    const float BottomThreshold = CapsuleHalfHeight + BottomExitSafetyMargin;
+    
+    // 상단: 고정값 또는 캡슐 기반
+    const float TopThreshold = TopExitSafetyMargin;
+
     // 이탈 감시 태스크 생성 및 시작
     constexpr float CheckRate = 0.02f; // 50Hz
-    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate);
+    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate, BottomThreshold, TopThreshold);
     
     if (ExitMonitorTask)
     {

@@ -1,29 +1,24 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "CYAbilityTask_WaitForLadderExit.h"
 
+#include "AbilitySystemComponent.h"
+#include "CYLogChannels.h"
+#include "Character/CYStatusGameplayTags.h"
 #include "Character/Components/CYCharacterMovementComponent.h"
 #include "GameFramework/Character.h"
 
-UCYAbilityTask_WaitForLadderExit* UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation, FVector LadderFacingDirection, float UpdateFrequency, float EdgeDetectionTolerance)
+UCYAbilityTask_WaitForLadderExit* UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation, FVector LadderFacingDirection, float UpdateFrequency, float BottomEdgeThreshold, float TopEdgeThreshold)
 {
-    // 새 태스크 인스턴스 생성
     UCYAbilityTask_WaitForLadderExit* NewTask = NewAbilityTask<UCYAbilityTask_WaitForLadderExit>(OwningAbility);
-    
-    // 사다리 정보 설정
+
     NewTask->MonitoredLadder = LadderActor;
     NewTask->LadderBottomWorldLocation = LadderBottomLocation;
     NewTask->LadderTopWorldLocation = LadderTopLocation;
     NewTask->LadderFacingDirection = LadderFacingDirection;
-    
-    // 파생 정보 계산
     NewTask->LadderClimbDirection = (LadderTopLocation - LadderBottomLocation).GetSafeNormal();
     NewTask->LadderTotalHeight = FVector::Distance(LadderBottomLocation, LadderTopLocation);
-    
-    // 설정 파라미터
-    NewTask->CheckUpdateFrequency = FMath::Max(0.01f, UpdateFrequency); // 최소 100Hz
-    NewTask->EdgeProximityThreshold = FMath::Max(1.0f, EdgeDetectionTolerance); // 최소 1cm
+    NewTask->CheckUpdateFrequency = FMath::Max(0.01f, UpdateFrequency); 
+    NewTask->BottomEdgeProximityThreshold = FMath::Max(1.0f, BottomEdgeThreshold);
+    NewTask->TopEdgeProximityThreshold = FMath::Max(1.0f, TopEdgeThreshold);
     
     return NewTask;
 }
@@ -35,6 +30,15 @@ void UCYAbilityTask_WaitForLadderExit::Activate()
     // Avatar가 준비될 때까지 대기
     SetWaitingOnAvatar();
 
+    // 점프 태그 이벤트 구독 (즉시 감지)
+    if (UAbilitySystemComponent* ASC = AbilitySystemComponent.Get())
+    {
+        JumpTagDelegateHandle = ASC->RegisterGameplayTagEvent(
+            CYGameplayTags::Status_Action_Jump,
+            EGameplayTagEventType::NewOrRemoved  
+        ).AddUObject(this, &UCYAbilityTask_WaitForLadderExit::OnJumpTagChanged);
+    }
+    
     // 주기적 체크 타이머 시작
     if (UWorld* World = GetWorld())
     {
@@ -50,6 +54,19 @@ void UCYAbilityTask_WaitForLadderExit::Activate()
 
 void UCYAbilityTask_WaitForLadderExit::OnDestroy(bool bInOwnerFinished)
 {
+    // 점프 태그 델리게이트 해제
+    if (UAbilitySystemComponent* ASC = AbilitySystemComponent.Get())
+    {
+        if (JumpTagDelegateHandle.IsValid())
+        {
+            ASC->RegisterGameplayTagEvent(
+                CYGameplayTags::Status_Action_Jump,
+                EGameplayTagEventType::NewOrRemoved
+            ).Remove(JumpTagDelegateHandle);
+            JumpTagDelegateHandle.Reset();
+        }
+    }
+    
     // 타이머 정리
     if (UWorld* World = GetWorld())
     {
@@ -74,14 +91,6 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
 
     // 사다리 타기 상태 확인
     if (!MovementComponent->IsClimbingLadder())
-    {
-        OnCancelled.Broadcast();
-        EndTask();
-        return;
-    }
-
-    // 점프 입력 감지 (즉시 취소)
-    if (Character->bPressedJump)
     {
         OnCancelled.Broadcast();
         EndTask();
@@ -113,6 +122,15 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
     }
 }
 
+void UCYAbilityTask_WaitForLadderExit::OnJumpTagChanged(const FGameplayTag Tag, int32 NewCount)
+{
+    if (NewCount > 0)
+    {
+        OnCancelled.Broadcast();
+        EndTask();
+    }
+}
+
 float UCYAbilityTask_WaitForLadderExit::CalculateCharacterRailPosition(const FVector& CharacterLocation) const
 {
     // 캐릭터 위치를 레일에 투영
@@ -120,7 +138,9 @@ float UCYAbilityTask_WaitForLadderExit::CalculateCharacterRailPosition(const FVe
     const float ProjectedDistance = FVector::DotProduct(RelativeToBottom, LadderClimbDirection);
     
     // 0 ~ TotalHeight 범위로 클램프
-    return FMath::Clamp(ProjectedDistance, 0.0f, LadderTotalHeight);
+    //return FMath::Clamp(ProjectedDistance, 0.0f, LadderTotalHeight);
+
+    return ProjectedDistance;
 }
 
 float UCYAbilityTask_WaitForLadderExit::AnalyzeClimbingIntent(const ACharacter* Character) const
@@ -129,22 +149,28 @@ float UCYAbilityTask_WaitForLadderExit::AnalyzeClimbingIntent(const ACharacter* 
     {
         return 0.0f;
     }
-    
-    const FVector InputDirection = Character->GetLastMovementInputVector().GetSafeNormal2D();
-    const float   InputMagnitude   = Character->GetLastMovementInputVector().Size2D();
 
-    // 너무 미세한 입력은 의도 없음 처리
-    constexpr float KeyInputThreshold = 0.25f;
-    if (InputMagnitude < KeyInputThreshold)
+    const FVector InputDirection = Character->GetLastMovementInputVector();
+    const float InputMagnitude = InputDirection.Size();
+    
+    if (InputMagnitude < INPUT_INTENT_THRESHOLD)
     {
         return 0.0f;
     }
-
-    const FVector CharacterFacingOnLadder = -LadderFacingDirection;
     
-    // 사다리 정면과의 내적: + 상향(정면), - 하향(후면)
-    const float Dot = FVector::DotProduct(InputDirection, CharacterFacingOnLadder);
-    return Dot; 
+    // 컨트롤러 Forward와 비교 (카메라 방향)
+    AController* Controller = Character->GetController();
+    if (!Controller)
+    {
+        return 0.0f;
+    }
+    const FRotator ControlRot = Controller->GetControlRotation();
+    const FVector ControlForward = FRotationMatrix(FRotator(0.f, ControlRot.Yaw, 0.f)).GetUnitAxis(EAxis::X);
+    
+    // 입력을 컨트롤러 Forward에 투영
+    const float Dot = FVector::DotProduct(InputDirection.GetSafeNormal(), ControlForward);
+
+    return Dot;
 }
 
 bool UCYAbilityTask_WaitForLadderExit::IsNearLadderEdge(float RailPosition, bool bCheckTop) const
@@ -152,13 +178,12 @@ bool UCYAbilityTask_WaitForLadderExit::IsNearLadderEdge(float RailPosition, bool
     if (bCheckTop)
     {
         // 상단 체크: 전체 높이에서 임계값을 뺀 위치 이상
-        return RailPosition >= (LadderTotalHeight - EdgeProximityThreshold);
+        const float TopThreshold = LadderTotalHeight - TopEdgeProximityThreshold;
+    
+        return RailPosition >= TopThreshold;
     }
-    else
-    {
-        // 하단 체크: 임계값 이하
-        return RailPosition <= EdgeProximityThreshold;
-    }
+    // 하단 체크: 임계값 이하
+    return RailPosition <= BottomEdgeProximityThreshold;
 }
 
 bool UCYAbilityTask_WaitForLadderExit::ValidateCharacterAndLadder(ACharacter*& OutCharacter, UCYCharacterMovementComponent*& OutMovementComponent) const

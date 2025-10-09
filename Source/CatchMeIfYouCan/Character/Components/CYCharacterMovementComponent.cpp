@@ -38,7 +38,6 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 		// 컨트롤러 회전 사용 여부는 Character 쪽 플래그를 저장/비활성화
 		if (CharacterOwner)
 		{
-			// NOTE: 변수명은 기존 것을 재사용하지만 실제로는 bUseControllerRotationYaw를 캐시합니다.
 			bSavedUseControllerDesiredRotation = CharacterOwner->bUseControllerRotationYaw;
 			CharacterOwner->bUseControllerRotationYaw = false;
 		}
@@ -261,16 +260,7 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
     LadderAttachSpot = FMath::Clamp(LadderAttachSpot + ActualMoveS, 0.f, RailLength);
  
     Velocity = (DeltaTime >= KINDA_SMALL_NUMBER) ? (ActualDelta / DeltaTime) : FVector::ZeroVector;
- 
-    // 5) 옆(가로) 오프셋/정렬은 "비스윕"으로 가볍게 보정 (사다리 메시 Pawn Ignore 전제)
-    {
-        const FVector RailPos   = LadderStart + RailDirection * LadderAttachSpot;
-        const FVector DesiredPos= RailPos - CharToLadderFacing * LadderStandOff;
-        const FVector Lateral   = DesiredPos - NewLocation;
-    
-        // 스윕 없이 살짝 붙여주기: 충돌로 튀는 것 방지, 서버/클라 위치 일치
-        MoveUpdatedComponent(Lateral, DesiredRot, /*bSweep*/false);
-    }
+	
 }
 
 void UCYCharacterMovementComponent::UpdateLadderEntryInterpolation(float DeltaTime)

@@ -5,6 +5,7 @@
 
 #include "CYLogChannels.h"
 #include "Character/CYCharacterBase.h"
+#include "Character/CYStatusGameplayTags.h"
 
 UCYGameplayAbility_Jump::UCYGameplayAbility_Jump(const FObjectInitializer& ObjectInitializer)
 {
@@ -28,9 +29,9 @@ bool UCYGameplayAbility_Jump::CanActivateAbility(const FGameplayAbilitySpecHandl
 	{
 		return false;
 	}
-
-	// Character의 CanJump() 체크
-	return CYCharacter->CanJump();
+	
+	// 기본 점프 조건 체크 || 사다리 타는 중이면 무조건 점프 허용 
+	return CYCharacter->CanJump() || CYCharacter->HasGameplayTag(CYGameplayTags::Status_Movement_Climbing);
 }
 
 void UCYGameplayAbility_Jump::ActivateAbility(const FGameplayAbilitySpecHandle Handle,

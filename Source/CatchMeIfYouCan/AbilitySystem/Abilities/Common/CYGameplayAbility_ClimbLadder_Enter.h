@@ -47,9 +47,13 @@ private:
      */
     bool CanExtractLadderInfo(const FGameplayEventData* TriggerEventData, ACYLadderBase*& OutLadder, FVector& OutBottomLocation, FVector& OutTopLocation, FVector& OutFacingDirection, float& OutLadderStandOff, float& OutInitialRailParameter, bool& OutIsClimbingUp) const;
 
-    /** 가장자리 진입 오프셋 */
-    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder")
-    float EdgeEntryOffset = 25.0f;
+    /** 하단 이탈 안전 마진 */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="100.0"))
+    float BottomExitSafetyMargin = 10.0f;  // BottomEntrySafetyMargin과 동일
+
+    /** 상단 이탈 안전 마진 */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="100.0"))
+    float TopExitSafetyMargin = 10.0f;
 
     /** 캐싱된 MovementComponent */
     UPROPERTY(Transient)
