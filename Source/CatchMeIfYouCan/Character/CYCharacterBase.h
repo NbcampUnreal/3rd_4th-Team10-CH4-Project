@@ -27,6 +27,8 @@ class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilityS
 public:
 	ACYCharacterBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	// Item 컴포넌트 추가
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Components")
@@ -76,6 +78,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "CY|Animation")
 	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
+
+	void SetIsClimbing(bool bNewIsClimbing);
+	
+	UFUNCTION(BlueprintCallable, Category="CY|Movement")
+	bool IsClimbing() const { return bIsClimbing; }
+
+	UFUNCTION()
+	virtual void OnRep_IsClimbing();
 	
 protected:
 	virtual void BeginPlay() override;
@@ -106,6 +116,9 @@ protected:
 
 	// 초기화 상태 추적
 	bool bAbilitySetsInitialized = false;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_IsClimbing, Category="CY|Movement")
+	uint8 bIsClimbing:1;
 
 private:
 	// 헬멧

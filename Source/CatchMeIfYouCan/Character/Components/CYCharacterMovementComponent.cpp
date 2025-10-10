@@ -2,6 +2,7 @@
 
 #include "CYLogChannels.h"
 #include "Actors/CYLadderBase.h"
+#include "Character/CYCharacterBase.h"
 #include "GameFramework/Character.h"
 
 UCYCharacterMovementComponent::UCYCharacterMovementComponent()
@@ -28,6 +29,18 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	const bool bNowClimbing = (MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing));
 	const bool bWasClimbing = (PreviousMovementMode == MOVE_Custom && PreviousCustomMode == static_cast<uint8>(CMOVE_Climbing));
 
+	if (ACYCharacterBase* CYCharacter = Cast<ACYCharacterBase>(CharacterOwner))
+	{
+		// SimulatedProxy는 제외 (OnRep으로 받음)
+		if (CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
+		{
+			if (bNowClimbing != bWasClimbing)
+			{
+				CYCharacter->SetIsClimbing(bNowClimbing);
+			}
+		}
+	}
+	
 	if (bNowClimbing)
 	{
 		// 캐시 (사다리 "진입"시에만)
@@ -126,7 +139,7 @@ void UCYCharacterMovementComponent::BeginClimbLadder(AActor* InLadder, const FVe
 void UCYCharacterMovementComponent::EndClimbLadder(bool bStepOffTop)
 {
 	bWantsToClimb = false;
-
+	
 	bIsInterpolatingToLadder = false;
 	InterpElapsedTime = 0.f;
 	

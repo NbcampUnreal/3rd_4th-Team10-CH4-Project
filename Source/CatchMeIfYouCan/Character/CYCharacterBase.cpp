@@ -12,6 +12,8 @@
 #include "Components/Items/CYWeaponComponent.h"
 #include "Physics/CYCollisionChannels.h"
 #include "MotionWarpingComponent.h"
+#include "Components/CYCharacterMovementComponent.h"
+#include "Net/UnrealNetwork.h"
 
 
 ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
@@ -73,6 +75,13 @@ ACYCharacterBase::ACYCharacterBase(const FObjectInitializer& ObjectInitializer)
 UAbilitySystemComponent* ACYCharacterBase::GetAbilitySystemComponent() const
 {
 	return CYAbilitySystemComponent.Get();
+}
+
+void ACYCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(ACYCharacterBase, bIsClimbing, COND_SimulatedOnly);
 }
 
 void ACYCharacterBase::BeginPlay()
@@ -254,4 +263,15 @@ void ACYCharacterBase::UseInventorySlot(int32 SlotIndex)
 	{
 		InventoryComponent->HoldItem(SlotIndex);
 	}
+}
+
+void ACYCharacterBase::SetIsClimbing(bool bNewIsClimbing)
+{
+	bIsClimbing = bNewIsClimbing;
+}
+
+void ACYCharacterBase::OnRep_IsClimbing()
+{
+	UE_LOG(LogCY, Verbose, TEXT("%s: IsClimbing changed to %d"), 
+		   *GetName(), bIsClimbing);
 }
