@@ -27,11 +27,9 @@ public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 	virtual void InitGameState() override;
-
-	// 팀별 폰 클래스 반환
 	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
-	
 	virtual AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
+	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
 
 	UFUNCTION(BlueprintPure, Category = "CY|InGameState")
 	ACYInGameState* GetCYInGameState() const { return CYGameState; }
@@ -47,7 +45,12 @@ protected:
 	UFUNCTION()
 	void OnPawnDataLoaded();
 
+	// 팀 배정 함수(비율 버전과 랜덤 버전(비율 보존))
 	ECYTeamRole DetermineTeamForPlayer();
+	ECYTeamRole DetermineTeamForPlayerRandom();
+	ECYTeamRole AssignTeamByRemainingSlots(int32 RemainingCopSlots, int32 RemainingRobberSlots, const FString& PhaseLabel);
+	float ApplyRatioCorrection(float BaseCopProbability) const;
+	
 	ACYPlayerStart* FindPlayerTeamRoleStart(const APlayerController* NewPlayer) const;
 
 	bool ArePawnDataLoaded() const { return bPawnDataLoaded; }
@@ -56,6 +59,10 @@ protected:
 	void CacheJailPoint();
 
 private:
+	
+	bool CanPlayerJoin() const;
+	void KickPlayer(APlayerController* PlayerToKick, const FString& Reason);
+	
 	// 인원/비율 기반 페이즈 전환 시도
 	void TryChangeInGamePhase();
 
@@ -82,11 +89,31 @@ private:
 	UPROPERTY()
 	TArray<ACYPlayerStart*> RobberPlayerStarts;
 
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team")
+	bool bUseRandomTeamAssignment = false;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", meta=(ClampMin="2", ClampMax="10"))
+	int32 MaxPlayerCount = 6;
+
 	UPROPERTY(EditDefaultsOnly, Category="CY|Team", Meta = (ClampMin="1", ClampMax="6"))
 	int32 RequiredCopCount = 1;
 
 	UPROPERTY(EditDefaultsOnly, Category="CY|Team", Meta = (ClampMin="1", ClampMax="6"))
 	int32 RequiredRobberCount = 2;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", meta=(ClampMin="1", ClampMax="10"))
+	int32 AdditionalCopRatio = 1;
+	
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", meta=(ClampMin="1", ClampMax="10"))
+	int32 AdditionalRobberRatio = 2;
+
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team")
+	bool bUseRatioCorrection = true;
+
+	// 0.0 = 보정 없음 (순수 슬롯 기반)
+	// 1.0 = 최대 보정 (목표 비율에 적극적으로 수렴)
+	UPROPERTY(EditDefaultsOnly, Category="CY|Team", meta=(ClampMin="0.0", ClampMax="1.0"))
+	float RatioCorrectionStrength = 2.0f;
 
 	// 시간 만료 시 경찰 승리로 간주하기 위한 최소 체포 수
 	UPROPERTY(EditDefaultsOnly, Category="CY|WinCondition", meta=(ClampMin="0"))
