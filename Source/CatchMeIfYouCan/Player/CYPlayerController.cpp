@@ -299,7 +299,6 @@ void ACYPlayerController::CreateTeamSpecificHUD(const UCYPawnData* PawnData)
     
     // 현재는 기본 HUD 사용
     HUD->InitOverlay(this, PS, ASC, VitalSet, GameState);
-
 }
 
 void ACYPlayerController::CheckNetworkTimerSync()

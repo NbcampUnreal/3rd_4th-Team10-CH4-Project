@@ -63,7 +63,7 @@ public:
 	
 		if (UAbilitySystemComponent* AbilitySystem = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InteractionQuery.RequestingAvatar.Get()))
 		{
-			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration - 15.f * 0.01f); // TODO : 15.f 하드 코딩 부분 해당하는 스텟 GameplayEffect 부여하여 수정 고려
+			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration);
 		}
 	
 		InteractionInfoBuilder.AddInteractionInfo(InteractionInfo);

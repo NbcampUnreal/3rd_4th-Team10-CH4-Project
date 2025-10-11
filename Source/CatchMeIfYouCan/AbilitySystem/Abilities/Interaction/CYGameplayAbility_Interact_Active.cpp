@@ -12,7 +12,12 @@
 #include "Character/CYStatusGameplayTags.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Interaction/CYWorldInteractable.h"
+#include "UI/HUD/CYHUD.h"
+#include "UI/WidgetController/CYInteractionWidgetController.h"
+#include "UI/WidgetController/CYWidgetController.h"
 
+
+class UCYInteractionWidgetController;
 
 UCYGameplayAbility_Interact_Active::UCYGameplayAbility_Interact_Active()
 {
@@ -79,16 +84,18 @@ void UCYGameplayAbility_Interact_Active::ActivateAbility(const FGameplayAbilityS
 			CharacterMovement->StopMovementImmediately();
 		}
 	}
-	
-	// TODO : GameplayMessageSubsystem을 사용중이지 않기 때문에 주석 처리(대안 찾기 or 해당 시스템 도입 고려)
-	// FCYInteractionMessage Message;
-	// Message.Instigator = GetAvatarActorFromActorInfo();
-	// Message.bShouldRefresh = true;
-	// Message.bSwitchActive = true;
-	// Message.InteractionInfo = InteractionInfo;
-	// UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-	// MessageSubsystem.BroadcastMessage(CYGameplayTags::Message_Interaction_Progress, Message);
 
+	if (UCYInteractionWidgetController* Controller = GetWidgetController<UCYInteractionWidgetController>())
+	{
+		FCYInteractionMessage Message;
+		Message.MessageType = ECYInteractionMessageType::Progress;
+		Message.Instigator = GetAvatarActorFromActorInfo();
+		Message.bShouldRefresh = true;
+		Message.bSwitchActive = true;
+		Message.InteractionInfo = InteractionInfo;
+		Controller->BroadcastInteractionMessage(Message);
+	}
+	
 	// 홀딩 시작 애니메이션 재생
 	if (UAnimMontage* ActiveStartMontage = InteractionInfo.ActiveStartMontage)
 	{
@@ -130,13 +137,15 @@ void UCYGameplayAbility_Interact_Active::EndAbility(const FGameplayAbilitySpecHa
 			WorldInteractable->OnInteractActiveEnded(CYCharacter);
 		}
 
-		// TODO : GameplayMessageSubsystem을 사용중이지 않기 때문에 주석 처리(대안 찾기 or 해당 시스템 도입 고려)
-		// FCYInteractionMessage Message;
-		// Message.Instigator = CYCharacter;
-		// Message.bShouldRefresh = false;
-		// Message.bSwitchActive = true;
-		// UGameplayMessageSubsystem& MessageSubsystem = UGameplayMessageSubsystem::Get(this);
-		// MessageSubsystem.BroadcastMessage(CYGameplayTags::Message_Interaction_Notice, Message);
+		if (UCYInteractionWidgetController* Controller = GetWidgetController<UCYInteractionWidgetController>())
+		{
+			FCYInteractionMessage Message;
+			Message.MessageType = ECYInteractionMessageType::Notice;
+			Message.Instigator = CYCharacter;
+			Message.bShouldRefresh = false;
+			Message.bSwitchActive = true;
+			Controller->BroadcastInteractionMessage(Message);
+		}
 	}
 	
 	Super::EndAbility(Handle, ActorInfo, ActivationInfo, bReplicateEndAbility, bWasCancelled);

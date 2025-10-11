@@ -2,6 +2,7 @@
 
 #include "Blueprint/UserWidget.h"
 #include "UI/Widget/CYUserWidget.h"
+#include "UI/WidgetController/CYInteractionWidgetController.h"
 #include "UI/WidgetController/CYOverlayWidgetController.h"
 
 UCYOverlayWidgetController* ACYHUD::GetOverlayWidgetController(const FWidgetControllerParams& WCParams)
@@ -12,8 +13,40 @@ UCYOverlayWidgetController* ACYHUD::GetOverlayWidgetController(const FWidgetCont
 		OverlayWidgetController = NewObject<UCYOverlayWidgetController>(this, OverlayWidgetControllerClass);
 		OverlayWidgetController->SetWidgetControllerParams(WCParams);
 		OverlayWidgetController->BindCallbacksToDependencies();
+
+		WidgetControllers.Add(UCYOverlayWidgetController::StaticClass(), OverlayWidgetController);
 	}
 	return OverlayWidgetController;
+}
+
+
+UCYInteractionWidgetController* ACYHUD::GetInteractionWidgetController(const FWidgetControllerParams& WCParams)
+{
+	if (InteractionWidgetController == nullptr)
+	{
+		// 위젯 컨트롤러가 없으면 지정된 클래스로 생성
+		InteractionWidgetController = NewObject<UCYInteractionWidgetController>(this, InteractionWidgetControllerClass);
+		InteractionWidgetController->SetWidgetControllerParams(WCParams);
+		InteractionWidgetController->BindCallbacksToDependencies();
+
+		WidgetControllers.Add(UCYInteractionWidgetController::StaticClass(), InteractionWidgetController);
+	}
+	return InteractionWidgetController;
+}
+
+UCYWidgetController* ACYHUD::GetWidgetController(TSubclassOf<UCYWidgetController> ControllerClass, const FWidgetControllerParams& WCParams)
+{
+	if (!ControllerClass)
+	{
+		return nullptr;
+	}
+
+	if (UCYWidgetController** CachedController = WidgetControllers.Find(ControllerClass))
+	{
+		return *CachedController;
+	}
+
+	return nullptr;
 }
 
 void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystemComponent* ASC, UAttributeSet* AS, AGameStateBase* GS)
@@ -29,6 +62,7 @@ void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 	
 	// 위젯 컨트롤러 가져오기(또는 생성)
 	UCYOverlayWidgetController* WidgetController = GetOverlayWidgetController(WidgetControllerParams);
+	UCYInteractionWidgetController* InteractionController = GetInteractionWidgetController(WidgetControllerParams);
 
 	// 위젯에 위젯 컨트롤러 설정
 	// 해당 시점에 OnWidgetControllerSet 함수가 호출됨
@@ -40,7 +74,11 @@ void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 	
 	// 위젯 컨트롤러가 초기값을 브로드캐스트하도록 호출
 	WidgetController->BroadcastInitialValues();
-
+	InteractionController->BroadcastInitialValues();
+	
 	// 뷰포트에 위젯 추가
 	OverlayWidget->AddToViewport();
+	
+	
 }
+
