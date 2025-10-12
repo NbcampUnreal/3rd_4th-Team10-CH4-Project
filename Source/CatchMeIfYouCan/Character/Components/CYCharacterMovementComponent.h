@@ -4,6 +4,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "CYCharacterMovementComponent.generated.h"
 
+class ACYCharacterBase;
 class ACYLadderBase;
 
 DECLARE_DELEGATE(FOnReachedLadderTop);
@@ -43,6 +44,8 @@ class CATCHMEIFYOUCAN_API UCYCharacterMovementComponent : public UCharacterMovem
 public:
 	UCYCharacterMovementComponent();
 
+	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
+	
 	/**
 	 * 사다리 등반 시작
 	 * @param InLadder - 타고 있는 사다리 액터 (참조 유지용)
@@ -123,6 +126,11 @@ public:
 	 */
 	UPROPERTY()
 	uint8 bWantsToClimb : 1;
+
+
+protected:
+	UPROPERTY()
+	TObjectPtr<ACYCharacterBase> CYCharacterOwner = nullptr;
 	
 private:
 

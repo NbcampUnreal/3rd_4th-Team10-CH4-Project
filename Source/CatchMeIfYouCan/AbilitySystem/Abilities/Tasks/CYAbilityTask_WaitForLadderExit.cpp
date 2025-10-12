@@ -5,7 +5,17 @@
 #include "Character/Components/CYCharacterMovementComponent.h"
 #include "GameFramework/Character.h"
 
-UCYAbilityTask_WaitForLadderExit* UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation, FVector LadderFacingDirection, float UpdateFrequency, float BottomEdgeThreshold, float TopEdgeThreshold)
+UCYAbilityTask_WaitForLadderExit* UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(
+    UGameplayAbility* OwningAbility,
+    AActor* LadderActor,
+    FVector LadderBottomLocation,
+    FVector LadderTopLocation,
+    FVector LadderFacingDirection,
+    float UpdateFrequency,
+    float BottomEdgeThreshold,
+    float TopEdgeThreshold,
+    FVector EntryTargetLocation,
+    float SafetyMargin)
 {
     UCYAbilityTask_WaitForLadderExit* NewTask = NewAbilityTask<UCYAbilityTask_WaitForLadderExit>(OwningAbility);
 
@@ -18,6 +28,8 @@ UCYAbilityTask_WaitForLadderExit* UCYAbilityTask_WaitForLadderExit::CreateWaitFo
     NewTask->CheckUpdateFrequency = FMath::Max(0.01f, UpdateFrequency); 
     NewTask->BottomEdgeProximityThreshold = FMath::Max(1.0f, BottomEdgeThreshold);
     NewTask->TopEdgeProximityThreshold = FMath::Max(1.0f, TopEdgeThreshold);
+    NewTask->EntryTargetLocation = EntryTargetLocation;
+    NewTask->HorizontalDistanceSafetyMargin = FMath::Max(1.0f, SafetyMargin);
     
     return NewTask;
 }
@@ -28,6 +40,12 @@ void UCYAbilityTask_WaitForLadderExit::Activate()
 
     // Avatar가 준비될 때까지 대기
     SetWaitingOnAvatar();
+
+    if (!EntryTargetLocation.IsZero())
+    {
+        const float BaseDistance = CalculateHorizontalDistanceFromRail(EntryTargetLocation);
+        MaxAllowedHorizontalDistance = BaseDistance + HorizontalDistanceSafetyMargin;
+    }
 
     // 점프 태그 이벤트 구독 (즉시 감지)
     if (UAbilitySystemComponent* ASC = AbilitySystemComponent.Get())
@@ -90,6 +108,18 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
 
     // 사다리 타기 상태 확인
     if (!MovementComponent->IsClimbingLadder())
+    {
+        OnCancelled.Broadcast();
+        EndTask();
+        return;
+    }
+
+    const FVector CharacterLocation = Character->GetActorLocation();
+
+    // 실제 거리 = 현재 캐릭터 위치로부터의 거리
+    const float ActualDistance = CalculateHorizontalDistanceFromRail(CharacterLocation);
+    
+    if (ActualDistance > MaxAllowedHorizontalDistance)
     {
         OnCancelled.Broadcast();
         EndTask();
@@ -244,4 +274,21 @@ bool UCYAbilityTask_WaitForLadderExit::ValidateCharacterAndLadder(ACharacter*& O
     }
 
     return true;
+}
+
+float UCYAbilityTask_WaitForLadderExit::CalculateHorizontalDistanceFromRail(const FVector& CharacterLocation) const
+{
+    const FVector ToCharacter = CharacterLocation - LadderBottomWorldLocation;
+    const float ProjectedDistance = FVector::DotProduct(ToCharacter, LadderClimbDirection);
+    
+    // 투영 거리를 레일 범위로 클램핑 (안전장치)
+    const float ClampedDistance = FMath::Clamp(ProjectedDistance, 0.0f, LadderTotalHeight);
+    
+    // 레일 상의 가장 가까운 지점
+    const FVector ClosestPointOnRail = LadderBottomWorldLocation + (LadderClimbDirection * ClampedDistance);
+    
+    // 수평 거리 계산 (Z축 제외)
+    const float HorizontalDistance = FVector::Dist2D(CharacterLocation, ClosestPointOnRail);
+    
+    return HorizontalDistance;
 }

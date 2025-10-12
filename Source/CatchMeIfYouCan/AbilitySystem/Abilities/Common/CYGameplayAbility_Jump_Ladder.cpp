@@ -49,9 +49,8 @@ void UCYGameplayAbility_Jump_Ladder::ActivateAbility(const FGameplayAbilitySpecH
 
 	if (APlayerController* PC = Cast<APlayerController>(CYCharacter->GetController()))
 	{
-		if (PC->IsLocalController())
+		if (PC->IsLocalController() && bRotateCamera)
 		{
-			// 현재 카메라 회전 가져오기
 			FRotator CurrentControlRotation = PC->GetControlRotation();
 			
 			// Yaw만 변경 (Pitch는 플레이어가 보던 각도 유지)
@@ -59,9 +58,6 @@ void UCYGameplayAbility_Jump_Ladder::ActivateAbility(const FGameplayAbilitySpecH
 			NewControlRotation.Yaw = TargetRotation.Yaw;
 			
 			PC->SetControlRotation(NewControlRotation);
-			
-			UE_LOG(LogCY, Log, TEXT("Ladder jump: Camera rotated to Yaw=%f (Pitch=%f maintained)"),
-				NewControlRotation.Yaw, NewControlRotation.Pitch);
 		}
 	}
 	

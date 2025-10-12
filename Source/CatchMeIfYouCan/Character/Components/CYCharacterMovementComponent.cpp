@@ -3,11 +3,19 @@
 #include "CYLogChannels.h"
 #include "Actors/CYLadderBase.h"
 #include "Character/CYCharacterBase.h"
+#include "Character/CYStatusGameplayTags.h"
 #include "GameFramework/Character.h"
 
 UCYCharacterMovementComponent::UCYCharacterMovementComponent()
 {
 	      
+}
+
+void UCYCharacterMovementComponent::SetUpdatedComponent(USceneComponent* NewUpdatedComponent)
+{
+	Super::SetUpdatedComponent(NewUpdatedComponent);
+
+	CYCharacterOwner = Cast<ACYCharacterBase>(GetOwner());
 }
 
 float UCYCharacterMovementComponent::GetMaxSpeed() const
@@ -29,14 +37,14 @@ void UCYCharacterMovementComponent::OnMovementModeChanged(EMovementMode Previous
 	const bool bNowClimbing = (MovementMode == MOVE_Custom && CustomMovementMode == static_cast<uint8>(CMOVE_Climbing));
 	const bool bWasClimbing = (PreviousMovementMode == MOVE_Custom && PreviousCustomMode == static_cast<uint8>(CMOVE_Climbing));
 
-	if (ACYCharacterBase* CYCharacter = Cast<ACYCharacterBase>(CharacterOwner))
+	if (CYCharacterOwner)
 	{
 		// SimulatedProxy는 제외 (OnRep으로 받음)
-		if (CharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
+		if (CYCharacterOwner->GetLocalRole() != ROLE_SimulatedProxy)
 		{
 			if (bNowClimbing != bWasClimbing)
 			{
-				CYCharacter->SetIsClimbing(bNowClimbing);
+				CYCharacterOwner->SetIsClimbing(bNowClimbing);
 			}
 		}
 	}
@@ -237,7 +245,7 @@ void UCYCharacterMovementComponent::PhysLadder(float DeltaTime, int32 Iterations
     FHitResult Hit;
     SafeMoveUpdatedComponent(MoveAlongRail, DesiredRot, /*bSweep*/true, Hit);
 	
-    if (Hit.IsValidBlockingHit())
+    if (Hit.IsValidBlockingHit() && CYCharacterOwner && CYCharacterOwner->HasGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder))
     {
         // 레일 표면 따라 미끄러지도록 (레일 방향 외 장애물 최소화)
         SlideAlongSurface(MoveAlongRail, 1.f - Hit.Time, Hit.Normal, Hit, true);

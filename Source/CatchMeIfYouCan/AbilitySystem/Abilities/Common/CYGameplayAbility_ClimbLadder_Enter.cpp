@@ -93,6 +93,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     CurrentLadder->CalculateEntryTransform(InitialRailParameter, LadderStandOff, TargetLocation, TargetRotation);
     ELadderEntryType CurrentEntryType = CurrentLadder->GetPlayerEntryType(Character);
     bool bUseInterpolation = CurrentEntryType == ELadderEntryType::Middle || CurrentEntryType == ELadderEntryType::None;
+    CachedEntryTargetLocation = TargetLocation;
     
     // 사다리 등반 시작
     CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  bUseInterpolation);
@@ -397,7 +398,18 @@ void UCYGameplayAbility_ClimbLadder_Enter::StartLadderExitMonitoring()
     
     // 이탈 감시 태스크 생성 및 시작
     constexpr float CheckRate = 0.02f; // 50Hz
-    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(this, CurrentLadder, LadderBottom, LadderTop, LadderFacing, CheckRate, BottomThreshold, TopThreshold);
+    ExitMonitorTask = UCYAbilityTask_WaitForLadderExit::CreateWaitForLadderExitTask(
+        this,
+        CurrentLadder,
+        LadderBottom,
+        LadderTop,
+        LadderFacing,
+        CheckRate,
+        BottomThreshold,
+        TopThreshold,
+        CachedEntryTargetLocation,
+        HorizontalDistanceSafetyMargin
+    );
     
     if (ExitMonitorTask)
     {
@@ -420,7 +432,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromBottom()
 
 void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderClimbingCancelled()
 {
-    UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Climbing cancelled (jump)"));
+    UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Climbing cancelled"));
 
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }

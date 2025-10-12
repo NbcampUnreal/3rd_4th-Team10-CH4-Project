@@ -38,9 +38,21 @@ public:
      * @param UpdateFrequency - 체크 주기 (초, 기본 0.02 = 50Hz)
      * @param BottomEdgeThreshold - 하단 이탈 임계값 (cm)
      * @param TopEdgeThreshold - 상단 이탈 임계값 (cm)
+     * @param EntryTargetLocation - 진입 타겟 위치 (사다리 등반 시작 위치)
+     * @param SafetyMargin - 진입 타겟 위치 안전 거리 마진(cm)
      */
     UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta=(HidePin="OwningAbility", DefaultToSelf="OwningAbility", BlueprintInternalUseOnly="true", DisplayName="Wait For Ladder Exit"))
-    static UCYAbilityTask_WaitForLadderExit* CreateWaitForLadderExitTask(UGameplayAbility* OwningAbility, AActor* LadderActor, FVector LadderBottomLocation, FVector LadderTopLocation,FVector LadderFacingDirection,float UpdateFrequency = 0.02f, float BottomEdgeThreshold = 18.0f, float TopEdgeThreshold = 18.0f);
+    static UCYAbilityTask_WaitForLadderExit* CreateWaitForLadderExitTask(
+        UGameplayAbility* OwningAbility,
+        AActor* LadderActor,
+        FVector LadderBottomLocation,
+        FVector LadderTopLocation,
+        FVector LadderFacingDirection,
+        float UpdateFrequency = 0.02f,
+        float BottomEdgeThreshold = 18.0f,
+        float TopEdgeThreshold = 18.0f,
+        FVector EntryTargetLocation = FVector::ZeroVector,
+        float SafetyMargin = 20.0f);
 
 protected:
  
@@ -88,6 +100,13 @@ private:
      */
     bool ValidateCharacterAndLadder(ACharacter*& OutCharacter, UCYCharacterMovementComponent*& OutMovementComponent) const;
 
+    /**
+     * 캐릭터와 사다리 레일 간의 수평 거리 계산
+     * @param CharacterLocation - 캐릭터의 현재 위치
+     * @return 레일 중심선과의 최단 수평 거리 (cm)
+     */
+    float CalculateHorizontalDistanceFromRail(const FVector& CharacterLocation) const;
+
 public:
     /** 사다리 상단으로 이탈 시 브로드캐스트 */
     UPROPERTY(BlueprintAssignable, Category="Ladder Events")
@@ -129,6 +148,15 @@ private:
     
     /** 상단 이탈 임계값 */
     float TopEdgeProximityThreshold = 18.0f;
+
+    /** 진입 시 계산된 목표 위치 (거리 기준점) */
+    FVector EntryTargetLocation = FVector::ZeroVector;
+
+    /** 최대 수평 거리 (cm) */
+    float HorizontalDistanceSafetyMargin = 20.0f;
+
+    /** 최대 허용 수평 거리 (한 번만 계산, 캐싱) */
+    float MaxAllowedHorizontalDistance = 0.0f;
     
     /** 입력 의도 판단 임계값 (내적값) */
     constexpr static float INPUT_INTENT_THRESHOLD = 0.2f;

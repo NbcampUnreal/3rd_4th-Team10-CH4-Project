@@ -105,9 +105,17 @@ private:
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|MotionWarping", meta=(ClampMin="0.0", ClampMax="300.0"))
     float ForwardExitOffset = 40.0f;
 
+    /** 사다리 이탈 판정 여유 거리 (cm) */
+    UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Exit", meta=(ClampMin="0.0", ClampMax="300.0"))
+    float HorizontalDistanceSafetyMargin = 20.0f;
+
     /** 캐싱된 MovementComponent */
     UPROPERTY(Transient)
     TObjectPtr<UCYCharacterMovementComponent> CachedMovementComponent;
+
+    /** 진입 시 계산된 타겟 위치  */
+    UPROPERTY(Transient)
+    FVector CachedEntryTargetLocation;
 
     /** 현재 등반 중인 사다리 */
     UPROPERTY(Transient)
