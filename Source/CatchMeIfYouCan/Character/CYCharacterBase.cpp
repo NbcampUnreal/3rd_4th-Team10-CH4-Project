@@ -12,7 +12,6 @@
 #include "Components/Items/CYWeaponComponent.h"
 #include "Physics/CYCollisionChannels.h"
 #include "MotionWarpingComponent.h"
-#include "Components/CYCharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
 

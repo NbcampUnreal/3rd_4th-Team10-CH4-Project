@@ -59,7 +59,6 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
-	//SetupPlayerSystems();
 	SetupAbilitySystemComponent();
 	
 	// 서버에서만 어빌리티 세트를 초기화 시도

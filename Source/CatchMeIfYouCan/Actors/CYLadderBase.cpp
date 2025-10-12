@@ -3,9 +3,11 @@
 
 #include "CYLadderBase.h"
 
+#include "AbilitySystemComponent.h"
 #include "CYLogChannels.h"
 #include "DrawDebugHelpers.h"
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
+#include "Character/CYStatusGameplayTags.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -439,6 +441,14 @@ bool ACYLadderBase::CanInteraction(const FCYInteractionQuery& InteractionQuery) 
     if (!Super::CanInteraction(InteractionQuery))
     {
         return false;
+    }
+
+    if (const UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InteractionQuery.RequestingAvatar.Get()))
+    {
+        if (ASC->HasMatchingGameplayTag(CYGameplayTags::Status_Movement_Climbing))
+        {
+            return false;
+        }
     }
     
     const ELadderEntryType EntryType = GetPlayerEntryType(InteractionQuery.RequestingAvatar.Get());

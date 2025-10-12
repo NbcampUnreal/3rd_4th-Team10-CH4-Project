@@ -74,7 +74,10 @@ public:
 	float GetLadderAttachSpot() const { return LadderAttachSpot; }
 	void SetLadderAttachSpot(const float InAttachSpot) { LadderAttachSpot = InAttachSpot; }
 
-	
+	// 사다리 관련 정보 접근자 추가
+	UFUNCTION(BlueprintPure, Category="CY|Movement|Ladder")
+	FVector GetCharToLadderFacing() const { return CharToLadderFacing; }
+
 
 protected:
 	/**

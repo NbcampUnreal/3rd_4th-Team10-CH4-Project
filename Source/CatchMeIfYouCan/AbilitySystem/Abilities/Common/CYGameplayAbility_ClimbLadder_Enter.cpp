@@ -3,6 +3,7 @@
 
 #include "CYGameplayAbility_ClimbLadder_Enter.h"
 
+#include "AbilitySystemComponent.h"
 #include "CYLogChannels.h"
 #include "MotionWarpingComponent.h"
 #include "RootMotionModifier.h"
@@ -103,6 +104,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
         if (UAbilityTask_PlayMontageAndWait* EntryTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
                this, TEXT("LadderEntry"), EntryMontage, 1.0f, NAME_None, true))
         {
+            if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+            {
+                ASC->AddLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+            }
+            
             EntryTask->OnCompleted.AddDynamic(this, &ThisClass::OnEntryMontageCompleted);
             EntryTask->OnBlendOut.AddDynamic(this, &ThisClass::OnEntryMontageCompleted);
             EntryTask->OnInterrupted.AddDynamic(this, &ThisClass::OnEntryMontageCancelled);
@@ -224,6 +230,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
         ExitMontageTask->OnInterrupted.AddDynamic(this, &ThisClass::OnTopExitMontageCancelled);
         ExitMontageTask->OnCancelled.AddDynamic(this, &ThisClass::OnTopExitMontageCancelled);
         ExitMontageTask->ReadyForActivation();
+
+        if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+        {
+            ASC->AddLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+        }
     }
     else
     {
@@ -337,6 +348,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupEntryMotionWarpingTarget(const F
 
 void UCYGameplayAbility_ClimbLadder_Enter::OnEntryMontageCompleted()
 {
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+    }
+    
     if (!CachedMovementComponent || !CurrentLadder)
     {
         EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
@@ -347,6 +363,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::OnEntryMontageCompleted()
 
 void UCYGameplayAbility_ClimbLadder_Enter::OnEntryMontageCancelled()
 {
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+    }
+    
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
@@ -407,6 +428,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderClimbingCancelled()
 void UCYGameplayAbility_ClimbLadder_Enter::OnTopExitMontageCompleted()
 {
     UE_LOG(LogCY, Log, TEXT("ClimbLadder_Enter: Top exit montage completed"));
+
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+    }
     
     bIsPlayingExitMontage = false;
 
@@ -417,6 +443,11 @@ void UCYGameplayAbility_ClimbLadder_Enter::OnTopExitMontageCompleted()
 void UCYGameplayAbility_ClimbLadder_Enter::OnTopExitMontageCancelled()
 {
     UE_LOG(LogCY, Warning, TEXT("ClimbLadder_Enter: Top exit montage cancelled"));
+
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+    }
     
     bIsPlayingExitMontage = false;
 
