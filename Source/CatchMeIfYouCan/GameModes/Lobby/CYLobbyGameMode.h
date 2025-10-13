@@ -9,7 +9,15 @@ class CATCHMEIFYOUCAN_API ACYLobbyGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
 
+private:
+	FTimerHandle TimerHandle;
+	
 protected:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
+
+	virtual void BeginPlay() override;
+
+public:
+	void Test();
 
 };

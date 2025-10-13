@@ -47,7 +47,7 @@ void ACYLoginGameMode::HostButtonClick()
 	if (CYGameInstance)
 	{
 		CYGameInstance->ButtonType = EButtonType::Host;
-		CYGameInstance->FindSessions();
+		CYGameInstance->CallFindSessions();
 	}
 }
 
@@ -58,7 +58,7 @@ void ACYLoginGameMode::JoinButtonClick()
 	if (CYGameInstance)
 	{
 		CYGameInstance->ButtonType = EButtonType::Join;
-		CYGameInstance->FindSessions();
+		CYGameInstance->CallFindSessions();
 	}
 }
 

@@ -11,6 +11,7 @@
 UENUM(BlueprintType)
 enum class EButtonType : uint8
 {
+	None,
 	Host,
 	Join
 };
@@ -41,24 +42,28 @@ protected:
 private:
 	void InitializeOnlineServices();
 	
-	void LoginToEAS();
+	void CallShowLoginUI();
 
-	void HandleLoginToEASComplete(const UE::Online::TOnlineResult<UE::Online::FExternalUIShowLoginUI>& Result);
+	void HandleShowLoginUIComplete(const UE::Online::TOnlineResult<UE::Online::FExternalUIShowLoginUI>& Result);
 
 public:
-	void QueryUserInfo();
+	void CallQueryUserInfo();
 	
 	void HandleQueryUserInfoComplete(const UE::Online::TOnlineResult<UE::Online::FQueryUserInfo>& Result);
 	
-	void CreateSession();
+	void CallCreateSession();
 
 	void HandleCreateSessionComplete(const UE::Online::TOnlineResult<UE::Online::FCreateSession>& Result);
 
-	void FindSessions();
+	void CallFindSessions();
 
 	void HandleFindSessionsComplete(const UE::Online::TOnlineResult<UE::Online::FFindSessions>& Result);
 
-	void JoinSession(const UE::Online::FOnlineSessionId& SessionIdToJoin);
+	void CallJoinSession(const UE::Online::FOnlineSessionId& SessionIdToJoin);
 
 	void HandleJoinSessionComplete(const UE::Online::TOnlineResult<UE::Online::FJoinSession>& Result);
+
+	void CallAddSessionMember();
+	
+	void HandleAddSessionMemberComplete(const UE::Online::TOnlineResult<UE::Online::FAddSessionMember>& Result);
 };
