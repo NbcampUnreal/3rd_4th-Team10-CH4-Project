@@ -72,6 +72,9 @@ private:
     void OnEntryMontageCancelled();
 
     void StartLadderExitMonitoring();
+
+    UFUNCTION()
+    void OnLadderEntryInterpolationComplete();
     
 protected:
 

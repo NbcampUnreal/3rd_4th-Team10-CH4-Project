@@ -92,16 +92,39 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     FRotator TargetRotation;
     CurrentLadder->CalculateEntryTransform(InitialRailParameter, LadderStandOff, TargetLocation, TargetRotation);
     ELadderEntryType CurrentEntryType = CurrentLadder->GetPlayerEntryType(Character);
-    bool bUseInterpolation = CurrentEntryType == ELadderEntryType::Middle || CurrentEntryType == ELadderEntryType::None;
     CachedEntryTargetLocation = TargetLocation;
+
+    bool bUseInterpolation = false;
+    if (!CurrentLadder->ShouldUseEntryMontage())
+    {
+        // 몽타주 사용 안 함 → 항상 Interpolate
+        bUseInterpolation = true;
+    }
+    else
+    {
+        // 몽타주 사용 → Middle/None만 Interpolate
+        bUseInterpolation = (CurrentEntryType == ELadderEntryType::Middle || CurrentEntryType == ELadderEntryType::None);
+    }
     
     // 사다리 등반 시작
     CachedMovementComponent->BeginClimbLadder(CurrentLadder, LadderBottom, LadderTop, LadderFacing, LadderStandOff,InitialRailParameter,  bUseInterpolation);
-    
-    SetupEntryMotionWarpingTarget(TargetLocation, FQuat(TargetRotation));
-    UAnimMontage* EntryMontage = GetEntryMontageForType(CurrentEntryType);
+
+    if (bUseInterpolation)
+    {
+        CachedMovementComponent->OnLadderEntryInterpolationComplete.AddDynamic(
+            this, &ThisClass::OnLadderEntryInterpolationComplete);
+        return;  
+    }
+
+    UAnimMontage* EntryMontage = nullptr;
+    if (CurrentLadder->ShouldUseEntryMontage())
+    {
+        EntryMontage = GetEntryMontageForType(CurrentEntryType);
+    }
     if (EntryMontage)
     {
+        SetupEntryMotionWarpingTarget(TargetLocation, FQuat(TargetRotation));
+        
         if (UAbilityTask_PlayMontageAndWait* EntryTask = UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(
                this, TEXT("LadderEntry"), EntryMontage, 1.0f, NAME_None, true))
         {
@@ -119,7 +142,7 @@ void UCYGameplayAbility_ClimbLadder_Enter::ActivateAbility(const FGameplayAbilit
     }
     else
     {
-        // 태스크 생성 실패 시 즉시 감시 시작
+        // 애님 몽타주 테스크 생성 실패 시 즉시 감시 시작
         StartLadderExitMonitoring();
     }
 }
@@ -209,6 +232,15 @@ void UCYGameplayAbility_ClimbLadder_Enter::HandleLadderExitFromTop()
     {
         ExitMonitorTask->EndTask();
         ExitMonitorTask = nullptr;
+    }
+
+    if (CurrentLadder)
+    {
+        if (!CurrentLadder->ShouldUseExitMontage())
+        {
+            EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, false);
+            return;
+        }
     }
     
     // 루트 모션 활성화 플래그 설정
@@ -326,9 +358,9 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupEntryMotionWarpingTarget(const F
     const float CapsuleHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 88.0f;
     
     // Mesh Root는 발 위치이므로 캡슐 중심에서 반높이만큼 아래
-    FVector AdjustedLocation = TargetLocation;
-    AdjustedLocation.Z -= CapsuleHalfHeight;
-
+    const FVector RailDirection = CurrentLadder->GetClimbingDirection();
+    const FVector AdjustedLocation = TargetLocation - RailDirection * CapsuleHalfHeight;
+    
     // Motion Warping 타겟 등록
     FMotionWarpingTarget WarpTarget;
     WarpTarget.Name = LadderEntryWarpTargetName;
@@ -340,9 +372,21 @@ void UCYGameplayAbility_ClimbLadder_Enter::SetupEntryMotionWarpingTarget(const F
     if (bShowDebugWarpTarget)
     {
         constexpr float Duration = 5.0f;
+        
+        // Capsule 중심 (시안)
         DrawDebugSphere(GetWorld(), TargetLocation, 60.0f, 12, FColor::Cyan, false, Duration, 0, 4.0f);
+        
+        // Mesh Root 위치 (녹색)
+        DrawDebugSphere(GetWorld(), AdjustedLocation, 50.0f, 12, FColor::Green, false, Duration, 0, 4.0f);
+        
+        // 레일 방향 표시 (노란색)
         DrawDebugDirectionalArrow(GetWorld(), TargetLocation, 
-            TargetLocation + TargetRotation.GetForwardVector() * 100.f, 
+            TargetLocation - RailDirection * CapsuleHalfHeight, 
+            3.0f, FColor::Yellow, false, Duration, 0, 2.0f);
+            
+        // 캐릭터 정면 방향 (빨간색)
+        DrawDebugDirectionalArrow(GetWorld(), AdjustedLocation, 
+            AdjustedLocation + TargetRotation.GetForwardVector() * 100.f, 
             5.0f, FColor::Red, false, Duration, 0, 3.0f);
     }
 }
@@ -467,8 +511,26 @@ void UCYGameplayAbility_ClimbLadder_Enter::OnTopExitMontageCancelled()
     EndAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, true, true);
 }
 
+void UCYGameplayAbility_ClimbLadder_Enter::OnLadderEntryInterpolationComplete()
+{
+    if (CachedMovementComponent)
+    {
+        CachedMovementComponent->OnLadderEntryInterpolationComplete.RemoveDynamic(
+            this, &ThisClass::OnLadderEntryInterpolationComplete);
+    }
+    
+    StartLadderExitMonitoring();
+}
+
 void UCYGameplayAbility_ClimbLadder_Enter::EndAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled)
 {
+    // 델리게이트 정리
+    if (CachedMovementComponent)
+    {
+        CachedMovementComponent->OnLadderEntryInterpolationComplete.RemoveDynamic(
+            this, &ThisClass::OnLadderEntryInterpolationComplete);
+    }
+    
     // 태스크 정리
     if (ExitMonitorTask)
     {

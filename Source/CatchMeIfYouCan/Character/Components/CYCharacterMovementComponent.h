@@ -7,8 +7,7 @@
 class ACYCharacterBase;
 class ACYLadderBase;
 
-DECLARE_DELEGATE(FOnReachedLadderTop);
-DECLARE_DELEGATE(FOnReachedLadderBottom);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLadderEntryInterpolationComplete);
 
 /**
  * 커스텀 이동 모드 열거형
@@ -81,6 +80,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="CY|Movement|Ladder")
 	FVector GetCharToLadderFacing() const { return CharToLadderFacing; }
 
+	/** 보간 진행 중인지 확인 */
+	UFUNCTION(BlueprintPure, Category="CY|Movement|Ladder")
+	bool IsInterpolatingToLadder() const { return bIsInterpolatingToLadder; }
 
 protected:
 	/**
@@ -126,6 +128,9 @@ public:
 	 */
 	UPROPERTY()
 	uint8 bWantsToClimb : 1;
+
+	UPROPERTY(BlueprintAssignable, Category="CY|Movement|Ladder")
+	FOnLadderEntryInterpolationComplete OnLadderEntryInterpolationComplete;
 
 
 protected:

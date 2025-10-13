@@ -91,6 +91,14 @@ public:
     /** 캐릭터가 사다리를 바라보는 방향 계산 */
     FVector CalculateCharacterToLadderFacing() const;
 
+    /** 진입 몽타주 사용 여부 확인 */
+    UFUNCTION(BlueprintPure, Category="CY|Ladder")
+    bool ShouldUseEntryMontage() const { return bUseEntryMontage; }
+
+    /** 이탈 몽타주 사용 여부 확인 */
+    UFUNCTION(BlueprintPure, Category="CY|Ladder")
+    bool ShouldUseExitMontage() const { return bUseExitMontage; }
+
 protected:
     
     virtual void BeginPlay() override;
@@ -178,7 +186,14 @@ protected:
     /** 하단 안전 마진 (진입/이탈 공통) */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder", meta=(ClampMin="0.0", ClampMax="100.0"))
     float BottomSafetyMargin = 15.0f;
-    
+
+    // ** 진입 시 몽타주를 사용할지 여부 */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|Entry")
+    bool bUseEntryMontage = true;
+
+    // ** 이탈 시 몽타주를 사용할지 여부 */
+    UPROPERTY(EditAnywhere, Category="CY|Ladder|Exit")
+    bool bUseExitMontage = true;
 
     /** 상호작용 정보 */
     UPROPERTY(EditDefaultsOnly, Category="CY|Ladder|Interaction")

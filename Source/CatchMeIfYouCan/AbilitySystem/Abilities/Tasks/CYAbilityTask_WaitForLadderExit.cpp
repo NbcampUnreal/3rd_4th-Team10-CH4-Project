@@ -287,8 +287,7 @@ float UCYAbilityTask_WaitForLadderExit::CalculateHorizontalDistanceFromRail(cons
     // 레일 상의 가장 가까운 지점
     const FVector ClosestPointOnRail = LadderBottomWorldLocation + (LadderClimbDirection * ClampedDistance);
     
-    // 수평 거리 계산 (Z축 제외)
-    const float HorizontalDistance = FVector::Dist2D(CharacterLocation, ClosestPointOnRail);
+    const float PerpendicularDistance = FVector::Dist(CharacterLocation, ClosestPointOnRail);
     
-    return HorizontalDistance;
+    return PerpendicularDistance;
 }

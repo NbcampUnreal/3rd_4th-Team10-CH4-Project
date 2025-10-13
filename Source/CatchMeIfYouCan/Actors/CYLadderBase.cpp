@@ -114,7 +114,6 @@ FVector ACYLadderBase::GetHorizontalFacingDirection() const
     }
     
     FVector Facing = FacingArrow->GetForwardVector();
-    Facing.Z = 0;
     return Facing.GetSafeNormal();
 }
 

@@ -303,6 +303,8 @@ void UCYCharacterMovementComponent::UpdateLadderEntryInterpolation(float DeltaTi
 	{
 		bIsInterpolatingToLadder = false;
 		InterpElapsedTime = 0.f;
+
+		OnLadderEntryInterpolationComplete.Broadcast();
 	}
 }
 
