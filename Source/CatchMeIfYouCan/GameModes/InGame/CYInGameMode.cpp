@@ -7,6 +7,7 @@
 #include "CYLogChannels.h"
 #include "EngineUtils.h"
 #include "Actors/CYJailPoint.h"
+#include "Actors/CYSafe.h"
 #include "Player/CYPlayerController.h"
 #include "Player/CYPlayerState.h"
 #include "Character/CYPawnData.h"
@@ -49,6 +50,7 @@ void ACYInGameMode::BeginPlay()
 	
 	CachePlayerStarts();
 	CacheJailPoint();
+	CacheSafeCounts();
 	
 	UCYAssetManager::Get().LoadAllPawnData(
 		FStreamableDelegate::CreateUObject(this, &ThisClass::OnPawnDataLoaded)
@@ -542,6 +544,25 @@ void ACYInGameMode::CacheJailPoint()
 		}
 		CYGameState->SetJailPoint(JailPoint);
 	}
+}
+
+void ACYInGameMode::CacheSafeCounts()
+{
+	if (!CYGameState)
+		return;
+    
+	int32 SafeCount = 0;
+    
+	// 맵의 모든 ACYSafe 찾기
+	for (TActorIterator<ACYSafe> It(GetWorld()); It; ++It)
+	{
+		if (ACYSafe* Safe = *It)
+		{
+			SafeCount++;
+		}
+	}
+    
+	CYGameState->SetTotalSafeCount(SafeCount);
 }
 
 void ACYInGameMode::TryChangeInGamePhase()

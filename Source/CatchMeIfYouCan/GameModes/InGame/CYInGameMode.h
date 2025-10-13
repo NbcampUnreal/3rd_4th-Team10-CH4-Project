@@ -57,6 +57,7 @@ protected:
 
 	void CachePlayerStarts();
 	void CacheJailPoint();
+	void CacheSafeCounts();
 
 private:
 	
