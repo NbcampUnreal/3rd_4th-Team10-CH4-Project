@@ -24,6 +24,7 @@ public:
 	ACYInGameMode(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// 플레이어 입장/퇴장 처리 함수
+	virtual APlayerController* Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 	virtual void InitGameState() override;
@@ -62,13 +63,12 @@ protected:
 private:
 	
 	bool CanPlayerJoin() const;
-	void KickPlayer(APlayerController* PlayerToKick, const FString& Reason);
-	
+
 	// 인원/비율 기반 페이즈 전환 시도
 	void TryChangeInGamePhase();
 
-	// 2:1 비율 확인
-	bool HasRequiredRatio() const;
+	// 게임 시작 최소 팀 인원 확인
+	bool HasRequiredTeamCount() const;
 
 	void StartPreparing();        
 	void StartMatch();

@@ -57,17 +57,23 @@ void ACYInGameMode::BeginPlay()
 	);
 }
 
+APlayerController* ACYInGameMode::Login(UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal,
+const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	if (!CanPlayerJoin())
+	{
+		UE_LOG(LogCY, Warning, TEXT("Server FULL! Rejecting connection"));
+		ErrorMessage = TEXT("Server is full");
+		return nullptr; 
+	}
+	
+	return Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
+}
+
 void ACYInGameMode::PostLogin(APlayerController* NewPlayer)
 {
 	ConnectedPlayerCount++;
 
-	if (!CanPlayerJoin())
-	{
-		UE_LOG(LogCY, Warning, TEXT("Server FULL! Kicking player %s"), *NewPlayer->GetName());
-		KickPlayer(NewPlayer, TEXT("Server is full"));
-		return;
-	}
-	
 	if (!ArePawnDataLoaded())
 	{
 		// PawnData 로드 전이면 대기열에 추가
@@ -101,30 +107,6 @@ bool ACYInGameMode::CanPlayerJoin() const
     
 	return bCanJoin;
 }
-
-void ACYInGameMode::KickPlayer(APlayerController* PlayerToKick, const FString& Reason)
-{
-	if (!PlayerToKick)
-	{
-		return;
-	}
-    
-	UE_LOG(LogCY, Warning, TEXT("Kicking player %s: %s"), *PlayerToKick->GetName(), *Reason);
-    
-	// 클라이언트에 메시지 전송
-	PlayerToKick->ClientReturnToMainMenuWithTextReason(FText::FromString(Reason));
-    
-	// 약간의 딜레이 후 강제 종료
-	FTimerHandle KickTimer;
-	GetWorld()->GetTimerManager().SetTimer(KickTimer, [PlayerToKick]()
-	{
-		if (PlayerToKick && PlayerToKick->IsValidLowLevel())
-		{
-			PlayerToKick->Destroy();
-		}
-	}, 0.5f, false);
-}
-
 
 void ACYInGameMode::Logout(AController* Exiting)
 {
@@ -576,7 +558,7 @@ void ACYInGameMode::TryChangeInGamePhase()
 	{
 	case EGamePhase::WaitingToStart:
 		{
-			if (HasRequiredRatio())
+			if (HasRequiredTeamCount())
 			{
 				StartPreparing();
 			}
@@ -585,7 +567,7 @@ void ACYInGameMode::TryChangeInGamePhase()
 	case EGamePhase::Preparing:
 		{
 			// 준비 중에 인원 변화 했을 때 취소 처리
-			if (!HasRequiredRatio())
+			if (!HasRequiredTeamCount())
 			{
 				// 준비 취소 → 다시 대기
 				GetWorld()->GetTimerManager().ClearTimer(PreparingTimerHandle);
@@ -600,7 +582,7 @@ void ACYInGameMode::TryChangeInGamePhase()
 	}
 }
 
-bool ACYInGameMode::HasRequiredRatio() const
+bool ACYInGameMode::HasRequiredTeamCount() const
 {
 	if (!CYGameState || CYGameState->GetCurrentGamePhase() >= EGamePhase::InProgress)
 	{
@@ -641,7 +623,7 @@ void ACYInGameMode::StartMatch()
 	}
 
 	// 시작 직전 비율 재검증
-	if (!HasRequiredRatio())
+	if (!HasRequiredTeamCount())
 	{
 		CYGameState->SetGamePhase_Server(EGamePhase::WaitingToStart);
 		return;
