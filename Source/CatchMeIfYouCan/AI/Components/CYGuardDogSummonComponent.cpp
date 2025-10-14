@@ -2,6 +2,8 @@
 
 
 #include "AI/Components/CYGuardDogSummonComponent.h"
+
+#include "NavigationSystem.h"
 #include "AI/Managers/CYSplineManager.h"
 #include "AI/Characters/CYAIDogCharacter.h"
 #include "AI/Managers/CYGuardDogPoolManager.h"
@@ -13,11 +15,10 @@
 // Sets default values for this component's properties
 UCYGuardDogSummonComponent::UCYGuardDogSummonComponent()
 {
-
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
-	
 }
+
 void UCYGuardDogSummonComponent::FindManagers()
 {
 	UWorld* World = GetWorld();
@@ -33,18 +34,17 @@ void UCYGuardDogSummonComponent::FindManagers()
 void UCYGuardDogSummonComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	if (GetOwner()&& GetOwner()->HasAuthority())
+	if (GetOwner() && GetOwner()->HasAuthority())
 	{
 		//스플라인 매니저 및 풀 매니저 찾아서 연결
 		FindManagers();
-		
+
 		//컴포넌트에서 미리 할당한 스플라인 추가
 		if (SplineManager && AvailableSplines.Num() > 0)
 		{
 			SplineManager->RegisterSplines(AvailableSplines);
 		}
 	}
-	
 }
 
 void UCYGuardDogSummonComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -68,8 +68,6 @@ void UCYGuardDogSummonComponent::SummonGuardDogs(FVector SpawnLocation)
 	ServerExecuteSummon(SpawnLocation);
 }
 
-
-
 //서버에 소환 요청
 void UCYGuardDogSummonComponent::ServerSummonGuardDogs_Implementation(FVector SpawnLocation)
 {
@@ -79,10 +77,9 @@ void UCYGuardDogSummonComponent::ServerSummonGuardDogs_Implementation(FVector Sp
 void UCYGuardDogSummonComponent::ServerExecuteSummon(FVector SpawnLocation)
 {
 	//서버가 아니면 리턴 및 소환 가능한 상태인지 확인
-	if (!GetOwner()||!GetOwner()->HasAuthority())
+	if (!GetOwner() || !GetOwner()->HasAuthority())
 	{
 		UE_LOG(LogTemp, Error, TEXT("서버 인지 확인 및 컴포넌트 소유 액터 존재 확인"));
-
 		return;
 	}
 	if (!CanSummon() || ActiveDogs.Num() > 0)
@@ -91,22 +88,46 @@ void UCYGuardDogSummonComponent::ServerExecuteSummon(FVector SpawnLocation)
 		return;
 	}
 
+	// 쿨타임 중이면 리턴
+	if (RemainingCooldown > 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("현재 쿨타임 진행 중입니다. (남은 시간: %.1f초)"), RemainingCooldown);
+		return;
+	}
+
 	// 소환 중인지 확인
 	if (GetWorld()->GetTimerManager().IsTimerActive(StaggeredSummonTimerHandle))
 	{
 		return;
 	}
-	
+
 	//사용중인 경비견 제거
 	CleanupInvalidDogs();
 
 	//활성화된 스플라인과 소환 가능한 경비견 중 더 작은 수를 할당
 	int32 DogsToSummon = FMath::Min(MaxSummonCount, GetAvailableSplineCount());
-	if (DogsToSummon <=0)return;
+	if (DogsToSummon <= 0) return;
 	GetWorld()->GetTimerManager().ClearTimer(StaggeredSummonTimerHandle);
 	PendingSpawnLocations.Empty();
 	PendingSplines.Empty();
 
+	// ✅ NavMesh 유효 위치로 스폰 좌표 보정 추가
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (NavSys)
+	{
+		FNavLocation ProjectedLoc;
+		if (NavSys->ProjectPointToNavigation(SpawnLocation, ProjectedLoc, FVector(200, 200, 500)))
+		{
+			SpawnLocation = ProjectedLoc.Location;
+			UE_LOG(LogTemp, Log, TEXT("NavMesh 보정 완료 -> 새로운 스폰 위치: %s"), *SpawnLocation.ToString());
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("NavMesh 보정 실패 -> 원래 위치 사용: %s"), *SpawnLocation.ToString());
+		}
+	}
+
+	// 🔹 여기부터 기존 로직 그대로 유지 🔹
 	PendingSpawnLocations = CalculateSpawnPositions(SpawnLocation, DogsToSummon);
 	for (int32 i = 0; i < DogsToSummon; ++i)
 	{
@@ -123,24 +144,30 @@ void UCYGuardDogSummonComponent::ServerExecuteSummon(FVector SpawnLocation)
 		}
 	}
 
-	GetWorld()->GetTimerManager().SetTimer(StaggeredSummonTimerHandle, this, &UCYGuardDogSummonComponent::ActivateOneDog_Staggered, 0.3f, true);
-	
-}
+	GetWorld()->GetTimerManager().SetTimer(
+		StaggeredSummonTimerHandle,
+		this,
+		&UCYGuardDogSummonComponent::ActivateOneDog_Staggered,
+		0.3f,
+		true
+	);
 
+	// ✅ 쿨타임 시작
+	StartSummonCooldown();
+}
 
 void UCYGuardDogSummonComponent::ActivateOneDog_Staggered()
 {
-    if (PendingSpawnLocations.Num() == 0 || PendingSplines.Num() == 0 || !DogPoolManager)
-    {
-    	GetWorld()->GetTimerManager().ClearTimer(StaggeredSummonTimerHandle);
-    	if (SummonDuration > 0.0f && ActiveDogs.Num() > 0)
-    	{
-    		GetWorld()->GetTimerManager().SetTimer(DismissTimerHandle, this, &UCYGuardDogSummonComponent::AutoDismissDogs, SummonDuration, false);
-    	}
-    	return;
-    }
+	if (PendingSpawnLocations.Num() == 0 || PendingSplines.Num() == 0 || !DogPoolManager)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(StaggeredSummonTimerHandle);
+		if (SummonDuration > 0.0f && ActiveDogs.Num() > 0)
+		{
+			GetWorld()->GetTimerManager().SetTimer(DismissTimerHandle, this, &UCYGuardDogSummonComponent::AutoDismissDogs, SummonDuration, false);
+		}
+		return;
+	}
 
-	
 	FVector SpawnPos = PendingSpawnLocations[0];
 	PendingSpawnLocations.RemoveAt(0);
 
@@ -205,6 +232,29 @@ TArray<FVector> UCYGuardDogSummonComponent::CalculateSpawnPositions(FVector Cent
 	return Positions;
 }
 
+FVector UCYGuardDogSummonComponent::GetValidSpawnLocation(const FVector& DesiredLocation)
+{
+	UNavigationSystemV1* NavSys = UNavigationSystemV1::GetCurrent(GetWorld());
+	if (!NavSys)
+	{
+		return DesiredLocation;
+	}
+
+	FNavLocation ProjectedLocation;
+	bool bOnNavMesh = NavSys->ProjectPointToNavigation(
+		DesiredLocation,
+		ProjectedLocation,
+		FVector(200.0f, 200.0f, 500.0f) // 탐색 범위 (필요시 조정 가능)
+	);
+
+	if (bOnNavMesh)
+	{
+		return ProjectedLocation.Location; // NavMesh 위 좌표 리턴
+	}
+
+	return DesiredLocation; // 실패 시 원래 좌표 유지
+}
+
 void UCYGuardDogSummonComponent::AutoDismissDogs()
 {
 	DismissAllDogs();
@@ -215,58 +265,46 @@ void UCYGuardDogSummonComponent::CleanupInvalidDogs()
 	ActiveDogs.RemoveAll([](const ACYAIDogCharacter* Dog) { return !Dog || !IsValid(Dog); });
 }
 
-
-
 void UCYGuardDogSummonComponent::ServerDismissAllDogs_Implementation()
 {
 	DismissAllDogs();
 }
+
 //소환 가능한지 확인
 bool UCYGuardDogSummonComponent::CanSummon() const
 {
-	// 각 조건을 분리해서 로그
 	UE_LOG(LogTemp, Error, TEXT("===== CanSummon 체크 ====="));
-    
-	// 1. DogPoolManager 체크
+
 	if (!DogPoolManager)
 	{
 		UE_LOG(LogTemp, Error, TEXT("❌ DogPoolManager가 NULL입니다"));
-		UE_LOG(LogTemp, Error, TEXT("   -> 레벨에 ACYGuardDogPoolManager 액터가 있는지 확인"));
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("✅ DogPoolManager 있음: %s"), *DogPoolManager->GetName());
 	}
-    
-	// 2. SplineManager 체크
+
 	if (!SplineManager)
 	{
 		UE_LOG(LogTemp, Error, TEXT("❌ SplineManager가 NULL입니다"));
-		UE_LOG(LogTemp, Error, TEXT("   -> 레벨에 ACYSplineManager 액터가 있는지 확인"));
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("✅ SplineManager 있음: %s"), *SplineManager->GetName());
 	}
-    
-	// 3. 사용 가능한 스플라인 수 체크
+
 	int32 AvailableCount = GetAvailableSplineCount();
 	if (AvailableCount <= 0)
 	{
 		UE_LOG(LogTemp, Error, TEXT("❌ 사용 가능한 스플라인이 없습니다 (개수: %d)"), AvailableCount);
-		UE_LOG(LogTemp, Error, TEXT("   -> 스플라인 액터에 'GuardPatrol' 태그 추가"));
-		UE_LOG(LogTemp, Error, TEXT("   -> 또는 컴포넌트의 AvailableSplines 배열에 직접 할당"));
 	}
 	else
 	{
 		UE_LOG(LogTemp, Error, TEXT("✅ 사용 가능한 스플라인: %d개"), AvailableCount);
 	}
-    
-	// 최종 결과
+
 	bool bCanSummon = DogPoolManager && SplineManager && AvailableCount > 0;
-	UE_LOG(LogTemp, Error, TEXT("===== CanSummon 결과: %s ====="), 
-		   bCanSummon ? TEXT("TRUE") : TEXT("FALSE"));
-    
+	UE_LOG(LogTemp, Error, TEXT("===== CanSummon 결과: %s ====="), bCanSummon ? TEXT("TRUE") : TEXT("FALSE"));
 	return bCanSummon;
 }
 
@@ -277,7 +315,7 @@ int32 UCYGuardDogSummonComponent::GetAvailableSplineCount() const
 }
 
 //추후 클라이언트의 비정상적인 요청 차단
-bool UCYGuardDogSummonComponent::ServerSummonGuardDogs_Validate(FVector SpawnLocation){return true;}
+bool UCYGuardDogSummonComponent::ServerSummonGuardDogs_Validate(FVector SpawnLocation) { return true; }
 bool UCYGuardDogSummonComponent::ServerDismissAllDogs_Validate() { return true; }
 
 void UCYGuardDogSummonComponent::AddDetectedRobber(AActor* Robber)
@@ -287,7 +325,6 @@ void UCYGuardDogSummonComponent::AddDetectedRobber(AActor* Robber)
 	bool bWasEmpty = DetectedRobbers.Num() == 0;
 	DetectedRobbers.Add(Robber);
 
-	// 목록이 비어있다가 처음으로 도둑이 추가된 경우에만 UI를 켜라고 명령합니다.
 	if (bWasEmpty)
 	{
 		if (ACYPlayerCharacter* OwnerCharacter = Cast<ACYPlayerCharacter>(GetOwner()))
@@ -303,7 +340,6 @@ void UCYGuardDogSummonComponent::RemoveDetectedRobber(AActor* Robber)
 
 	DetectedRobbers.Remove(Robber);
 
-	// 목록에서 도둑을 제거한 후, 목록이 완전히 비었다면 UI를 끄라고 명령합니다.
 	if (DetectedRobbers.Num() == 0)
 	{
 		if (ACYPlayerCharacter* OwnerCharacter = Cast<ACYPlayerCharacter>(GetOwner()))
@@ -311,4 +347,43 @@ void UCYGuardDogSummonComponent::RemoveDetectedRobber(AActor* Robber)
 			OwnerCharacter->Client_ShowRobberDetectedWarning(false, Robber);
 		}
 	}
+}
+
+
+// ✅ 쿨타임 시작 함수
+void UCYGuardDogSummonComponent::StartSummonCooldown()
+{
+	if (RemainingCooldown > 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("쿨타임 중이라 StartSummonCooldown 무시됨."));
+		return;
+	}
+
+	RemainingCooldown = SummonCooldown;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		CooldownTimerHandle,
+		this,
+		&UCYGuardDogSummonComponent::UpdateCooldown,
+		1.0f,
+		true
+	);
+
+	UE_LOG(LogTemp, Log, TEXT("쿨타임 시작: %.1f초"), SummonCooldown);
+}
+
+// ✅ 쿨타임 감소 함수
+void UCYGuardDogSummonComponent::UpdateCooldown()
+{
+	if (RemainingCooldown <= 0.0f)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(CooldownTimerHandle);
+		RemainingCooldown = 0.0f;
+
+		UE_LOG(LogTemp, Log, TEXT("쿨타임 종료."));
+		return;
+	}
+
+	RemainingCooldown -= 1.0f;
+	UE_LOG(LogTemp, Log, TEXT("쿨타임 남은 시간: %.1f초"), RemainingCooldown);
 }
