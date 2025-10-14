@@ -51,6 +51,7 @@ void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
     
 	// 델리게이트 브로드캐스트 (리슨 서버에서 UI 업데이트)
 	OnTeamCountChanged.Broadcast(CopCount, RobberCount);
+	OnAliveRobberCountChanged.Broadcast(AliveRobberCount);
     
 	UE_LOG(LogCY, Warning, TEXT("Team Counts Updated - Cops: %d, Robbers: %d (Alive: %d)"), 
 		   CopCount, RobberCount, AliveRobberCount);
