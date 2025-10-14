@@ -23,6 +23,9 @@ public:
 protected:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool CanInteraction(const FCYInteractionQuery& InteractionQuery) const override;
+
+	UFUNCTION()
+	virtual void OnRep_WasConsumed();
 	
 public:
 	/**
@@ -71,7 +74,7 @@ protected:
 	/**
 	 * bShouldConsume이 true일 때 사용되며, 한 번 true가 되면 상호작용 불가능
 	 */
-	UPROPERTY(BlueprintReadWrite, Replicated)
+	UPROPERTY(BlueprintReadWrite, ReplicatedUsing=OnRep_WasConsumed)
 	bool bWasConsumed = false;
 
 	/**

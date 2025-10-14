@@ -2,6 +2,7 @@
 
 #include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
+#include "CYLogChannels.h"
 #include "AbilitySystem/Abilities/CYAbilityGameplayTags.h"
 #include "Character/CYPlayerCharacter.h"
 #include "Net/UnrealNetwork.h"
@@ -99,5 +100,11 @@ void ACYWorldInteractable::OnInteractionSuccess(AActor* Interactor)
 bool ACYWorldInteractable::CanInteraction(const FCYInteractionQuery& InteractionQuery) const
 {
 	return bShouldConsume ? (bWasConsumed == false) : true;
+}
+
+void ACYWorldInteractable::OnRep_WasConsumed()
+{
+	// 기본 구현 (필요 시)
+	UE_LOG(LogCY, Log, TEXT("bWasConsumed changed: %d"), bWasConsumed);
 }
 

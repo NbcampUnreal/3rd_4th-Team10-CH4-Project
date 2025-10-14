@@ -17,6 +17,8 @@ class UCYItemInteractionComponent;
 class UCYWeaponComponent;
 class UCYCombatAttributeSet;
 
+class UMotionWarpingComponent;
+
 UCLASS(Abstract)
 class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilitySystemInterface, public ICYInteractable
 {
@@ -25,6 +27,8 @@ class CATCHMEIFYOUCAN_API ACYCharacterBase : public ACharacter, public IAbilityS
 public:
 	ACYCharacterBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	virtual UAbilitySystemComponent* GetAbilitySystemComponent() const override;
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	// Item 컴포넌트 추가
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Components")
@@ -71,6 +75,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "CY|Equipment")
 	USkeletalMeshComponent* GetFootwearMesh() const { return FootwearMesh; }
+
+	UFUNCTION(BlueprintCallable, Category = "CY|Animation")
+	UMotionWarpingComponent* GetMotionWarpingComponent() const { return MotionWarpingComponent; }
+
+	void SetIsClimbing(bool bNewIsClimbing);
+	
+	UFUNCTION(BlueprintCallable, Category="CY|Movement")
+	bool IsClimbing() const { return bIsClimbing; }
+
+	UFUNCTION()
+	virtual void OnRep_IsClimbing();
 	
 protected:
 	virtual void BeginPlay() override;
@@ -88,7 +103,8 @@ protected:
 	UCapsuleComponent* InteractCapsule;
 
 	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
-	float InteractCapsuleRadiusOffset = 0.f;    
+	float InteractCapsuleRadiusOffset = 0.f;
+	
 	UPROPERTY(EditDefaultsOnly, Category="CY|Interaction")
 	float InteractCapsuleHalfHeightOffset = 0.f; 
 	
@@ -100,6 +116,9 @@ protected:
 
 	// 초기화 상태 추적
 	bool bAbilitySetsInitialized = false;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_IsClimbing, Category="CY|Movement")
+	uint8 bIsClimbing:1;
 
 private:
 	// 헬멧
@@ -120,5 +139,9 @@ private:
 
 	// 신발
 	UPROPERTY(VisibleAnywhere, Category = "CY|Equipment")
-	USkeletalMeshComponent* FootwearMesh; 
+	USkeletalMeshComponent* FootwearMesh;
+
+	// Motion Warping 컴포넌트
+	UPROPERTY(VisibleAnywhere, Category = "CY|Animation")
+	TObjectPtr<UMotionWarpingComponent> MotionWarpingComponent;
 };

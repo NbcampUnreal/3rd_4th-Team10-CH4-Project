@@ -22,6 +22,7 @@ public class CatchMeIfYouCan : ModuleRules
 			"AnimGraphRuntime",
 			"Niagara",
 			"NiagaraCore",
+			"MotionWarping",
 			
 			// OnlineSubSystem
 			"OnlineSubsystem",

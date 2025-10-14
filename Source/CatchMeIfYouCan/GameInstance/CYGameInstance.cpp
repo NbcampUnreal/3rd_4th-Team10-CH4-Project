@@ -114,7 +114,7 @@ void UCYGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSucces
 {
 	if (bWasSuccessful)
 	{
-		GetWorld()->ServerTravel("/Game/Maps/PlayMap_v1?listen", true);
+		GetWorld()->ServerTravel("/Game/Maps/PlayMap_v2?listen", true);
 	}
 }
 

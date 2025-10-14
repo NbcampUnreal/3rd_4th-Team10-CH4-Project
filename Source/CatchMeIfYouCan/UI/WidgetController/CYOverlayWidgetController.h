@@ -62,6 +62,9 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="CY|Phase")
 	FOnTimeChanged OnMatchTimeChanged;
 
+	UPROPERTY(BlueprintAssignable, Category="CY|Safe")
+	FOnSafeCountInfoChanged OnSafeCountInfoChanged;
+
 	// 인게임 타이머 갱신 주기 조절
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="CY|Phase", meta=(ClampMin="0.02", ClampMax="1.0"))
 	float CountdownTickInterval = 0.1f;
