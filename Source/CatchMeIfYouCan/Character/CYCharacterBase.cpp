@@ -4,7 +4,6 @@
 #include "CYPawnData.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "Player/CYPlayerState.h"
-#include "AbilitySystem/CYCombatGameplayTags.h"
 #include "AbilitySystem/Attributes/CYCombatAttributeSet.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/Items/CYInventoryComponent.h"
@@ -86,22 +85,6 @@ void ACYCharacterBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out
 void ACYCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-}
-
-void ACYCharacterBase::SyncInteractCapsuleSizeToRootCapsule() const
-{
-	if (!InteractCapsule || !GetCapsuleComponent())
-	{
-		return;
-	}
-	
-	float Radius = 0.f, HalfHeight = 0.f;
-	GetCapsuleComponent()->GetScaledCapsuleSize(Radius, HalfHeight);
-	InteractCapsule->SetCapsuleSize(
-		Radius + InteractCapsuleRadiusOffset,
-		HalfHeight + InteractCapsuleHalfHeightOffset,
-		true
-	);
 }
 
 void ACYCharacterBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -231,37 +214,6 @@ bool ACYCharacterBase::HasGameplayTag(const FGameplayTag& Tag) const
 		return CYASC->HasMatchingGameplayTag(Tag);
 	}
 	return false;
-}
-
-void ACYCharacterBase::InteractPressed()
-{
-	if (ItemInteractionComponent)
-	{
-		ItemInteractionComponent->InteractWithNearbyItem();
-	}
-}
-
-void ACYCharacterBase::AttackPressed()
-{
-	if (WeaponComponent && WeaponComponent->CurrentWeapon)
-	{
-		if (UCYAbilitySystemComponent* ASC = Cast<UCYAbilitySystemComponent>(GetAbilitySystemComponent()))
-		{
-			ASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Combat_WeaponAttack);
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("No WeaponComponent found"));
-	}
-}
-
-void ACYCharacterBase::UseInventorySlot(int32 SlotIndex)
-{
-	if (InventoryComponent)
-	{
-		InventoryComponent->HoldItem(SlotIndex);
-	}
 }
 
 void ACYCharacterBase::SetIsClimbing(bool bNewIsClimbing)

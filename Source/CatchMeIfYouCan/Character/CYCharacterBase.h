@@ -39,17 +39,7 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "CY|Components")
 	UCYWeaponComponent* WeaponComponent;
-	
-	// Item 입력 함수들 추가
-	UFUNCTION(BlueprintCallable, Category = "CY|Input")
-	void InteractPressed();
 
-	UFUNCTION(BlueprintCallable, Category = "CY|Input")
-	void AttackPressed();
-
-	UFUNCTION(BlueprintCallable, Category = "CY|Input")
-	void UseInventorySlot(int32 SlotIndex);
-	
 	void TryInitializeAbilitySetsWithPawnData();
 
 	UFUNCTION(BlueprintCallable, Category = "CY|AbilitySystem")

@@ -79,10 +79,6 @@ private:
 	UPROPERTY()
 	const UCYPawnData* CachedPawnData = nullptr;
 
-	// 초기화 재시도 횟수
-	int32 InitializationRetryCount = 0;
-	const int32 MaxRetryCount = 50;
-
 	// 클라이언트 서버간 시간 차이
 	float ClientServerDeltaTime = 0.f;
 

@@ -263,7 +263,6 @@ void ACYPlayerController::InitializeClient()
     // 상태 업데이트
     CachedPawnData = PawnData;
     bClientInitialized = true;
-    InitializationRetryCount = 0;
 
     // 타이머 정리
     GetWorld()->GetTimerManager().ClearTimer(InitCheckTimer);
