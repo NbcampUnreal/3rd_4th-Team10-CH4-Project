@@ -27,6 +27,6 @@ void ACYLobbyGameMode::Test()
 
 	if (CYGameInstance)
 	{
-		CYGameInstance->CallAddSessionMember();
+		//CYGameInstance->CallAddSessionMember();
 	}
 }

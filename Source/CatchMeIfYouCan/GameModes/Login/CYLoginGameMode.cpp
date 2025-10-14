@@ -15,15 +15,15 @@ void ACYLoginGameMode::BeginPlay()
 	{
 		ENetMode NetMode = GetWorld()->GetNetMode();
 		FString NetModeString;
-		if (NetMode == ENetMode::NM_Standalone)
+		if (NetMode == NM_Standalone)
 		{
 			NetModeString = TEXT("Standalone");
 		}
-		else if (NetMode == ENetMode::NM_ListenServer)
+		else if (NetMode == NM_ListenServer)
 		{
 			NetModeString = TEXT("Host");
 		}
-		else if (NetMode == ENetMode::NM_Client)
+		else if (NetMode == NM_Client)
 		{
 			NetModeString = TEXT("Client");
 		}
@@ -38,6 +38,8 @@ void ACYLoginGameMode::BeginPlay()
 		PC->bEnableMouseOverEvents = true;         
 		PC->SetInputMode(FInputModeUIOnly());
 	}
+
+	ShowLoginLevel();
 }
 
 void ACYLoginGameMode::HostButtonClick()

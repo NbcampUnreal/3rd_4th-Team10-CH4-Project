@@ -23,13 +23,10 @@ public class CatchMeIfYouCan : ModuleRules
 			"Niagara",
 			"NiagaraCore",
 			
-			// Online Services
-			"CoreOnline",
-			"OnlineBase", 
-			"OnlineServicesInterface",
-			"OnlineServicesCommon",
-			"OnlineServicesCommonEngineUtils",
-			"OnlineServicesEOS"
+			// OnlineSubSystem
+			"OnlineSubsystem",
+			"OnlineSubsystemEOS",
+			"OnlineSubsystemUtils"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });

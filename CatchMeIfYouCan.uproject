@@ -34,18 +34,6 @@
 			"Enabled": true
 		},
 		{
-			"Name": "OnlineFramework",
-			"Enabled": true
-		},
-		{
-			"Name": "OnlineServices",
-			"Enabled": true
-		},
-		{
-			"Name": "OnlineServicesEpicCommon",
-			"Enabled": true
-		},
-		{
 			"Name": "OnlineSubsystemGooglePlay",
 			"Enabled": false,
 			"SupportedTargetPlatforms": [
@@ -65,11 +53,11 @@
 			"Enabled": false
 		},
 		{
-			"Name": "OnlineSubsystemUtils",
-			"Enabled": false
+			"Name": "OnlineSubsystemEOS",
+			"Enabled": true
 		},
 		{
-			"Name": "OnlineServicesEOS",
+			"Name": "SocketSubsystemEOS",
 			"Enabled": true
 		}
 	]
