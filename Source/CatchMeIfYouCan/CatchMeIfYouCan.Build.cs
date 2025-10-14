@@ -22,8 +22,7 @@ public class CatchMeIfYouCan : ModuleRules
 			"AnimGraphRuntime",
 			"Niagara",
 			"NiagaraCore",
-			"NavigationSystem"
-			"NiagaraCore",
+			"NavigationSystem",
 			"MotionWarping"
 		});
 
