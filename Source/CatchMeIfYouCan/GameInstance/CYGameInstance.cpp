@@ -44,12 +44,6 @@ void UCYGameInstance::InitializeOnlineSubsystems()
 	Sessions->OnCreateSessionCompleteDelegates.AddUObject(this, &UCYGameInstance::OnCreateSessionComplete);
 	Sessions->OnFindSessionsCompleteDelegates.AddUObject(this, &UCYGameInstance::OnFindSessionsComplete);
 	Sessions->OnJoinSessionCompleteDelegates.AddUObject(this, &UCYGameInstance::OnJoinSessionComplete);
-
-	SearchSettings = MakeShareable(new FOnlineSessionSearch());
-	SearchSettings->bIsLanQuery = false;
-	SearchSettings->MaxSearchResults = 5;
-	SearchSettings->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals);
-	SearchSettings->QuerySettings.Set(FName(TEXT("SEARCHKEYWORDS")), FString("Lobby"), EOnlineComparisonOp::Equals);
 }
 
 void UCYGameInstance::Shutdown()
@@ -120,7 +114,7 @@ void UCYGameInstance::OnCreateSessionComplete(FName SessionName, bool bWasSucces
 {
 	if (bWasSuccessful)
 	{
-		GetWorld()->ServerTravel("/Game/Maps/Lobby?listen", true);
+		GetWorld()->ServerTravel("/Game/Maps/PlayMap_v1?listen", true);
 	}
 }
 
@@ -187,6 +181,11 @@ void UCYGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 			APlayerController* PC = GetFirstLocalPlayerController();
 			if (PC)
 			{
+				GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
+				FString::Printf(TEXT("조인 성공")));
+				GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
+				FString::Printf(TEXT("커넥트 스트링: %s"), *TravelURL));
+				UE_LOG(LogTemp, Error, TEXT("커넥트스트링 : %s"), *TravelURL);
 				PC->ClientTravel(TravelURL, TRAVEL_Absolute);
 			}
 		}
@@ -200,14 +199,14 @@ void UCYGameInstance::CallCreateSession()
 		return;
 	}
 	
-	CurrentSessionName = "CYSession";
+	CurrentSessionName = TEXT("CYSession");
 	FOnlineSessionSettings SessionSettings;
 	SessionSettings.bIsLANMatch = false;
 	SessionSettings.NumPublicConnections = 6;
 	SessionSettings.bShouldAdvertise = true;
 	SessionSettings.bAllowJoinInProgress = true;
 	SessionSettings.bUsesPresence = true;
-	SessionSettings.Set(FName("SEARCHKEYWORDS"), FString("Lobby"), EOnlineDataAdvertisementType::ViaOnlineService);
+	SessionSettings.Set(FName("SEARCHKEY"), FString("Lobby"), EOnlineDataAdvertisementType::ViaOnlineService);
 	SessionSettings.Set(FName(TEXT("SESSION_JOIN_NAME_KEY")), CurrentSessionName.ToString(), EOnlineDataAdvertisementType::ViaOnlineService);
 	
 	Sessions->CreateSession(0, CurrentSessionName, SessionSettings);
@@ -215,10 +214,23 @@ void UCYGameInstance::CallCreateSession()
 
 void UCYGameInstance::CallFindSessions()
 {
-	if (Sessions.IsValid() && SearchSettings.IsValid())
+	if (!Sessions.IsValid())
 	{
-		Sessions->FindSessions(0, SearchSettings.ToSharedRef());
+		return;
 	}
+	
+	SearchSettings = MakeShareable(new FOnlineSessionSearch());
+	SearchSettings->bIsLanQuery = false;
+	SearchSettings->MaxSearchResults = 5;
+	//SearchSettings->QuerySettings.Set(FName(TEXT("PRESENCE")), true, EOnlineComparisonOp::Equals);
+	SearchSettings->QuerySettings.Set(FName(TEXT("SEARCHKEY")), FString("Lobby"), EOnlineComparisonOp::Equals);
+
+	if (!SearchSettings.IsValid())
+	{
+		return;
+	}
+	
+	Sessions->FindSessions(0, SearchSettings.ToSharedRef());
 }
 
 void UCYGameInstance::CallJoinSession(const FOnlineSessionSearchResult& SearchResult)
