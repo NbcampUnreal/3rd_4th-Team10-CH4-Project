@@ -4,7 +4,6 @@
 #include "CYGameplayAbility_Interact_Arrest.h"
 
 #include "CYLogChannels.h"
-#include "EngineUtils.h"
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
 #include "AbilitySystem/Effects/CYCombatGameplayEffects.h"

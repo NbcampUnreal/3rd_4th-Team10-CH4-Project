@@ -23,6 +23,8 @@ public class CatchMeIfYouCan : ModuleRules
 			"Niagara",
 			"NiagaraCore",
 			"NavigationSystem"
+			"NiagaraCore",
+			"MotionWarping"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });

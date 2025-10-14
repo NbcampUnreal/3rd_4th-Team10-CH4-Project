@@ -10,4 +10,6 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_AbilityInteract_Object, "Ability.Action.AbilityInteract.Object");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_AbilityInteract_Door, "Ability.Action.AbilityInteract.Door");
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_AbilityInteract_Active, "Ability.Action.AbilityInteract.Active");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_Climbing, "Ability.Action.Climbing");
 }

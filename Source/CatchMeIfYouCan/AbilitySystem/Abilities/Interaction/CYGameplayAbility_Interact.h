@@ -8,36 +8,6 @@
 #include "CYGameplayAbility_Interact.generated.h"
 
 /**
- * UI 업데이트를 위한 상호작용 메시지 구조체
- * UGameplayMessageSubsystem을 통해 UI에 상호작용 상태 변화를 알리는 데 사용
- * - 상호작용 프롬프트 표시/숨김
- * - 상호작용 정보 업데이트 (제목, 설명, 진행률 등)
- * - 상호작용 상태 변경 알림
- */
-USTRUCT(BlueprintType)
-struct FCYInteractionMessage
-{
-	GENERATED_BODY()
-
-public:
-	/** 상호작용을 요청한 액터 (보통 플레이어) */
-	UPROPERTY(BlueprintReadWrite)
-	TObjectPtr<AActor> Instigator = nullptr;
-
-	/** UI를 새로고침해야 하는지 여부 */
-	UPROPERTY(BlueprintReadWrite)
-	bool bShouldRefresh = false;
-
-	/** 상호작용 활성 상태가 변경되었는지 여부 */
-	UPROPERTY(BlueprintReadWrite)
-	bool bSwitchActive = false;
-
-	/** 현재 상호작용 정보 (제목, 설명, 지속시간 등) */
-	UPROPERTY(BlueprintReadWrite)
-	FCYInteractionInfo InteractionInfo = FCYInteractionInfo();
-};
-
-/**
  * 기본 상호작용 어빌리티 클래스
  * - 주변 상호작용 가능한 객체 감지 (구체 범위 스캔)
  * - 시선 방향 정밀 타겟팅 (레이캐스트)

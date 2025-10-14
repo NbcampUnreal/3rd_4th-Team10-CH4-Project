@@ -24,6 +24,9 @@ void ACYInGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	
 	DOREPLIFETIME(ThisClass, PreparingEndServerTimeSeconds);
 	DOREPLIFETIME(ThisClass, MatchEndServerTimeSeconds);
+
+	DOREPLIFETIME(ThisClass, OpenedSafeCount);
+	DOREPLIFETIME_CONDITION(ThisClass, TotalSafeCount, COND_InitialOnly);
 }
 
 void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
@@ -48,6 +51,7 @@ void ACYInGameState::UpdateTeamCount(ECYTeamRole TeamRole, int32 Delta)
     
 	// 델리게이트 브로드캐스트 (리슨 서버에서 UI 업데이트)
 	OnTeamCountChanged.Broadcast(CopCount, RobberCount);
+	OnAliveRobberCountChanged.Broadcast(AliveRobberCount);
     
 	UE_LOG(LogCY, Warning, TEXT("Team Counts Updated - Cops: %d, Robbers: %d (Alive: %d)"), 
 		   CopCount, RobberCount, AliveRobberCount);
@@ -69,6 +73,23 @@ void ACYInGameState::UpdateAliveRobberCount(int32 NewCount)
 		// 도둑이 다 잡힌 경우 경찰 승리!
 		CurrentGamePhase = EGamePhase::CopsWin;
 		OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+	}
+}
+
+void ACYInGameState::UpdateOpenedSafeCount(int32 Delta)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	
+	OpenedSafeCount = FMath::Clamp(OpenedSafeCount + Delta, 0, TotalSafeCount);
+	OnSafeCountChanged.Broadcast(OpenedSafeCount, TotalSafeCount);
+    
+	// 승리 조건 체크
+	if (CurrentGamePhase == EGamePhase::InProgress && OpenedSafeCount >= TotalSafeCount)
+	{
+		SetGamePhase_Server(EGamePhase::RobbersWin);
 	}
 }
 
@@ -203,4 +224,14 @@ void ACYInGameState::OnRep_MatchEndServerTimeSeconds()
 	// OverlayWidgetController(로컬 UI)에서 타이머 로직을 수행해 서버 부담을 줄이는 구조로 만들어 봄
 
 	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+}
+
+void ACYInGameState::OnRep_OpenedSafeCount()
+{
+	OnSafeCountChanged.Broadcast(OpenedSafeCount, TotalSafeCount);
+}
+
+void ACYInGameState::OnRep_TotalSafeCount()
+{
+	OnSafeCountChanged.Broadcast(OpenedSafeCount, TotalSafeCount);
 }

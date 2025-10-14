@@ -30,6 +30,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "CY|Teams")
 	void UpdateAliveRobberCount(int32 NewCount);
 
+	UFUNCTION(BlueprintCallable, Category = "CY|Safe")
+	void UpdateOpenedSafeCount(int32 Delta);
+
 	// 팀 비율 계산 헬퍼
 	UFUNCTION(BlueprintPure, Category = "CY|Teams")
 	float GetCopRatio() const;
@@ -45,6 +48,14 @@ public:
 
 	UFUNCTION(BlueprintPure, Category= "CY|Phase")
 	EGamePhase GetCurrentGamePhase() const { return CurrentGamePhase; }
+
+	UFUNCTION(BlueprintPure, Category = "CY|Safe")
+	int32 GetTotalSafeCount() const { return TotalSafeCount; }
+
+	UFUNCTION(BlueprintPure, Category = "CY|Safe")
+	int32 GetOpenedSafeCount() const { return OpenedSafeCount; }
+
+	void SetTotalSafeCount(int32 Count) { TotalSafeCount = Count; }
 
 	// 준비 시간 접근 (로컬에서 사용)
 	UFUNCTION(BlueprintPure)
@@ -87,11 +98,18 @@ protected:
 	UFUNCTION()
 	void OnRep_MatchEndServerTimeSeconds();
 
+	UFUNCTION()
+	void OnRep_OpenedSafeCount();
+
+	UFUNCTION()
+	void OnRep_TotalSafeCount();
+
 public:
 	// UI 바인딩용 델리게이트(리슨 서버 포함)
 	mutable FOnTeamCountChanged OnTeamCountChanged;
 	mutable FOnAliveRobberCountChanged OnAliveRobberCountChanged;
 	mutable FOnGamePhaseChanged OnGamePhaseChanged;
+	mutable FOnSafeCountChanged OnSafeCountChanged;
 
 private:
     // 팀별 인원수
@@ -104,6 +122,14 @@ private:
     // 잡히지 않은 도둑 수
     UPROPERTY(ReplicatedUsing = OnRep_AliveRobberCount)
     int32 AliveRobberCount = 0;
+	
+	// 열린 금고 수
+	UPROPERTY(ReplicatedUsing = OnRep_OpenedSafeCount)
+	int32 OpenedSafeCount = 0;
+
+	// 맵에 있는 전체 금고 수
+	UPROPERTY(ReplicatedUsing = OnRep_TotalSafeCount)
+	int32 TotalSafeCount = 0;
 	
     // 게임 상태
     UPROPERTY(ReplicatedUsing = OnRep_GamePhase)

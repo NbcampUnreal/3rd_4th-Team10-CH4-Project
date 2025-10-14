@@ -23,6 +23,7 @@ void UCYOverlayWidgetController::BroadcastInitialValues()
 
 	CurrentGamePhase = CYGameState->GetCurrentGamePhase();
 	OnGamePhaseChanged.Broadcast(CurrentGamePhase);
+	OnSafeCountInfoChanged.Broadcast(CYGameState->GetOpenedSafeCount(), CYGameState->GetTotalSafeCount());
 	
 	switch (CurrentGamePhase)
 	{
@@ -115,6 +116,15 @@ void UCYOverlayWidgetController::BindCallbacksToDependencies()
 		});
 
 		CYGameState->OnGamePhaseChanged.AddUObject(this, &ThisClass::HandleGamePhaseChanged);
+
+		CYGameState->OnSafeCountChanged.AddLambda(
+		   [WeakThis](int32 Opened, int32 Total)
+	   {
+		   if (WeakThis.IsValid())
+		   {
+			   WeakThis->OnSafeCountInfoChanged.Broadcast(Opened, Total);
+		   }
+	   });
 	}
 }
 
