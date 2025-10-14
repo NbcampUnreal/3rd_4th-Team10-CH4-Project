@@ -26,7 +26,12 @@ public class CatchMeIfYouCan : ModuleRules
 			// OnlineSubSystem
 			"OnlineSubsystem",
 			"OnlineSubsystemEOS",
-			"OnlineSubsystemUtils"
+			"OnlineSubsystemUtils",
+			
+			// NetDriver, Socket
+			"SocketSubSystemEOS",
+			"Sockets",
+			"Networking"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] { "AIModule" });
