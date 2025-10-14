@@ -13,6 +13,9 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "Interaction/CYInteractionQuery.h"
 #include "Physics/CYCollisionChannels.h"
+#include "UI/HUD/CYHUD.h"
+#include "UI/WidgetController/CYInteractionWidgetController.h"
+#include "UI/WidgetController/CYWidgetController.h"
 
 UCYGameplayAbility_Interact::UCYGameplayAbility_Interact()
 {
@@ -52,16 +55,17 @@ void UCYGameplayAbility_Interact::ActivateAbility(const FGameplayAbilitySpecHand
 
 void UCYGameplayAbility_Interact::UpdateInteractions(const TArray<FCYInteractionInfo>& InteractionInfos)
 {
-	// TODO : Lyra의 GameplayMessageSubsystem을 사용중이지 않기 때문에 주석 처리(대안 찾기 or 해당 시스템 도입 고려)
-	// FCYInteractionMessage Message;
-	// Message.Instigator = GetAvatarActorFromActorInfo();
-	// Message.bShouldRefresh = true;
-	// Message.bSwitchActive = (GetAbilitySystemComponentFromActorInfo()->HasMatchingGameplayTag(CYGameplayTags::Status_Action_AbilityInteract) == false);
-	// Message.InteractionInfo = InteractionInfos.Num() > 0 ? InteractionInfos[0] : FCYInteractionInfo();
-	//
-	// UGameplayMessageSubsystem& MessageSystem = UGameplayMessageSubsystem::Get(GetAvatarActorFromActorInfo());
-	// MessageSystem.BroadcastMessage(CYGameplayTags::Message_Interaction_Notice, Message);
-
+	if (UCYInteractionWidgetController* Controller = GetWidgetController<UCYInteractionWidgetController>())
+	{
+		FCYInteractionMessage Message;
+		Message.MessageType = ECYInteractionMessageType::Notice;
+		Message.Instigator = GetAvatarActorFromActorInfo();
+		Message.bShouldRefresh = true;
+		Message.bSwitchActive = (GetAbilitySystemComponentFromActorInfo()->HasMatchingGameplayTag(CYGameplayTags::Status_Action_AbilityInteract) == false);
+		Message.InteractionInfo = InteractionInfos.Num() > 0 ? InteractionInfos[0] : FCYInteractionInfo();
+		Controller->BroadcastInteractionMessage(Message);
+	}
+	
 	CurrentInteractionInfos = InteractionInfos;
 }
 

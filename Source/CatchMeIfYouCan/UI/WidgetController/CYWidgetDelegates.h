@@ -41,3 +41,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnJailProgressChanged, bool, bInJa
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSkillCooldownsChanged, const FCYSkillCooldowns, Cooldowns);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPromptChanged, FText, PromptText);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEventChanged, FText, EventText);
+
+// 금고 갯수 관련
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnSafeCountChanged, int32 /*SafeCount*/, int32 /*TotalSafeCount*/);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnSafeCountInfoChanged, int32, SafeCount, int32, TotalSafeCount);

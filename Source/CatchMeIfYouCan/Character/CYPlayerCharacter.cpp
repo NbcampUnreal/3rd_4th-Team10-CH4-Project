@@ -5,6 +5,7 @@
 #include "AbilitySystem/CYAbilitySystemComponent.h"
 #include "AbilitySystem/Attributes/CYVitalSet.h"
 #include "AbilitySystem/CYCombatGameplayTags.h"
+#include "Components/CYCharacterMovementComponent.h"
 #include "Components/Items/CYInventoryComponent.h"
 #include "Components/Items/CYItemInteractionComponent.h"
 #include "Components/Items/CYWeaponComponent.h"
@@ -19,10 +20,10 @@
 #include "UI/WidgetController/CYOverlayWidgetController.h"
 #include "UI/WidgetController/CYWidgetController.h"
 
-
 ACYPlayerCharacter::ACYPlayerCharacter(const FObjectInitializer& ObjectInitializer) 
-	:	Super(ObjectInitializer)
+	:	Super(ObjectInitializer.SetDefaultSubobjectClass<UCYCharacterMovementComponent>(CharacterMovementComponentName))
 {
+	
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(FName("CameraBoom"));
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->bUsePawnControlRotation = true;
@@ -58,7 +59,6 @@ void ACYPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
 
-	//SetupPlayerSystems();
 	SetupAbilitySystemComponent();
 	
 	// 서버에서만 어빌리티 세트를 초기화 시도

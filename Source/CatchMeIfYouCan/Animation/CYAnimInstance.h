@@ -22,6 +22,7 @@ struct FCYAnimInstanceProxy : FAnimInstanceProxy
 	FRotator CachedActorRotation;
 	bool bCachedIsFalling;
 	bool bCachedIsMovingOnGround;
+	bool bCachedIsClimbing;
 
 private:
 	void UpdateMovementData(const ACYCharacterBase* Character);
@@ -74,5 +75,11 @@ public:
 	bool bIsOnGround;
 	
 	UPROPERTY(BlueprintReadOnly, Category = "Movement")
-	float FallSpeed; 
+	float FallSpeed;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	bool bIsClimbing;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+	float ClimbSpeed;
 };

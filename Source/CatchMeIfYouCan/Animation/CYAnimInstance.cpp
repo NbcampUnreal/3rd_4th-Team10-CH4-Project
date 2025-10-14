@@ -36,6 +36,7 @@ void FCYAnimInstanceProxy::UpdateMovementData(const ACYCharacterBase* Character)
 	if (!Character) return;
     
 	CachedVelocity = Character->GetVelocity();
+	bCachedIsClimbing = Character->IsClimbing();
     
 	UCharacterMovementComponent* MovementComponent = Character->GetCharacterMovement();
 	if (MovementComponent)
@@ -93,11 +94,13 @@ void UCYAnimInstance::UpdateMovementStates(const FCYAnimInstanceProxy& Proxy)
 {
 	bIsInAir = Proxy.bCachedIsFalling;
 	bIsOnGround = Proxy.bCachedIsMovingOnGround;
+	bIsClimbing = Proxy.bCachedIsClimbing;
 
 	bIsJumping = bIsInAir && Proxy.CachedVelocity.Z > 0;
 	bIsFalling = bIsInAir && Proxy.CachedVelocity.Z <= 0;
 
 	GroundSpeed = Proxy.CachedVelocity.Size2D();
+	ClimbSpeed = Proxy.CachedVelocity.Size();
 	FallSpeed = Proxy.CachedVelocity.Z;
 }
 

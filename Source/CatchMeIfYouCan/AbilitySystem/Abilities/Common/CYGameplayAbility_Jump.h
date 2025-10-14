@@ -22,6 +22,11 @@ protected:
 	virtual bool CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, 
 	const FGameplayTagContainer* SourceTags = nullptr, const FGameplayTagContainer* TargetTags = nullptr, 
 	OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const override;
+
+	virtual void PreActivate(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, 
+	const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded::FDelegate* OnGameplayAbilityEndedDelegate,
+	const FGameplayEventData* TriggerEventData = nullptr) override;
+	
 	
 	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, 
 		const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
@@ -33,8 +38,14 @@ protected:
 		const FGameplayAbilityActivationInfo ActivationInfo, bool bReplicateEndAbility, bool bWasCancelled) override;
 
 private:
-	
 	void StartJump();
-
 	void StopJump();
+
+	bool IsClimbingLadder() const;
+
+	bool bWasClimbingBeforeJump = false;
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category="CY|Jump")
+	TSubclassOf<UGameplayAbility> LadderJumpAbilityClass;
 };

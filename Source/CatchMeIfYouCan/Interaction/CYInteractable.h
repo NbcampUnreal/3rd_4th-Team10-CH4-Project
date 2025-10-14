@@ -49,7 +49,7 @@ class ICYInteractable
 	GENERATED_BODY()
 
 public:
-	// 상호작용 가능한 Actor에서 상속받아서 Open/Close 상태인지에 따른 상호작용에 따른 몽타주, 부여할 어빌리티 정보를 리턴
+	// 상호작용 가능한 Actor에서 상속받아서 상호작용에 따른 몽타주, 부여할 어빌리티 정보를 리턴
 	virtual FCYInteractionInfo GetPreInteractionInfo(const FCYInteractionQuery& InteractionQuery) const { return FCYInteractionInfo(); }
 
 	/**
@@ -63,7 +63,7 @@ public:
 	
 		if (UAbilitySystemComponent* AbilitySystem = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(InteractionQuery.RequestingAvatar.Get()))
 		{
-			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration - 15.f * 0.01f); // TODO : 15.f 하드 코딩 부분 해당하는 스텟 GameplayEffect 부여하여 수정 고려
+			InteractionInfo.Duration = FMath::Max<float>(0.f, InteractionInfo.Duration);
 		}
 	
 		InteractionInfoBuilder.AddInteractionInfo(InteractionInfo);
