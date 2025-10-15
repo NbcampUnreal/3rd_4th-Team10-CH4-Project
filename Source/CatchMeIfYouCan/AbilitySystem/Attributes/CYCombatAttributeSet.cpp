@@ -135,7 +135,7 @@ void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, flo
         MovementComp->MaxAcceleration = 8192.0f;
         MovementComp->BrakingDecelerationWalking = 8192.0f;
         MovementComp->GroundFriction = 4.0f;
-        MovementComp->JumpZVelocity = 420.0f;
+        MovementComp->JumpZVelocity = 600.0f;
         
         // 네트워크 오류 체크 완화
         if (Character->HasAuthority())
@@ -152,7 +152,7 @@ void UCYCombatAttributeSet::ApplyMovementRestrictions(ACharacter* Character, flo
         MovementComp->MaxAcceleration = 2048.0f;
         MovementComp->BrakingDecelerationWalking = 2000.0f;
         MovementComp->GroundFriction = 8.0f;
-        MovementComp->JumpZVelocity = 480.0f;
+        MovementComp->JumpZVelocity = 600.0f;
         
         if (Character->HasAuthority())
         {
