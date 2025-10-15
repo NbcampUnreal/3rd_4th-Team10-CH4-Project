@@ -58,7 +58,8 @@ protected:
  
     /** 태스크 활성화 - 타이머 시작 */
     virtual void Activate() override;
-    
+
+
     /** 태스크 종료 - 타이머 정리 */
     virtual void OnDestroy(bool bInOwnerFinished) override;
 

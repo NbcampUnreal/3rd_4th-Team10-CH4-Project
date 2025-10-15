@@ -1,5 +1,6 @@
 #include "CYAbilityTask_WaitForLadderExit.h"
 
+#include "AbilitySystemBlueprintLibrary.h"
 #include "AbilitySystemComponent.h"
 #include "Character/CYStatusGameplayTags.h"
 #include "Character/Components/CYCharacterMovementComponent.h"
@@ -112,6 +113,14 @@ void UCYAbilityTask_WaitForLadderExit::PerformExitConditionCheck()
         OnCancelled.Broadcast();
         EndTask();
         return;
+    }
+
+    if (UAbilitySystemComponent* ASC = UAbilitySystemBlueprintLibrary::GetAbilitySystemComponent(Character))
+    {
+        if (ASC->HasMatchingGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder))
+        {
+            return;  // 몽타주 중에는 거리 체크 안 함
+        }
     }
 
     const FVector CharacterLocation = Character->GetActorLocation();
