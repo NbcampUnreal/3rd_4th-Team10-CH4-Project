@@ -257,6 +257,40 @@ bool UCYInventoryComponent::HoldItem(int32 SlotIndex)
 bool UCYInventoryComponent::UseHeldItem()
 {
 	if (!CurrentHeldItem) return false;
+
+	// 트랩의 경우 LocalPredicted 어빌리티이므로 클라이언트에서도 실행
+	if (CurrentHeldItem->ItemType == EItemType::Trap)
+	{
+		if (bIsUsingTrap)
+		{
+			return false;
+		}
+		bIsUsingTrap = true;
+        
+		TWeakObjectPtr<UCYInventoryComponent> WeakThis(this);
+		GetWorld()->GetTimerManager().SetTimer(
+			TrapUseCooldownTimer,
+			[WeakThis]() { 
+				if (WeakThis.IsValid())
+				{
+					WeakThis->bIsUsingTrap = false;
+				}
+			},
+			0.5f,
+			false
+		);
+        
+		// 클라이언트에서도 UseItem 호출
+		bool bSuccess = CurrentHeldItem->UseItem(Cast<ACYPlayerCharacter>(GetOwner()));
+        
+		// 서버에도 알림
+		if (!GetOwner()->HasAuthority())
+		{
+			ServerUseHeldItem();
+		}
+        
+		return bSuccess;
+	}
     
 	// 클라이언트인 경우
 	if (!GetOwner()->HasAuthority())
