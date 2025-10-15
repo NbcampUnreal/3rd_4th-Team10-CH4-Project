@@ -12,4 +12,6 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_AbilityInteract_Active, "Ability.Action.AbilityInteract.Active");
 	
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_Climbing, "Ability.Action.Climbing");
+	
+	UE_DEFINE_GAMEPLAY_TAG(Ability_Action_HitReact, "Ability.Action.HitReact");
 }
