@@ -429,6 +429,7 @@ void UCYInventoryComponent::DetachItemFromHand(ACYItemBase* Item)
 
 void UCYInventoryComponent::ShowInventoryDebug()
 {
+	/*
     if (!GEngine) return;
     
     GEngine->ClearOnScreenDebugMessages();
@@ -512,6 +513,7 @@ void UCYInventoryComponent::ShowInventoryDebug()
     GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("  1-3: Select Weapon (Empty = Unequip)"));
     GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("  4-9: Hold Item (Empty = Release)"));
     GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, TEXT("  Left Click: Attack/Use (if equipped/held)"));
+    */
 }
 
 int32 UCYInventoryComponent::FindEmptyWeaponSlot() const
