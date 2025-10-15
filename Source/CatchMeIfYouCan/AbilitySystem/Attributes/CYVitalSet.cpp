@@ -30,11 +30,11 @@ void UCYVitalSet::PostGameplayEffectExecute(const FGameplayEffectModCallbackData
 	// Health 속성이 변경되었을 때 처리
 	if (Data.EvaluatedData.Attribute == GetHealthAttribute())
 	{
-		HandleHealthChange();
+		HandleHealthChange(Data);
 	}
 }
 
-void UCYVitalSet::HandleHealthChange()
+void UCYVitalSet::HandleHealthChange(const FGameplayEffectModCallbackData& Data)
 {
 	float NewHealth = GetHealth();
     
@@ -69,6 +69,27 @@ void UCYVitalSet::HandleHealthChange()
 			CYASC->TryActivateAbilityByTag(CYGameplayTags::Ability_Stunned);
 		}
 	}
+	else if (WasDamaged(Data))
+	{
+		if (ASC->HasMatchingGameplayTag(CYGameplayTags::State_Stunned) ||
+			ASC->HasMatchingGameplayTag(CYGameplayTags::State_Captured) ||
+			ASC->HasMatchingGameplayTag(CYGameplayTags::State_Jail))
+		{
+			return;
+		}
+		
+		FGameplayEventData EventData;
+		EventData.Instigator = Data.EffectSpec.GetEffectContext().GetInstigator();
+		EventData.Target = Owner;
+		EventData.ContextHandle = Data.EffectSpec.GetEffectContext();
+
+		ASC->HandleGameplayEvent(CYGameplayTags::GameplayEvent_HitReact, &EventData);
+	}
+}
+
+bool UCYVitalSet::WasDamaged(const FGameplayEffectModCallbackData& Data) const
+{
+	return Data.EvaluatedData.Magnitude < 0.0f;
 }
 
 void UCYVitalSet::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

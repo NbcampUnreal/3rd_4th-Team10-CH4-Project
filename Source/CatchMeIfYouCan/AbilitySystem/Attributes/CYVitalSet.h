@@ -30,7 +30,9 @@ protected:
 	UFUNCTION()
 	void OnRep_MaxHealth(const FGameplayAttributeData& OldMaxHealth);
 
-	void HandleHealthChange();
+	void HandleHealthChange(const FGameplayEffectModCallbackData& Data);
+
+	bool WasDamaged(const FGameplayEffectModCallbackData& Data) const;
 
 private:
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_Health, Category = "CY|Health", Meta = (AllowPrivateAccess = true))

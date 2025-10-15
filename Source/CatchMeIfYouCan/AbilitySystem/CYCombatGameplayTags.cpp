@@ -7,6 +7,8 @@ namespace CYGameplayTags
 	UE_DEFINE_GAMEPLAY_TAG(Ability_Combat_PlaceTrap, "Ability.Combat.PlaceTrap");
 	UE_DEFINE_GAMEPLAY_TAG(Event_Combat_WeaponAttack, "Event.Combat.WeaponAttack");
 
+	UE_DEFINE_GAMEPLAY_TAG(GameplayEvent_HitReact, "GameplayEvent.HitReact");
+
 	// Team Tags
 	UE_DEFINE_GAMEPLAY_TAG(Team_Cop, "Team.Cop");
 	UE_DEFINE_GAMEPLAY_TAG(Team_Robber, "Team.Robber");
