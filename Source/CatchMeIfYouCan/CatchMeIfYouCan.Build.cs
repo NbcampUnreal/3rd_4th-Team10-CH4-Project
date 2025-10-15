@@ -30,7 +30,7 @@ public class CatchMeIfYouCan : ModuleRules
 			"OnlineSubsystemUtils",
 			
 			// NetDriver, Socket
-			"SocketSubSystemEOS",
+			"SocketSubsystemEOS",
 			"Sockets",
 			"Networking"
 		});
