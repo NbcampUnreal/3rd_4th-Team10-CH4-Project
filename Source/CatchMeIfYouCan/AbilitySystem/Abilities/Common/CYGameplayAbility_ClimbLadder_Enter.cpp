@@ -541,6 +541,12 @@ void UCYGameplayAbility_ClimbLadder_Enter::EndAbility(const FGameplayAbilitySpec
     // 사다리 참조 정리
     CurrentLadder = nullptr;
     bIsPlayingExitMontage = false;
+
+    // 애니메이션 몽타주 종료 직전 점프시 몽타주 제거 안되는 현상 때문에 어빌리티 종료시 수동 제거
+    if (UAbilitySystemComponent* ASC = GetAbilitySystemComponentFromActorInfo())
+    {
+        ASC->RemoveLooseGameplayTag(CYGameplayTags::Status_Animation_Montage_ClimbingLadder);
+    }
     
     // 안전 체크: 아직 사다리 타는 중이면 종료
     if (CachedMovementComponent && CachedMovementComponent->IsClimbingLadder())

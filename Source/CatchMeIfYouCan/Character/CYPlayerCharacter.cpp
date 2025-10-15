@@ -14,11 +14,8 @@
 #include "Player/CYPlayerState.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/SpringArmComponent.h"
-#include "UI/HUD/CYHUD.h"
 #include "Items/CYItemBase.h"
 #include "Items/CYWeaponBase.h"
-#include "UI/WidgetController/CYOverlayWidgetController.h"
-#include "UI/WidgetController/CYWidgetController.h"
 
 ACYPlayerCharacter::ACYPlayerCharacter(const FObjectInitializer& ObjectInitializer) 
 	:	Super(ObjectInitializer.SetDefaultSubobjectClass<UCYCharacterMovementComponent>(CharacterMovementComponentName))
