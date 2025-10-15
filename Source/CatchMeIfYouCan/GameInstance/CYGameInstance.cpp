@@ -15,14 +15,14 @@ void UCYGameInstance::InitializeOnlineSubsystems()
 	OSS = IOnlineSubsystem::Get();
 	if (!OSS)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "OSS Not Valid");	
+		//GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "OSS Not Valid");	
 		return;
 	}
 
 	Identity = OSS->GetIdentityInterface();
 	if (!Identity.IsValid())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "Identity Not Valid");	
+		//GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "Identity Not Valid");	
 		return;
 	}
 
@@ -37,7 +37,7 @@ void UCYGameInstance::InitializeOnlineSubsystems()
 	Sessions = OSS->GetSessionInterface();
 	if (!Sessions.IsValid())
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "Sessions Not Valid");	
+		//GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, "Sessions Not Valid");	
 		return;
 	}
 
@@ -69,8 +69,8 @@ void UCYGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, c
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green,
-				FString::Printf(TEXT("EAS 로그인 성공: %s"), *UserId.ToString()));
+			// GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green,
+			// 	FString::Printf(TEXT("EAS 로그인 성공: %s"), *UserId.ToString()));
 		}
 
 		IOnlineSubsystem* LocalOSS = Online::GetSubsystem(GetWorld());
@@ -81,8 +81,8 @@ void UCYGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, c
 		{
 			if (GEngine)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
-					FString::Printf(TEXT("유저인터페이스 가져오기 실패")));
+				// GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Green,
+				// 	FString::Printf(TEXT("유저인터페이스 가져오기 실패")));
 			}
 			/*
 			UWorld* World = GetWorld();
@@ -104,8 +104,8 @@ void UCYGameInstance::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, c
 	{
 		if (GEngine)
 		{
-			GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red,
-				FString::Printf(TEXT("로그인 실패: %s"), *Error));
+			// GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Red,
+			// 	FString::Printf(TEXT("로그인 실패: %s"), *Error));
 		}
 	}
 }
@@ -144,7 +144,7 @@ void UCYGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					if (GEngine)
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("세션 이미 존재")));
+						//GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("세션 이미 존재")));
 					}
 				}
 				else
@@ -162,7 +162,7 @@ void UCYGameInstance::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					if (GEngine)
 					{
-						GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("참여할 세션 없음")));
+						//GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(TEXT("참여할 세션 없음")));
 					}
 				}
 			}
@@ -181,11 +181,11 @@ void UCYGameInstance::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCom
 			APlayerController* PC = GetFirstLocalPlayerController();
 			if (PC)
 			{
-				GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
-				FString::Printf(TEXT("조인 성공")));
-				GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
-				FString::Printf(TEXT("커넥트 스트링: %s"), *TravelURL));
-				UE_LOG(LogTemp, Error, TEXT("커넥트스트링 : %s"), *TravelURL);
+				// GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
+				// FString::Printf(TEXT("조인 성공")));
+				// GEngine->AddOnScreenDebugMessage(-1, 30.f, FColor::Green,
+				// FString::Printf(TEXT("커넥트 스트링: %s"), *TravelURL));
+				// UE_LOG(LogTemp, Error, TEXT("커넥트스트링 : %s"), *TravelURL);
 				PC->ClientTravel(TravelURL, TRAVEL_Absolute);
 			}
 		}
