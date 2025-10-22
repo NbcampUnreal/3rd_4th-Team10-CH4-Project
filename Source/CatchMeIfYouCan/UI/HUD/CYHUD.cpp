@@ -29,6 +29,7 @@ void ACYHUD::InitOverlay(APlayerController* PC, APlayerState* PS, UAbilitySystem
 	
 	// 위젯 컨트롤러 가져오기(또는 생성)
 	UCYOverlayWidgetController* WidgetController = GetOverlayWidgetController(WidgetControllerParams);
+	check(WidgetController);
 
 	// 위젯에 위젯 컨트롤러 설정
 	// 해당 시점에 OnWidgetControllerSet 함수가 호출됨

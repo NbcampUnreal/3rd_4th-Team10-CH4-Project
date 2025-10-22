@@ -56,7 +56,7 @@ public:
 	FOnGamePhaseChangedSignature OnGamePhaseChanged;
 	
 	// 인게임 시간 델리게이트
-	UPROPERTY(BlueprintAssignable, Category="CY|Phase")
+	UPROPERTY(BlueprintAssignable, Category="CY|Phase") 
 	FOnTimeChanged OnPreparingTimeChanged;
 
 	UPROPERTY(BlueprintAssignable, Category="CY|Phase")

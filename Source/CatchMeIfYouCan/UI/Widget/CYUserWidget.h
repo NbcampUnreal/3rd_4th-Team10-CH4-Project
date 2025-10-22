@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "UI/WidgetController/CYOverlayWidgetController.h"
 #include "CYUserWidget.generated.h"
 
 class UCYWidgetController;
@@ -26,6 +27,12 @@ public:
 	UFUNCTION(BlueprintPure, Category="CY|Widget")
 	UCYWidgetController* GetWidgetController() const { return WidgetController; }
 
+	UFUNCTION(BlueprintPure, Category="CY|Widget")
+	UCYOverlayWidgetController* GetWidgetControllerTyped() const
+	{
+		return Cast<UCYOverlayWidgetController>(WidgetController);
+	}
+	
 	template<typename T>
 	T* GetWidgetControllerTyped() const { return Cast<T>(WidgetController); }
 
